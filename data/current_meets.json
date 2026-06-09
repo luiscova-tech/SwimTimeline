@@ -1,0 +1,23 @@
+{
+  "current_meets": [
+    {
+      "id": "2026-narwhal-invite",
+      "name": "2026 MAC Narwhal Invite",
+      "short_name": "Narwhal Invite",
+      "dates": "2026-06-12 through 2026-06-14",
+      "state": "AZ",
+      "status": "ready",
+      "files": {
+        "flyer": "meets/2026-narwhal-invite/input/Narwhal Invite.pdf",
+        "psych": "meets/2026-narwhal-invite/input/narwhal final psych again.pdf",
+        "timeline": "meets/2026-narwhal-invite/input/narwhal final timeline.pdf",
+        "relay": null
+      },
+      "documents": [
+        "Meet flyer",
+        "Psych sheet",
+        "Final timeline"
+      ]
+    }
+  ]
+}

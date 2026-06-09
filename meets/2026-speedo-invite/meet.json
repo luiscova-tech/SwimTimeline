@@ -1,0 +1,232 @@
+{
+  "id": "2026-speedo-invite",
+  "name": "15th Annual Speedo Invitational",
+  "sanction": "AZ26-74",
+  "host": "Mesa Aquatics Club",
+  "meet_director": {
+    "name": "Maggie Dana",
+    "email": "Coachmaggie7@gmail.com"
+  },
+  "meet_referee": {
+    "name": "Sandy Whitmeyer",
+    "email": "slwhitmeyer9@gmail.com"
+  },
+  "facility": {
+    "name": "Kino Aquatic Center",
+    "address": "848 N. Horne Ave., Mesa, AZ 85203"
+  },
+  "dates": {
+    "start": "2026-05-22",
+    "end": "2026-05-25",
+    "source_note": "Cover and global session schedule list May 22-25, 2026. Detailed session pages contain several apparent 2025 date typos."
+  },
+  "source_documents": [
+    {
+      "path": "input/SpeedoInvite.pdf",
+      "type": "meet_flyer",
+      "status": "received"
+    }
+  ],
+  "required_documents": {
+    "psych_sheet": "received",
+    "timeline": "received",
+    "relay_document": "received"
+  },
+  "swimmer": {
+    "name": "Cova, Mila L",
+    "event_extraction_status": "complete_for_available_documents",
+    "verified_individual_events": 8,
+    "verified_relays": 4
+  },
+  "meet_rules_relevant_to_calendar": [
+    "Swimmers are limited to four individual events per session and thirteen individual events for the meet; relays do not count toward this limit.",
+    "All relays are timed final events.",
+    "13&O prelim events are swum together in prelims but separated as 13&14 and 15&O in finals.",
+    "13&O 50 Fly, 50 Back, and 50 Breast are timed final events swum in prelims.",
+    "Events 11/12, 39/40, 87/88, and 89/90 require positive check-in.",
+    "13&O 400 Free positive check-in deadline is Friday 2026-05-22 at 8:00 AM.",
+    "13&O 400 IM positive check-in deadline is Saturday 2026-05-23 at 8:00 AM.",
+    "13&O 1500 Free positive check-in deadline is Monday 2026-05-25 at 7:00 AM.",
+    "9-12 400 Free positive check-in deadline is Monday 2026-05-25 at 8:00 AM."
+  ],
+  "sessions": [
+    {
+      "number": 1,
+      "name": "Friday Senior Prelims",
+      "date": "2026-05-22",
+      "pool": "50 meter pool",
+      "warmup_time": "06:30",
+      "start_time": "07:30",
+      "events": [
+        { "women": 1, "men": 2, "name": "13&O 100 Free" },
+        { "women": 3, "men": 4, "name": "13&O 200 Breast" },
+        { "women": 5, "men": 6, "name": "13&O 50 Fly", "format": "timed_final_in_prelims" },
+        { "women": 7, "men": 8, "name": "13&O 200 Back" },
+        { "women": 9, "men": 10, "name": "13&O 50 Breast", "format": "timed_final_in_prelims" },
+        { "women": 11, "men": 12, "name": "13&O 400 Free", "check_in": true }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Friday Age Group Prelims",
+      "date": "2026-05-22",
+      "pool": "25 yard pool",
+      "warmup_time": "06:30",
+      "start_time": "07:30",
+      "events": [
+        { "women": 13, "men": 14, "name": "11&12 100 Free" },
+        { "women": 15, "men": 16, "name": "10&U 100 Free" },
+        { "women": 17, "men": 18, "name": "12&U 50 Breast" },
+        { "women": 19, "men": 20, "name": "11&12 100 Fly" },
+        { "women": 21, "men": 22, "name": "10&U 100 Fly" },
+        { "women": 23, "men": 24, "name": "12&U 50 Back" },
+        { "women": 25, "men": 26, "name": "11&12 200 Breast" }
+      ]
+    },
+    {
+      "number": 3,
+      "name": "Friday Finals",
+      "date": "2026-05-22",
+      "pool": "50 meter pool",
+      "warmup_time": "16:30",
+      "start_time": "17:30",
+      "events": [
+        { "women": 13, "men": 14, "name": "11&12 100 Free" },
+        { "women": 1, "men": 2, "name": "13&O 100 Free" },
+        { "women": 3, "men": 4, "name": "13&O 200 Breast" },
+        { "women": 19, "men": 20, "name": "11&12 100 Fly" },
+        { "women": 7, "men": 8, "name": "13&O 200 Back" },
+        { "women": 11, "men": 12, "name": "13&O 400 Free" }
+      ]
+    },
+    {
+      "number": 4,
+      "name": "Saturday Senior Prelims",
+      "date": "2026-05-23",
+      "pool": "50 meter pool",
+      "warmup_time": "06:30",
+      "start_time": "07:30",
+      "events": [
+        { "women": 27, "men": 28, "name": "13&O 200 Medley Relay", "relay": true },
+        { "women": 29, "men": 30, "name": "13&O 200 Free" },
+        { "women": 31, "men": 32, "name": "13&O 100 Breast" },
+        { "women": 33, "men": 34, "name": "13&O 50 Back", "format": "timed_final_in_prelims" },
+        { "women": 35, "men": 36, "name": "13&O 100 Fly" },
+        { "women": 37, "men": 38, "name": "13&O 400 Free Relay", "relay": true },
+        { "women": 39, "men": 40, "name": "13&O 400 IM", "check_in": true }
+      ]
+    },
+    {
+      "number": 5,
+      "name": "Saturday Age Group Prelims",
+      "date": "2026-05-23",
+      "pool": "25 yard pool",
+      "warmup_time": "06:30",
+      "start_time": "07:30",
+      "events": [
+        { "women": 41, "men": 42, "name": "12&U 200 Medley Relay", "relay": true },
+        { "women": 43, "men": 44, "name": "11&12 200 Free" },
+        { "women": 45, "men": 46, "name": "10&U 200 Free" },
+        { "women": 47, "men": 48, "name": "11&12 100 Breast" },
+        { "women": 49, "men": 50, "name": "10&U 100 Breast" },
+        { "women": 51, "men": 52, "name": "12&U 50 Fly" },
+        { "women": 53, "men": 54, "name": "11&12 200 Back" },
+        { "women": 55, "men": 56, "name": "11&12 400 Free Relay", "relay": true }
+      ]
+    },
+    {
+      "number": 6,
+      "name": "Saturday 10&U Minis",
+      "date": "2026-05-23",
+      "pool": "25 yard pool",
+      "warmup_time": "anytime_in_6_lane_warmup_warmdown_pool",
+      "start_time": "after_session_5",
+      "events": [
+        { "women": 501, "men": 502, "name": "10&U 25 Fly" },
+        { "women": 503, "men": 504, "name": "10&U 25 Back" },
+        { "women": 505, "men": 506, "name": "10&U 25 Breast" },
+        { "women": 507, "men": 508, "name": "10&U 25 Free" }
+      ]
+    },
+    {
+      "number": 7,
+      "name": "Saturday Finals",
+      "date": "2026-05-23",
+      "pool": "50 meter pool",
+      "warmup_time": "16:30",
+      "start_time": "17:30",
+      "events": [
+        { "women": 43, "men": 44, "name": "11&12 200 Free" },
+        { "women": 29, "men": 30, "name": "13&O 200 Free" },
+        { "women": 47, "men": 48, "name": "11&12 100 Breast" },
+        { "women": 31, "men": 32, "name": "13&O 100 Breast" },
+        { "women": 35, "men": 36, "name": "13&O 100 Fly" },
+        { "women": 39, "men": 40, "name": "13&O 400 IM" }
+      ]
+    },
+    {
+      "number": 8,
+      "name": "Sunday Senior Prelims",
+      "date": "2026-05-24",
+      "pool": "50 meter pool",
+      "warmup_time": "06:30",
+      "start_time": "07:30",
+      "events": [
+        { "women": 57, "men": 58, "name": "13&O 200 Free Relay", "relay": true },
+        { "women": 59, "men": 60, "name": "13&O 200 IM" },
+        { "women": 61, "men": 62, "name": "13&O 50 Free" },
+        { "women": 63, "men": 64, "name": "13&O 200 Fly" },
+        { "women": 65, "men": 66, "name": "13&O 100 Back" },
+        { "women": 67, "men": 68, "name": "13&O 400 Medley Relay", "relay": true }
+      ]
+    },
+    {
+      "number": 9,
+      "name": "Sunday Age Group Prelims",
+      "date": "2026-05-24",
+      "pool": "25 yard pool",
+      "warmup_time": "06:30",
+      "start_time": "07:30",
+      "events": [
+        { "women": 69, "men": 70, "name": "12&U 200 Free Relay", "relay": true },
+        { "women": 71, "men": 72, "name": "11&12 200 IM" },
+        { "women": 73, "men": 74, "name": "10&U 200 IM" },
+        { "women": 75, "men": 76, "name": "11&12 50 Free" },
+        { "women": 77, "men": 78, "name": "10&U 50 Free" },
+        { "women": 79, "men": 80, "name": "11&12 100 Back" },
+        { "women": 81, "men": 82, "name": "10&U 100 Back" },
+        { "women": 83, "men": 84, "name": "11&12 200 Fly" },
+        { "women": 85, "men": 86, "name": "11&12 400 Medley Relay", "relay": true }
+      ]
+    },
+    {
+      "number": 10,
+      "name": "Sunday Finals",
+      "date": "2026-05-24",
+      "pool": "50 meter pool",
+      "warmup_time": "16:30",
+      "start_time": "17:30",
+      "events": [
+        { "women": 71, "men": 72, "name": "11&12 200 IM" },
+        { "women": 59, "men": 60, "name": "13&O 200 IM" },
+        { "women": 75, "men": 76, "name": "11&12 50 Free" },
+        { "women": 61, "men": 62, "name": "13&O 50 Free" },
+        { "women": 63, "men": 64, "name": "13&O 200 Fly" },
+        { "women": 79, "men": 80, "name": "11&12 100 Back" },
+        { "women": 65, "men": 66, "name": "13&O 100 Back" }
+      ]
+    },
+    {
+      "number": 11,
+      "name": "Monday Distance Timed Finals",
+      "date": "2026-05-25",
+      "pool": "50 meter pool",
+      "warmup_time": "06:30",
+      "start_time": "07:30",
+      "events": [
+        { "women": 87, "men": 88, "name": "11&O 1500 Free", "check_in": true },
+        { "women": 89, "men": 90, "name": "Open 400 Free", "check_in": true }
+      ]
+    }
+  ]
+}

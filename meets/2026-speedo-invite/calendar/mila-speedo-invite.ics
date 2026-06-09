@@ -1,0 +1,241 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//SwimTimeline//Swimmer Calendar//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Mila - Speedo Invite
+X-WR-TIMEZONE:America/Phoenix
+BEGIN:VTIMEZONE
+TZID:America/Phoenix
+BEGIN:STANDARD
+DTSTART:19700101T000000
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0700
+TZNAME:MST
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:2026-speedo-invite-event-13-mila@swimtimeline
+DTSTAMP:20260521T021357Z
+SUMMARY:Mila - Event 13: 11-12 100 Free
+DTSTART;TZID=America/Phoenix:20260522T073000
+DTEND;TZID=America/Phoenix:20260522T074000
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Friday\, May 22\, 2026\nSessio
+ n: #2 - Friday Age Group Prelims\nPool/course: 25-yard pool session\; psyc
+ h sheet lists event as LC Meter\n\nEvent: #13 - Girls 11-12 100 LC Meter F
+ reestyle\nSeed time: 1:06.33\nSeed place: 2\nTimeline event window: 7:30-7
+ :40 AM\n\nFinals: Possible if top 8\; timeline finals event starts at 5:30
+  PM.\n\nBenchmarks:\nUSA-S 12 Girls LCM: AAA\; next AAAA 1:04.29\nAZSI 11-
+ 12 Girls LCM: State met\; State 1:09.89\, Regional 1:25.49\n\nSource verif
+ ication:\nPsych sheet: page 4\, middle column\nTimeline: event #13\nRelay 
+ source: n/a
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-event-17-mila@swimtimeline
+DTSTAMP:20260521T021357Z
+SUMMARY:Mila - Event 17: 12&U 50 Breast
+DTSTART;TZID=America/Phoenix:20260522T075600
+DTEND;TZID=America/Phoenix:20260522T081000
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Friday\, May 22\, 2026\nSessio
+ n: #2 - Friday Age Group Prelims\nPool/course: 25-yard pool session\; psyc
+ h sheet lists event as LC Meter\n\nEvent: #17 - Girls 12 & Under 50 LC Met
+ er Breaststroke\nSeed time: 41.68\nSeed place: 2\nTimeline event window: 7
+ :56-8:10 AM\n\nFinals: Timed final in morning\; no separate finals swim li
+ sted.\n\nBenchmarks:\nUSA-S 12 Girls LCM: A\; next AA 40.89\nAZSI 11-12 Gi
+ rls LCM: State met\; State 42.79\, Regional 51.99\n\nSource verification:\
+ nPsych sheet: page 4\, right column\nTimeline: event #17\nRelay source: n/
+ a
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-event-23-mila@swimtimeline
+DTSTAMP:20260521T021357Z
+SUMMARY:Mila - Event 23: 12&U 50 Back
+DTSTART;TZID=America/Phoenix:20260522T083300
+DTEND;TZID=America/Phoenix:20260522T084800
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Friday\, May 22\, 2026\nSessio
+ n: #2 - Friday Age Group Prelims\nPool/course: 25-yard pool session\; psyc
+ h sheet lists event as LC Meter\n\nEvent: #23 - Girls 12 & Under 50 LC Met
+ er Backstroke\nSeed time: 36.89\nSeed place: 2\nTimeline event window: 8:3
+ 3-8:48 AM\n\nFinals: Timed final in morning\; no separate finals swim list
+ ed.\n\nBenchmarks:\nUSA-S 12 Girls LCM: AA\; next AAA 35.29\nAZSI 11-12 Gi
+ rls LCM: State met\; State 37.39\, Regional 46.99\n\nSource verification:\
+ nPsych sheet: page 5\, middle column\nTimeline: event #23\nRelay source: n
+ /a
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-relay-41-mila@swimtimeline
+DTSTAMP:20260521T021357Z
+SUMMARY:Mila - Relay 41: 11-12 200 Medley
+DTSTART;TZID=America/Phoenix:20260523T073000
+DTEND;TZID=America/Phoenix:20260523T073500
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Saturday\, May 23\, 2026\nSess
+ ion: #5 - Saturday Age Group Prelims\nPool/course: 25-yard pool session\; 
+ relay document lists LCM\n\nRelay: #41 - Girls 11-12 200 Medley Relay\nTea
+ m: MAC Relay A\nEntry time: 2:24.25L\nLeg: 4\nTimeline event window: 7:30-
+ 7:35 AM\n\nFinals: Relay is timed final in morning.\n\nBenchmarks: n/a for
+  relay calendar event.\n\nSource verification:\nRelay document: page 2\; s
+ wimmer listed as Cova\, Mila Lucia\nTimeline: event #41\nPsych sheet sourc
+ e: n/a for relay assignment
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-event-43-mila@swimtimeline
+DTSTAMP:20260521T021357Z
+SUMMARY:Mila - Event 43: 11-12 200 Free
+DTSTART;TZID=America/Phoenix:20260523T073900
+DTEND;TZID=America/Phoenix:20260523T075600
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Saturday\, May 23\, 2026\nSess
+ ion: #5 - Saturday Age Group Prelims\nPool/course: 25-yard pool session\; 
+ psych sheet lists event as LC Meter\n\nEvent: #43 - Girls 11-12 200 LC Met
+ er Freestyle\nSeed time: 2:30.74\nSeed place: 4\nTimeline event window: 7:
+ 39-7:56 AM\n\nFinals: Possible if top 8\; timeline finals event starts at 
+ 5:30 PM.\n\nBenchmarks:\nUSA-S 12 Girls LCM: AA\; next AAA 2:26.79\nAZSI 1
+ 1-12 Girls LCM: State met\; State 2:34.39\, Regional 3:11.29\n\nSource ver
+ ification:\nPsych sheet: page 9\, right column\nTimeline: event #43\nRelay
+  source: n/a
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-event-47-mila@swimtimeline
+DTSTAMP:20260521T021357Z
+SUMMARY:Mila - Event 47: 11-12 100 Breast
+DTSTART;TZID=America/Phoenix:20260523T081900
+DTEND;TZID=America/Phoenix:20260523T082800
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Saturday\, May 23\, 2026\nSess
+ ion: #5 - Saturday Age Group Prelims\nPool/course: 25-yard pool session\; 
+ psych sheet lists event as LC Meter\n\nEvent: #47 - Girls 11-12 100 LC Met
+ er Breaststroke\nSeed time: 1:28.02\nSeed place: 1\nTimeline event window:
+  8:19-8:28 AM\n\nFinals: Possible if top 8\; timeline finals event starts 
+ at 6:01 PM.\n\nBenchmarks:\nUSA-S 12 Girls LCM: AA\; next AAA 1:25.89\nAZS
+ I 11-12 Girls LCM: State met\; State 1:33.79\, Regional 1:54.59\n\nSource 
+ verification:\nPsych sheet: page 10\, left column\nTimeline: event #47\nRe
+ lay source: n/a
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-relay-55-mila@swimtimeline
+DTSTAMP:20260521T021357Z
+SUMMARY:Mila - Relay 55: 11-12 400 Free
+DTSTART;TZID=America/Phoenix:20260523T093000
+DTEND;TZID=America/Phoenix:20260523T093600
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Saturday\, May 23\, 2026\nSess
+ ion: #5 - Saturday Age Group Prelims\nPool/course: 25-yard pool session\; 
+ relay document lists LCM\n\nRelay: #55 - Girls 11-12 400 Free Relay\nTeam:
+  MAC Relay A\nEntry time: 4:39.90L\nLeg: 4\nTimeline event window: 9:30-9:
+ 36 AM\n\nFinals: Relay is timed final in morning.\n\nBenchmarks: n/a for r
+ elay calendar event.\n\nSource verification:\nRelay document: page 2\; swi
+ mmer listed as Cova\, Mila Lucia\nTimeline: event #55\nPsych sheet source:
+  n/a for relay assignment
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-relay-69-mila@swimtimeline
+DTSTAMP:20260521T021357Z
+SUMMARY:Mila - Relay 69: 11-12 200 Free
+DTSTART;TZID=America/Phoenix:20260524T073000
+DTEND;TZID=America/Phoenix:20260524T073400
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Sunday\, May 24\, 2026\nSessio
+ n: #9 - Sunday Age Group Prelims\nPool/course: 25-yard pool session\; rela
+ y document lists LCM\n\nRelay: #69 - Girls 11-12 200 Free Relay\nTeam: MAC
+  Relay A\nEntry time: 2:10.97L\nLeg: 4\nTimeline event window: 7:30-7:34 A
+ M\n\nFinals: Relay is timed final in morning.\n\nBenchmarks: n/a for relay
+  calendar event.\n\nSource verification:\nRelay document: page 3\; swimmer
+  listed as Cova\, Mila Lucia\nTimeline: event #69\nPsych sheet source: n/a
+  for relay assignment
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-event-75-mila@swimtimeline
+DTSTAMP:20260521T021357Z
+SUMMARY:Mila - Event 75: 11-12 50 Free
+DTSTART;TZID=America/Phoenix:20260524T080900
+DTEND;TZID=America/Phoenix:20260524T081600
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Sunday\, May 24\, 2026\nSessio
+ n: #9 - Sunday Age Group Prelims\nPool/course: 25-yard pool session\; psyc
+ h sheet lists event as LC Meter\n\nEvent: #75 - Girls 11-12 50 LC Meter Fr
+ eestyle\nSeed time: 30.18\nSeed place: 1\nTimeline event window: 8:09-8:16
+  AM\n\nFinals: Possible if top 8\; timeline finals event starts at 6:04 PM
+ .\n\nBenchmarks:\nUSA-S 12 Girls LCM: AAA\; next AAAA 29.29\nAZSI 11-12 Gi
+ rls LCM: State met\; State 31.99\, Regional 38.19\n\nSource verification:\
+ nPsych sheet: page 14\, right column\nTimeline: event #75\nRelay source: n
+ /a
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-event-79-mila@swimtimeline
+DTSTAMP:20260521T021357Z
+SUMMARY:Mila - Event 79: 11-12 100 Back
+DTSTART;TZID=America/Phoenix:20260524T083400
+DTEND;TZID=America/Phoenix:20260524T084300
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Sunday\, May 24\, 2026\nSessio
+ n: #9 - Sunday Age Group Prelims\nPool/course: 25-yard pool session\; psyc
+ h sheet lists event as LC Meter\n\nEvent: #79 - Girls 11-12 100 LC Meter B
+ ackstroke\nSeed time: 1:25.52\nSeed place: 4\nTimeline event window: 8:34-
+ 8:43 AM\n\nFinals: Possible if top 8\; timeline finals event starts at 6:4
+ 3 PM.\n\nBenchmarks:\nUSA-S 12 Girls LCM: BB\; next A 1:24.79\nAZSI 11-12 
+ Girls LCM: Regional met\; State target 1:21.09\, Regional 1:42.19\n\nSourc
+ e verification:\nPsych sheet: page 15\, middle column\nTimeline: event #79
+ \nRelay source: n/a
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-relay-85-mila@swimtimeline
+DTSTAMP:20260521T021357Z
+SUMMARY:Mila - Relay 85: 11-12 400 Medley
+DTSTART;TZID=America/Phoenix:20260524T091700
+DTEND;TZID=America/Phoenix:20260524T092400
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Sunday\, May 24\, 2026\nSessio
+ n: #9 - Sunday Age Group Prelims\nPool/course: 25-yard pool session\; rela
+ y document lists LCM\n\nRelay: #85 - Girls 11-12 400 Medley Relay\nTeam: M
+ AC Relay A\nEntry time: 5:36.11L\nLeg: 4\nTimeline event window: 9:17-9:24
+  AM\n\nFinals: Relay is timed final in morning.\n\nBenchmarks: n/a for rel
+ ay calendar event.\n\nSource verification:\nRelay document: pages 3-4\; sw
+ immer listed as Cova\, Mila Lucia\nTimeline: event #85\nPsych sheet source
+ : n/a for relay assignment
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-event-89-mila@swimtimeline
+DTSTAMP:20260521T021357Z
+SUMMARY:Mila - Event 89: 400 Free
+DTSTART;TZID=America/Phoenix:20260525T094500
+DTEND;TZID=America/Phoenix:20260525T102400
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Monday\, May 25\, 2026\nSessio
+ n: #11 - Monday Distance\nPool/course: 50-meter pool\; psych sheet lists e
+ vent as LC Meter\n\nEvent: #89 - Women 400 LC Meter Freestyle\nSeed time: 
+ 5:23.29\nSeed place: 9\nTimeline event window: 9:45-10:24 AM\n\nFinals: Ti
+ med final\; no separate finals swim.\nCheck-in: meet flyer lists the 9-12 
+ 400 Free deadline as Monday at 8:00 AM.\n\nBenchmarks:\nUSA-S 12 Girls LCM
+ : A\; next AA 5:22.79\nAZSI 11-12 Girls LCM: State met\; State 5:25.79\, R
+ egional 6:23.39\n\nSource verification:\nPsych sheet: page 16\, middle col
+ umn\nTimeline: event #89\nRelay source: n/a
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR

@@ -1,0 +1,27 @@
+{
+  "sources": [
+    {
+      "id": "example-western-zone-sectionals-2026",
+      "name": "Example Sectionals Standard Set",
+      "scope": "Western Zone / Arizona example only",
+      "url": "https://example.com/official-standard.pdf",
+      "notes": "Replace with an official source before using."
+    }
+  ],
+  "cuts": {
+    "50 free": [
+      {
+        "name": "Sectionals",
+        "scope": "Western Zone / Arizona",
+        "time": "27.99",
+        "source": "example-western-zone-sectionals-2026"
+      },
+      {
+        "name": "Futures",
+        "scope": "USA Swimming",
+        "time": "26.99",
+        "source": "example-western-zone-sectionals-2026"
+      }
+    ]
+  }
+}

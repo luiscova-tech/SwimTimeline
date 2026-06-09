@@ -1,0 +1,78 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//SwimTimeline//Swimmer Calendar//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Mila - Narwhal Invite Daily
+X-WR-TIMEZONE:America/Phoenix
+BEGIN:VTIMEZONE
+TZID:America/Phoenix
+BEGIN:STANDARD
+DTSTART:19700101T000000
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0700
+TZNAME:MST
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:2026-narwhal-invite-friday-mila@swimtimeline
+DTSTAMP:20260608T202736Z
+SUMMARY:Mila - Narwhal Invite: Friday
+DTSTART;TZID=America/Phoenix:20260612T070000
+DTEND;TZID=America/Phoenix:20260612T103100
+LOCATION:Kino Aquatic Complex\, 848 N. Horne\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nNarwhal Invite\n\nDay: Friday\, June 12\, 2026\nSess
+ ion: #2 - Friday Age Group Prelims\nWarm-up: 7:00 AM\nMeet start: 8:00 AM\
+ nPool/course: Kino 50-meter pool\; psych sheet lists events as LC Meter\n\
+ nMila's swims:\n#17 Girls 12&U 50 Back | seed 36.89 | seed place 7 | 8:37-
+ 8:53 AM\n#23 Girls 12&U 50 Breast | seed 41.68 | seed place 7 | 9:45-10:02
+  AM\n#25 Girls 12&U 100 Free | seed 1:04.31 | seed place 2 | 10:10-10:31 A
+ M\n\nPossible finals:\n#25 100 Free at 6:51 PM at Skyline if top 8\n\nBenc
+ hmarks:\n#17 USA-S AA\, next AAA 35.29 | AZSI State met\n#23 USA-S A\, nex
+ t AA 40.89 | AZSI State met\n#25 USA-S AAA\, next AAAA 1:04.29 | AZSI Stat
+ e met\n\nSource verification: psych sheet and timeline verified\; see audi
+ t/psych-cova-occurrences.md.
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-narwhal-invite-saturday-mila@swimtimeline
+DTSTAMP:20260608T202736Z
+SUMMARY:Mila - Narwhal Invite: Saturday
+DTSTART;TZID=America/Phoenix:20260613T070000
+DTEND;TZID=America/Phoenix:20260613T103000
+LOCATION:Kino Aquatic Complex\, 848 N. Horne\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nNarwhal Invite\n\nDay: Saturday\, June 13\, 2026\nSe
+ ssion: #5 - Saturday Age Group Prelims\nWarm-up: 7:00 AM\nMeet start: 8:00
+  AM\nPool/course: Kino 50-meter pool\; psych sheet lists events as LC Mete
+ r\n\nMila's swims:\n#41 Girls 11-12 200 Free | seed 2:21.96 | seed place 1
+  | 8:00-8:30 AM\n#43 Girls 12&U 50 Fly | seed 35.99 | seed place 12 | 8:43
+ -8:58 AM\n#51 Girls 12&U 50 Free | seed 28.69 | seed place 1 | 10:11-10:30
+  AM\n\nPossible finals:\n#41 200 Free at 5:00 PM at Skyline if top 8\n#51 
+ 50 Free at 6:57 PM at Skyline if top 8\n\nBenchmarks:\n#41 USA-S AAA\, nex
+ t AAAA 2:20.09 | AZSI State met\n#43 USA-S BB\, next A 35.79 | AZSI State 
+ met\n#51 USA-S AAAA | AZSI State met\n\nSource verification: psych sheet a
+ nd timeline verified\; see audit/psych-cova-occurrences.md.
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-narwhal-invite-sunday-mila@swimtimeline
+DTSTAMP:20260608T202736Z
+SUMMARY:Mila - Narwhal Invite: Sunday
+DTSTART;TZID=America/Phoenix:20260614T063000
+DTEND;TZID=America/Phoenix:20260614T101200
+LOCATION:Kino Aquatic Complex\, 848 N. Horne\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nNarwhal Invite\n\nDay: Sunday\, June 14\, 2026\nSess
+ ion: #8 - Sunday Age Group Distance\nWarm-up: 7:00 AM\nMeet start: 8:00 AM
+ \nPool/course: Kino 50-meter pool\; psych sheet lists event as LC Meter\n\
+ nMila's swims:\n#71 Girls 11-12 800 Free | seed 11:21.00 | seed place 4 | 
+ 9:46-10:12 AM\n\nCheck-in:\n#71 is in Events 53-72\; flyer says check in b
+ efore Session #7 warm-up at 6:30 AM.\n\nFinals: timed final\; no separate 
+ finals swim.\n\nBenchmarks:\n#71 USA-S A\, next AA 11:15.59 | AZSI State m
+ et\n\nSource verification: psych sheet and timeline verified\; see audit/p
+ sych-cova-occurrences.md.
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR

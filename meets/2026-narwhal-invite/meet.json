@@ -1,0 +1,210 @@
+{
+  "id": "2026-narwhal-invite",
+  "name": "2026 MAC Narwhal Invite",
+  "short_name": "Narwhal Invite",
+  "sanction": "AZ26-76",
+  "host": "Mesa Aquatics Club",
+  "meet_director": {
+    "name": "Maggie Dana",
+    "email": "coachmaggie7@gmail.com"
+  },
+  "meet_referee": {
+    "name": "Sandy Whitmeyer",
+    "email": "slwhitmeyer9@gmail.com"
+  },
+  "facilities": [
+    {
+      "name": "Skyline Aquatic Center",
+      "address": "845 S. Crismon Rd., Mesa, AZ",
+      "role": "Senior prelims, all finals, and senior distance"
+    },
+    {
+      "name": "Kino Aquatic Complex",
+      "address": "848 N. Horne, Mesa, AZ 85203",
+      "role": "Age group prelims and age group distance"
+    }
+  ],
+  "dates": {
+    "start": "2026-06-12",
+    "end": "2026-06-14"
+  },
+  "source_documents": [
+    {
+      "path": "input/Narwhal Invite.pdf",
+      "type": "meet_flyer",
+      "status": "received"
+    },
+    {
+      "path": "input/narwhal final psych again.pdf",
+      "type": "psych_sheet",
+      "status": "received"
+    },
+    {
+      "path": "input/narwhal final timeline.pdf",
+      "type": "timeline",
+      "status": "received"
+    }
+  ],
+  "required_documents": {
+    "psych_sheet": "received",
+    "timeline": "received",
+    "relay_document": "not_applicable_no_relay_events_in_flyer"
+  },
+  "swimmer": {
+    "name": "Cova, Mila L",
+    "event_extraction_status": "complete_for_available_documents",
+    "verified_individual_events": 7,
+    "verified_relays": 0
+  },
+  "meet_rules_relevant_to_calendar": [
+    "Swimmers are limited to four individual events per session Friday and Saturday, two individual events on Sunday, and ten individual events for the meet.",
+    "Swimmers must have met or exceeded Arizona Regional time standards to swim in this meet.",
+    "The 50 stroke events, 50 Fly, 50 Back, and 50 Breast are timed-final, no-time-standard events; swimmers must have a time to enter.",
+    "Events 53-72 are deck-seeded timed-final events and require check-in at the clerk of course before the start of warm-up for Session 7.",
+    "Events 53-72 are swum fastest to slowest, alternating women and men.",
+    "Finals are held at Skyline only.",
+    "Prelim/final swimmers race by age group in finals: 10&U, 11&12, 13&14, and 15&O.",
+    "10&U finals are offered for 50 Free and 100s only.",
+    "11&12 finals are offered for 50 Free, all 100s, and 200s.",
+    "13&14 and 15&O finals are offered for 50 Free, all 100s, and 200s, with B final and A final.",
+    "13&14 athletes may be moved to Kino on Sunday only based on entries."
+  ],
+  "sessions": [
+    {
+      "number": 1,
+      "name": "Friday Senior Prelims",
+      "date": "2026-06-12",
+      "facility": "Skyline Aquatic Center",
+      "warmup_time": "06:30",
+      "start_time": "07:30",
+      "events": [
+        { "women": 1, "men": 2, "name": "13&O 200 IM" },
+        { "women": 3, "men": 4, "name": "13&O 50 Breast", "format": "timed_final_in_prelims" },
+        { "women": 5, "men": 6, "name": "13&O 100 Back" },
+        { "women": 7, "men": 8, "name": "13&O 200 Fly" },
+        { "women": 9, "men": 10, "name": "13&O 100 Breast" },
+        { "women": 11, "men": 12, "name": "13&O 100 Free" },
+        { "women": 13, "men": 14, "name": "13&O 50 Fly", "format": "timed_final_in_prelims" }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Friday Age Group Prelims",
+      "date": "2026-06-12",
+      "facility": "Kino Aquatic Complex",
+      "warmup_time": "07:00",
+      "start_time": "08:00",
+      "events": [
+        { "women": 15, "men": 16, "name": "11&12 200 IM" },
+        { "women": 17, "men": 18, "name": "12&U 50 Back", "format": "timed_final_in_prelims" },
+        { "women": 19, "men": 20, "name": "11&12 200 Fly" },
+        { "women": 21, "men": 22, "name": "12&U 100 Back" },
+        { "women": 23, "men": 24, "name": "12&U 50 Breast", "format": "timed_final_in_prelims" },
+        { "women": 25, "men": 26, "name": "12&U 100 Free" },
+        { "women": 27, "men": 28, "name": "12&U 100 Breast" }
+      ]
+    },
+    {
+      "number": 3,
+      "name": "Friday Finals",
+      "date": "2026-06-12",
+      "facility": "Skyline Aquatic Center",
+      "warmup_time": "16:00",
+      "start_time": "17:00",
+      "events": [
+        { "women": 15, "men": 16, "name": "11&12 200 IM" },
+        { "women": 1, "men": 2, "name": "13&O 200 IM" },
+        { "women": 21, "men": 22, "name": "12&U 100 Back" },
+        { "women": 5, "men": 6, "name": "13&O 100 Back" },
+        { "women": 19, "men": 20, "name": "11&12 200 Fly" },
+        { "women": 7, "men": 8, "name": "13&O 200 Fly" },
+        { "women": 27, "men": 28, "name": "12&U 100 Breast" },
+        { "women": 9, "men": 10, "name": "13&O 100 Breast" },
+        { "women": 25, "men": 26, "name": "12&U 100 Free" },
+        { "women": 11, "men": 12, "name": "13&O 100 Free" }
+      ]
+    },
+    {
+      "number": 4,
+      "name": "Saturday Senior Prelims",
+      "date": "2026-06-13",
+      "facility": "Skyline Aquatic Center",
+      "warmup_time": "06:30",
+      "start_time": "07:30",
+      "events": [
+        { "women": 29, "men": 30, "name": "13&O 200 Free" },
+        { "women": 31, "men": 32, "name": "13&O 50 Back", "format": "timed_final_in_prelims" },
+        { "women": 33, "men": 34, "name": "13&O 100 Fly" },
+        { "women": 35, "men": 36, "name": "13&O 200 Breast" },
+        { "women": 37, "men": 38, "name": "13&O 200 Back" },
+        { "women": 39, "men": 40, "name": "13&O 50 Free" }
+      ]
+    },
+    {
+      "number": 5,
+      "name": "Saturday Age Group Prelims",
+      "date": "2026-06-13",
+      "facility": "Kino Aquatic Complex",
+      "warmup_time": "07:00",
+      "start_time": "08:00",
+      "events": [
+        { "women": 41, "men": 42, "name": "11&12 200 Free" },
+        { "women": 43, "men": 44, "name": "12&U 50 Fly", "format": "timed_final_in_prelims" },
+        { "women": 45, "men": 46, "name": "11&12 200 Breast" },
+        { "women": 47, "men": 48, "name": "12&U 100 Fly" },
+        { "women": 49, "men": 50, "name": "11&12 200 Back" },
+        { "women": 51, "men": 52, "name": "12&U 50 Free" }
+      ]
+    },
+    {
+      "number": 6,
+      "name": "Saturday Finals",
+      "date": "2026-06-13",
+      "facility": "Skyline Aquatic Center",
+      "warmup_time": "16:00",
+      "start_time": "17:00",
+      "events": [
+        { "women": 41, "men": 42, "name": "11&12 200 Free" },
+        { "women": 29, "men": 30, "name": "13&O 200 Free" },
+        { "women": 47, "men": 48, "name": "12&U 100 Fly" },
+        { "women": 33, "men": 34, "name": "13&O 100 Fly" },
+        { "women": 45, "men": 46, "name": "11&12 200 Breast" },
+        { "women": 35, "men": 36, "name": "13&O 200 Breast" },
+        { "women": 49, "men": 50, "name": "11&12 200 Back" },
+        { "women": 37, "men": 38, "name": "13&O 200 Back" },
+        { "women": 51, "men": 52, "name": "12&U 50 Free" },
+        { "women": 39, "men": 40, "name": "13&O 50 Free" }
+      ]
+    },
+    {
+      "number": 7,
+      "name": "Sunday Senior Distance",
+      "date": "2026-06-14",
+      "facility": "Skyline Aquatic Center",
+      "warmup_time": "06:30",
+      "start_time": "07:30",
+      "events": [
+        { "women": 53, "men": 54, "name": "13&14 400 Free", "format": "deck_seeded_timed_final", "check_in": true },
+        { "women": 55, "men": 56, "name": "15&O 400 Free", "format": "deck_seeded_timed_final", "check_in": true },
+        { "women": 57, "men": 58, "name": "13&14 400 IM", "format": "deck_seeded_timed_final", "check_in": true },
+        { "women": 59, "men": 60, "name": "15&O 400 IM", "format": "deck_seeded_timed_final", "check_in": true },
+        { "women": 61, "men": 62, "name": "13&O 800 Free", "format": "deck_seeded_timed_final", "check_in": true }
+      ]
+    },
+    {
+      "number": 8,
+      "name": "Sunday Age Group Distance",
+      "date": "2026-06-14",
+      "facility": "Kino Aquatic Complex",
+      "warmup_time": "07:00",
+      "start_time": "08:00",
+      "events": [
+        { "women": 63, "men": 64, "name": "10&U 200 Free", "format": "deck_seeded_timed_final", "check_in": true },
+        { "women": 65, "men": 66, "name": "12&U 400 Free", "format": "deck_seeded_timed_final", "check_in": true },
+        { "women": 67, "men": 68, "name": "10&U 200 IM", "format": "deck_seeded_timed_final", "check_in": true },
+        { "women": 69, "men": 70, "name": "11&12 400 IM", "format": "deck_seeded_timed_final", "check_in": true },
+        { "women": 71, "men": 72, "name": "11&12 800 Free", "format": "deck_seeded_timed_final", "check_in": true }
+      ]
+    }
+  ]
+}

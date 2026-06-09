@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SwimTimeline</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">Meet calendar builder</p>
+          <h1>SwimTimeline</h1>
+        </div>
+        <nav class="top-nav" aria-label="Sections">
+          <a href="#currentMeets">Current Meets</a>
+          <a href="#uploadMeet">Upload</a>
+          <a href="#result">Results</a>
+        </nav>
+      </header>
+
+      <section class="workspace">
+        <form id="uploadForm" class="panel">
+          <div class="control-strip">
+            <div class="grid">
+              <label>
+                <span>Swimmer</span>
+                <input name="swimmer_name" value="Mila Cova" required autocomplete="off">
+              </label>
+              <label>
+                <span>State / LSC</span>
+                <input name="state" value="AZ" maxlength="8" autocomplete="off">
+              </label>
+            </div>
+
+            <fieldset>
+              <legend>Calendar files</legend>
+              <label class="check"><input type="checkbox" name="modes" value="daily" checked> Daily</label>
+              <label class="check"><input type="checkbox" name="modes" value="weekend" checked> Whole meet</label>
+              <label class="check"><input type="checkbox" name="modes" value="detailed" checked> Swim by swim</label>
+            </fieldset>
+          </div>
+
+          <section id="currentMeets" class="current-meets">
+            <div class="section-header">
+              <div>
+                <h2>Current Meets</h2>
+              </div>
+            </div>
+            <div id="currentMeetList" class="meet-list"></div>
+          </section>
+
+          <div id="uploadMeet" class="section-header upload-header">
+            <div>
+              <h2>Upload Meet Documents</h2>
+            </div>
+            <button class="primary" type="submit">Generate From Uploads</button>
+          </div>
+
+          <div class="upload-grid">
+            <label class="file-input">
+              <span>Meet Flyer</span>
+              <input type="file" name="flyer_pdf" accept="application/pdf">
+            </label>
+            <label class="file-input">
+              <span>Psych Sheet</span>
+              <input type="file" name="psych_pdf" accept="application/pdf" required>
+            </label>
+            <label class="file-input">
+              <span>Timeline</span>
+              <input type="file" name="timeline_pdf" accept="application/pdf" required>
+            </label>
+            <label class="file-input">
+              <span>Relay Doc</span>
+              <input type="file" name="relay_pdf" accept="application/pdf">
+            </label>
+          </div>
+        </form>
+
+        <section id="status" class="status" aria-live="polite"></section>
+
+        <section id="result" class="result hidden">
+          <div class="result-header">
+            <div>
+              <h2 id="meetName"></h2>
+              <p id="summary" class="muted"></p>
+            </div>
+            <div class="result-actions">
+              <div id="downloads" class="downloads"></div>
+              <button id="publishCurrent" class="secondary-button hidden" type="button">Save To Current Meets</button>
+            </div>
+          </div>
+          <div id="resultStats" class="result-stats"></div>
+          <div id="warnings" class="warnings"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Event</th>
+                  <th>Seed</th>
+                  <th>Window</th>
+                  <th>Benchmark</th>
+                  <th>Source</th>
+                </tr>
+              </thead>
+              <tbody id="eventsBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

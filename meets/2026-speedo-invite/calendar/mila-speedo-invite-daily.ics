@@ -1,0 +1,100 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//SwimTimeline//Swimmer Calendar//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Mila - Speedo Invite Daily
+X-WR-TIMEZONE:America/Phoenix
+BEGIN:VTIMEZONE
+TZID:America/Phoenix
+BEGIN:STANDARD
+DTSTART:19700101T000000
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0700
+TZNAME:MST
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:2026-speedo-invite-friday-mila@swimtimeline
+DTSTAMP:20260521T025154Z
+SUMMARY:Mila - Speedo Invite: Friday
+DTSTART;TZID=America/Phoenix:20260522T063000
+DTEND;TZID=America/Phoenix:20260522T084800
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Friday\, May 22\, 2026\nSessio
+ n: #2 - Friday Age Group Prelims\nWarm-up: 6:30 AM\nMeet start: 7:30 AM\nP
+ ool/course: 25-yard pool session\; psych sheet lists events as LC Meter\n\
+ nMila's swims:\n#13 Girls 11-12 100 Free | seed 1:06.33 | seed place 2 | 7
+ :30-7:40 AM\n#17 Girls 12&U 50 Breast | seed 41.68 | seed place 2 | 7:56-8
+ :10 AM\n#23 Girls 12&U 50 Back | seed 36.89 | seed place 2 | 8:33-8:48 AM\
+ n\nPossible finals:\n#13 100 Free at 5:30 PM if top 8\n\nBenchmarks:\n#13 
+ USA-S AAA\, next AAAA 1:04.29 | AZSI State met\n#17 USA-S A\, next AA 40.8
+ 9 | AZSI State met\n#23 USA-S AA\, next AAA 35.29 | AZSI State met\n\nSour
+ ce verification: psych sheet verified\; see audit/psych-cova-occurrences.m
+ d.
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-saturday-mila@swimtimeline
+DTSTAMP:20260521T025154Z
+SUMMARY:Mila - Speedo Invite: Saturday
+DTSTART;TZID=America/Phoenix:20260523T063000
+DTEND;TZID=America/Phoenix:20260523T093600
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Saturday\, May 23\, 2026\nSess
+ ion: #5 - Saturday Age Group Prelims\nWarm-up: 6:30 AM\nMeet start: 7:30 A
+ M\nPool/course: 25-yard pool session\; psych sheet lists events as LC Mete
+ r\n\nMila's swims:\n#41 Relay - Girls 11-12 200 Medley Relay | Relay A\, l
+ eg 4 | 7:30-7:35 AM\n#43 Girls 11-12 200 Free | seed 2:30.74 | seed place 
+ 4 | 7:39-7:56 AM\n#47 Girls 11-12 100 Breast | seed 1:28.02 | seed place 1
+  | 8:19-8:28 AM\n#55 Relay - Girls 11-12 400 Free Relay | Relay A\, leg 4 
+ | 9:30-9:36 AM\n\nPossible finals:\n#43 200 Free at 5:30 PM if top 8\n#47 
+ 100 Breast at 6:01 PM if top 8\n\nBenchmarks:\n#43 USA-S AA\, next AAA 2:2
+ 6.79 | AZSI State met\n#47 USA-S AA\, next AAA 1:25.89 | AZSI State met\n\
+ nSource verification: psych sheet and relay document verified\; see audit 
+ files.
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-sunday-mila@swimtimeline
+DTSTAMP:20260521T025154Z
+SUMMARY:Mila - Speedo Invite: Sunday
+DTSTART;TZID=America/Phoenix:20260524T063000
+DTEND;TZID=America/Phoenix:20260524T092400
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Sunday\, May 24\, 2026\nSessio
+ n: #9 - Sunday Age Group Prelims\nWarm-up: 6:30 AM\nMeet start: 7:30 AM\nP
+ ool/course: 25-yard pool session\; psych sheet lists events as LC Meter\n\
+ nMila's swims:\n#69 Relay - Girls 11-12 200 Free Relay | Relay A\, leg 4 |
+  7:30-7:34 AM\n#75 Girls 11-12 50 Free | seed 30.18 | seed place 1 | 8:09-
+ 8:16 AM\n#79 Girls 11-12 100 Back | seed 1:25.52 | seed place 4 | 8:34-8:4
+ 3 AM\n#85 Relay - Girls 11-12 400 Medley Relay | Relay A\, leg 4 | 9:17-9:
+ 24 AM\n\nPossible finals:\n#75 50 Free at 6:04 PM if top 8\n#79 100 Back a
+ t 6:43 PM if top 8\n\nBenchmarks:\n#75 USA-S AAA\, next AAAA 29.29 | AZSI 
+ State met\n#79 USA-S BB\, next A 1:24.79 | AZSI Regional met\; State targe
+ t 1:21.09\n\nSource verification: psych sheet and relay document verified\
+ ; see audit files.
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:2026-speedo-invite-monday-mila@swimtimeline
+DTSTAMP:20260521T025154Z
+SUMMARY:Mila - Speedo Invite: Monday
+DTSTART;TZID=America/Phoenix:20260525T063000
+DTEND;TZID=America/Phoenix:20260525T102400
+LOCATION:Kino Aquatic Center\, 848 N. Horne Ave.\, Mesa\, AZ 85203
+DESCRIPTION:Mila Cova\nSpeedo Invite\n\nDay: Monday\, May 25\, 2026\nSessio
+ n: #11 - Monday Distance\nWarm-up: 6:30 AM\nMeet start: 7:30 AM\nPool/cour
+ se: 50-meter pool\; psych sheet lists event as LC Meter\n\nMila's swims:\n
+ #89 Women 400 Free | seed 5:23.29 | seed place 9 | 9:45-10:24 AM\n\nCheck-
+ in:\n#89 400 Free positive check-in deadline: 8:00 AM\n\nFinals: timed fin
+ al\; no separate finals swim.\n\nBenchmarks:\n#89 USA-S A\, next AA 5:22.7
+ 9 | AZSI State met\n\nSource verification: psych sheet verified\; see audi
+ t/psych-cova-occurrences.md.
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR

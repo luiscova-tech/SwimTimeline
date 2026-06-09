@@ -1,0 +1,109 @@
+{
+  "calendar": {
+    "name": "Mila - Narwhal Invite Daily",
+    "timezone": "America/Phoenix"
+  },
+  "meet": {
+    "id": "2026-narwhal-invite",
+    "name": "2026 MAC Narwhal Invite",
+    "short_name": "Narwhal Invite",
+    "location": "Kino Aquatic Complex, 848 N. Horne, Mesa, AZ 85203"
+  },
+  "events": [
+    {
+      "uid": "2026-narwhal-invite-friday-mila@swimtimeline",
+      "title": "Mila - Narwhal Invite: Friday",
+      "start": "2026-06-12T07:00:00",
+      "end": "2026-06-12T10:31:00",
+      "location": "Kino Aquatic Complex, 848 N. Horne, Mesa, AZ 85203",
+      "description_lines": [
+        "Mila Cova",
+        "Narwhal Invite",
+        "",
+        "Day: Friday, June 12, 2026",
+        "Session: #2 - Friday Age Group Prelims",
+        "Warm-up: 7:00 AM",
+        "Meet start: 8:00 AM",
+        "Pool/course: Kino 50-meter pool; psych sheet lists events as LC Meter",
+        "",
+        "Mila's swims:",
+        "#17 Girls 12&U 50 Back | seed 36.89 | seed place 7 | 8:37-8:53 AM",
+        "#23 Girls 12&U 50 Breast | seed 41.68 | seed place 7 | 9:45-10:02 AM",
+        "#25 Girls 12&U 100 Free | seed 1:04.31 | seed place 2 | 10:10-10:31 AM",
+        "",
+        "Possible finals:",
+        "#25 100 Free at 6:51 PM at Skyline if top 8",
+        "",
+        "Benchmarks:",
+        "#17 USA-S AA, next AAA 35.29 | AZSI State met",
+        "#23 USA-S A, next AA 40.89 | AZSI State met",
+        "#25 USA-S AAA, next AAAA 1:04.29 | AZSI State met",
+        "",
+        "Source verification: psych sheet and timeline verified; see audit/psych-cova-occurrences.md."
+      ]
+    },
+    {
+      "uid": "2026-narwhal-invite-saturday-mila@swimtimeline",
+      "title": "Mila - Narwhal Invite: Saturday",
+      "start": "2026-06-13T07:00:00",
+      "end": "2026-06-13T10:30:00",
+      "location": "Kino Aquatic Complex, 848 N. Horne, Mesa, AZ 85203",
+      "description_lines": [
+        "Mila Cova",
+        "Narwhal Invite",
+        "",
+        "Day: Saturday, June 13, 2026",
+        "Session: #5 - Saturday Age Group Prelims",
+        "Warm-up: 7:00 AM",
+        "Meet start: 8:00 AM",
+        "Pool/course: Kino 50-meter pool; psych sheet lists events as LC Meter",
+        "",
+        "Mila's swims:",
+        "#41 Girls 11-12 200 Free | seed 2:21.96 | seed place 1 | 8:00-8:30 AM",
+        "#43 Girls 12&U 50 Fly | seed 35.99 | seed place 12 | 8:43-8:58 AM",
+        "#51 Girls 12&U 50 Free | seed 28.69 | seed place 1 | 10:11-10:30 AM",
+        "",
+        "Possible finals:",
+        "#41 200 Free at 5:00 PM at Skyline if top 8",
+        "#51 50 Free at 6:57 PM at Skyline if top 8",
+        "",
+        "Benchmarks:",
+        "#41 USA-S AAA, next AAAA 2:20.09 | AZSI State met",
+        "#43 USA-S BB, next A 35.79 | AZSI State met",
+        "#51 USA-S AAAA | AZSI State met",
+        "",
+        "Source verification: psych sheet and timeline verified; see audit/psych-cova-occurrences.md."
+      ]
+    },
+    {
+      "uid": "2026-narwhal-invite-sunday-mila@swimtimeline",
+      "title": "Mila - Narwhal Invite: Sunday",
+      "start": "2026-06-14T06:30:00",
+      "end": "2026-06-14T10:12:00",
+      "location": "Kino Aquatic Complex, 848 N. Horne, Mesa, AZ 85203",
+      "description_lines": [
+        "Mila Cova",
+        "Narwhal Invite",
+        "",
+        "Day: Sunday, June 14, 2026",
+        "Session: #8 - Sunday Age Group Distance",
+        "Warm-up: 7:00 AM",
+        "Meet start: 8:00 AM",
+        "Pool/course: Kino 50-meter pool; psych sheet lists event as LC Meter",
+        "",
+        "Mila's swims:",
+        "#71 Girls 11-12 800 Free | seed 11:21.00 | seed place 4 | 9:46-10:12 AM",
+        "",
+        "Check-in:",
+        "#71 is in Events 53-72; flyer says check in before Session #7 warm-up at 6:30 AM.",
+        "",
+        "Finals: timed final; no separate finals swim.",
+        "",
+        "Benchmarks:",
+        "#71 USA-S A, next AA 11:15.59 | AZSI State met",
+        "",
+        "Source verification: psych sheet and timeline verified; see audit/psych-cova-occurrences.md."
+      ]
+    }
+  ]
+}

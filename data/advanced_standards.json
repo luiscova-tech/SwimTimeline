@@ -1,0 +1,530 @@
+{
+  "sources": [
+    {
+      "id": "usas-time-standards-2026",
+      "name": "USA Swimming Time Standards page, 2026 standards block",
+      "url": "https://www.usaswimming.org/times/time-standards"
+    },
+    {
+      "id": "usas-2026-speedo-sectionals",
+      "name": "2026 Speedo Sectionals Maximum Time Standards",
+      "url": "https://www.usaswimming.org/docs/default-source/timesdocuments/time-standards/2026/2026_speedosectionals_timestandards_max.pdf"
+    },
+    {
+      "id": "usas-2026-tyr-futures",
+      "name": "2026 TYR Futures Championships Time Standards",
+      "url": "https://www.usaswimming.org/docs/default-source/timesdocuments/time-standards/2026/2026_tyrfutureschampionships_timestandards-2.pdf"
+    },
+    {
+      "id": "usas-2026-speedo-winter-juniors",
+      "name": "2026 Speedo Winter Junior Championships Time Standards",
+      "url": "https://www.usaswimming.org/docs/default-source/timesdocuments/time-standards/2026/11320828118_events_timestandards_2026_speedowinterjrs.pdf"
+    },
+    {
+      "id": "usas-2026-speedo-junior-nationals",
+      "name": "2026 Speedo Junior National Championships Time Standards",
+      "url": "https://www.usaswimming.org/docs/default-source/timesdocuments/time-standards/2026/2026_speedojuniornationalchampionships_timestandards.pdf"
+    },
+    {
+      "id": "usas-2026-toyota-nationals-18u",
+      "name": "2026 Toyota National Championships 18 & Under Time Standards",
+      "url": "https://www.usaswimming.org/docs/default-source/timesdocuments/time-standards/2026/18077640025_events_2026_toyotanationalchampionships_timestandards.pdf"
+    }
+  ],
+  "cuts": {
+    "50 free": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "28.09",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "27.39",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Winter Juniors",
+        "scope": "Women LCM",
+        "time": "26.89",
+        "source": "usas-2026-speedo-winter-juniors"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "26.59",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "26.19",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "100 free": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "1:00.69",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "59.29",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Winter Juniors",
+        "scope": "Women LCM",
+        "time": "58.19",
+        "source": "usas-2026-speedo-winter-juniors"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "57.69",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "56.69",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "200 free": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "2:10.99",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "2:07.79",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Winter Juniors",
+        "scope": "Women LCM",
+        "time": "2:04.99",
+        "source": "usas-2026-speedo-winter-juniors"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "2:04.99",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "2:03.19",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "400 free": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "4:35.29",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "4:28.79",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Winter Juniors",
+        "scope": "Women LCM",
+        "time": "4:26.69",
+        "source": "usas-2026-speedo-winter-juniors"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "4:23.59",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "4:19.89",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "800 free": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "9:27.39",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "9:13.79",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Winter Juniors",
+        "scope": "Women LCM",
+        "time": "9:06.79",
+        "source": "usas-2026-speedo-winter-juniors"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "9:06.79",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "8:57.89",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "50 back": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "31.49",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "30.89",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "29.79",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "29.69",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "100 back": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "1:07.89",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "1:06.79",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Winter Juniors",
+        "scope": "Women LCM",
+        "time": "1:04.79",
+        "source": "usas-2026-speedo-winter-juniors"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "1:04.29",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "1:03.19",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "200 back": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "2:26.99",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "2:23.99",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Winter Juniors",
+        "scope": "Women LCM",
+        "time": "2:19.59",
+        "source": "usas-2026-speedo-winter-juniors"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "2:19.29",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "2:16.69",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "50 breast": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "35.59",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "34.79",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "33.69",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "33.29",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "100 breast": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "1:17.19",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "1:15.99",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Winter Juniors",
+        "scope": "Women LCM",
+        "time": "1:13.79",
+        "source": "usas-2026-speedo-winter-juniors"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "1:13.29",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "1:11.29",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "200 breast": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "2:46.69",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "2:43.39",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Winter Juniors",
+        "scope": "Women LCM",
+        "time": "2:38.59",
+        "source": "usas-2026-speedo-winter-juniors"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "2:38.59",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "2:34.19",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "50 fly": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "30.29",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "29.49",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "28.39",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "28.09",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "100 fly": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "1:05.79",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "1:04.69",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Winter Juniors",
+        "scope": "Women LCM",
+        "time": "1:02.69",
+        "source": "usas-2026-speedo-winter-juniors"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "1:02.49",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "1:01.39",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "200 fly": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "2:25.09",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "2:21.89",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Winter Juniors",
+        "scope": "Women LCM",
+        "time": "2:18.39",
+        "source": "usas-2026-speedo-winter-juniors"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "2:18.39",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "2:17.59",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "200 im": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "2:28.49",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "2:26.19",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Winter Juniors",
+        "scope": "Women LCM",
+        "time": "2:22.09",
+        "source": "usas-2026-speedo-winter-juniors"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "2:21.29",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "2:18.19",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ],
+    "400 im": [
+      {
+        "name": "Speedo Sectionals",
+        "scope": "Women LCM",
+        "time": "5:12.99",
+        "source": "usas-2026-speedo-sectionals"
+      },
+      {
+        "name": "TYR Futures",
+        "scope": "Women LCM / 18 & Under",
+        "time": "5:07.29",
+        "source": "usas-2026-tyr-futures"
+      },
+      {
+        "name": "Speedo Winter Juniors",
+        "scope": "Women LCM",
+        "time": "5:00.29",
+        "source": "usas-2026-speedo-winter-juniors"
+      },
+      {
+        "name": "Speedo Junior Nationals",
+        "scope": "Women LCM",
+        "time": "5:00.29",
+        "source": "usas-2026-speedo-junior-nationals"
+      },
+      {
+        "name": "Toyota Nationals",
+        "scope": "Women LCM / 18 & Under",
+        "time": "4:52.69",
+        "source": "usas-2026-toyota-nationals-18u"
+      }
+    ]
+  }
+}
