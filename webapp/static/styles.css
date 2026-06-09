@@ -114,6 +114,7 @@ h2 {
 .grid,
 .upload-grid,
 .meet-list,
+.instruction-grid,
 .result-stats {
   display: grid;
   gap: 14px;
@@ -136,11 +137,50 @@ h2 {
   gap: 16px;
 }
 
+.how-to-use,
 .current-meets,
 .upload-header {
   margin-top: 20px;
   padding-top: 18px;
   border-top: 1px solid var(--line);
+}
+
+.instruction-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.instruction-card {
+  min-height: 132px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.instruction-card span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: white;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.instruction-card h3 {
+  margin: 10px 0 4px;
+  font-size: 15px;
+}
+
+.instruction-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .meet-list {
@@ -433,6 +473,7 @@ td strong {
   .grid,
   .upload-grid,
   .meet-list,
+  .instruction-grid,
   .result-stats {
     grid-template-columns: 1fr;
   }

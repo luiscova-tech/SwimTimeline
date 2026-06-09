@@ -14,6 +14,7 @@
           <h1>SwimTimeline</h1>
         </div>
         <nav class="top-nav" aria-label="Sections">
+          <a href="#howToUse">How to Use</a>
           <a href="#currentMeets">Current Meets</a>
           <a href="#uploadMeet">Upload</a>
           <a href="#result">Results</a>
@@ -26,7 +27,7 @@
             <div class="grid">
               <label>
                 <span>Swimmer</span>
-                <input name="swimmer_name" value="Mila Cova" required autocomplete="off">
+                <input name="swimmer_name" placeholder="First Last" required autocomplete="off">
               </label>
               <label>
                 <span>State / LSC</span>
@@ -41,6 +42,31 @@
               <label class="check"><input type="checkbox" name="modes" value="detailed" checked> Swim by swim</label>
             </fieldset>
           </div>
+
+          <section id="howToUse" class="how-to-use">
+            <div class="section-header">
+              <div>
+                <h2>How to Use</h2>
+              </div>
+            </div>
+            <div class="instruction-grid">
+              <div class="instruction-card">
+                <span>1</span>
+                <h3>Enter swimmer</h3>
+                <p>Use the swimmer's first and last name. Add the state or LSC when known.</p>
+              </div>
+              <div class="instruction-card">
+                <span>2</span>
+                <h3>Choose documents</h3>
+                <p>Select a Current Meet, or upload the meet flyer, psych sheet, timeline, and optional relay file.</p>
+              </div>
+              <div class="instruction-card">
+                <span>3</span>
+                <h3>Download calendar</h3>
+                <p>Review the events, then download daily, whole-meet, or swim-by-swim calendar files.</p>
+              </div>
+            </div>
+          </section>
 
           <section id="currentMeets" class="current-meets">
             <div class="section-header">
