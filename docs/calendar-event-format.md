@@ -16,28 +16,28 @@ Use `seed place` or `seed`, never bare `place`, when referring to psych sheet ra
 For daily-summary events, use:
 
 ```text
-Mila - {meet_short_name}: {day_name}
+{swimmer_name} - {meet_short_name}: Day {meet_day_number} ({day_name})
 ```
 
 Examples:
 
 ```text
-Mila - Speedo Invite: Friday
-Mila - Speedo Invite: Saturday
+Mila Cova - Speedo Invite: Day 1 (Friday)
+Mila Cova - Speedo Invite: Day 2 (Saturday)
 ```
 
 For detailed event-level output, use a short title that is useful on a phone screen:
 
 ```text
-Mila - Event {event_number}: {event_short_name}
+{swimmer_name} - Event {event_number}: {event_short_name}
 ```
 
 Examples:
 
 ```text
-Mila - Event 31: 13&O 100 Breast
-Mila - Event 61: 13&O 50 Free
-Mila - Relay 37: 13&O 400 Free Relay
+Mila Cova - Event 31: 13&O 100 Breast
+Mila Cova - Event 61: 13&O 50 Free
+Mila Cova - Relay 37: 13&O 400 Free Relay
 ```
 
 ## Event Time
@@ -66,10 +66,10 @@ Kino Aquatic Center, 848 N. Horne Ave., Mesa, AZ 85203
 ## Description Template
 
 ```text
-Mila Cova
+{swimmer_name}
 {meet_name}
 
-Day: {day}, {date}
+Day: Day {meet_day_number} - {day}, {date}
 Session: #{session_number} - {session_name}
 Warm-up: {warmup_time}
 Meet start: {session_start_time}
@@ -107,7 +107,7 @@ Daily summary example:
 Mila Cova
 Speedo Invite
 
-Day: Saturday, May 23, 2026
+Day: Day 2 - Saturday, May 23, 2026
 Session: #5 - Saturday Age Group Prelims
 Warm-up: 6:30 AM
 Meet start: 7:30 AM

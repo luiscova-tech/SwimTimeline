@@ -605,22 +605,42 @@ def safe_day_label(day: date) -> str:
     return f"{day.strftime('%A')}, {day.strftime('%B')} {day.day}, {day.year}"
 
 
+def swimmer_uid_part(swimmer_name: str) -> str:
+    return slugify(swimmer_name)
+
+
+def possessive_name(swimmer_name: str) -> str:
+    return f"{swimmer_name}'" if swimmer_name.endswith("s") else f"{swimmer_name}'s"
+
+
+def meet_day_text(day: date, day_number: int) -> str:
+    return f"Day {day_number} - {safe_day_label(day)}"
+
+
+def day_numbers_for_items(swims: list[SwimEvent], relays: list[RelayEvent]) -> dict[date, int]:
+    days = sorted({item.timeline.date for item in swims} | {item.timeline.date for item in relays})
+    return {day: index for index, day in enumerate(days, start=1)}
+
+
 def build_detailed_payload(
     meet_id: str,
     meet_name: str,
     short_name: str,
+    swimmer_name: str,
     swims: list[SwimEvent],
     relays: list[RelayEvent],
+    day_numbers: dict[date, int],
 ) -> dict:
     events: list[dict] = []
+    swimmer_slug = swimmer_uid_part(swimmer_name)
     for swim in sorted(swims, key=lambda item: item.timeline.start):
         psych = swim.psych
         timeline = swim.timeline
         lines = [
-            "Mila Cova",
+            swimmer_name,
             short_name,
             "",
-            f"Day: {safe_day_label(timeline.date)}",
+            f"Day: {meet_day_text(timeline.date, day_numbers.get(timeline.date, 1))}",
             f"Session: #{timeline.session_number} - {timeline.session_name}",
             f"Pool/course: {location_for_session(timeline)}; psych sheet lists event as LC Meter",
             "",
@@ -654,8 +674,8 @@ def build_detailed_payload(
         )
         events.append(
             {
-                "uid": f"{meet_id}-event-{psych.event_number}-mila@swimtimeline",
-                "title": f"Mila - Event {psych.event_number}: {event_short_name(psych.event_name)}",
+                "uid": f"{meet_id}-{swimmer_slug}-event-{psych.event_number}@swimtimeline",
+                "title": f"{swimmer_name} - Event {psych.event_number}: {event_short_name(psych.event_name)}",
                 "start": timeline.start.isoformat(timespec="seconds"),
                 "end": timeline.end.isoformat(timespec="seconds"),
                 "location": location_for_session(timeline),
@@ -666,10 +686,10 @@ def build_detailed_payload(
         relay = relay_event.relay
         timeline = relay_event.timeline
         lines = [
-            "Mila Cova",
+            swimmer_name,
             short_name,
             "",
-            f"Day: {safe_day_label(timeline.date)}",
+            f"Day: {meet_day_text(timeline.date, day_numbers.get(timeline.date, 1))}",
             f"Session: #{timeline.session_number} - {timeline.session_name}",
             f"Pool/course: {location_for_session(timeline)}; relay document lists entry as {relay.entry_time[-1:] if relay.entry_time else 'provided'}",
             "",
@@ -690,8 +710,8 @@ def build_detailed_payload(
         ]
         events.append(
             {
-                "uid": f"{meet_id}-relay-{relay.event_number}-{relay.relay_label.lower().replace(' ', '-')}-mila@swimtimeline",
-                "title": f"Mila - Relay {relay.event_number}: {event_short_name(relay.event_name)}",
+                "uid": f"{meet_id}-{swimmer_slug}-relay-{relay.event_number}-{relay.relay_label.lower().replace(' ', '-')}@swimtimeline",
+                "title": f"{swimmer_name} - Relay {relay.event_number}: {event_short_name(relay.event_name)}",
                 "start": timeline.start.isoformat(timespec="seconds"),
                 "end": timeline.end.isoformat(timespec="seconds"),
                 "location": location_for_session(timeline),
@@ -700,7 +720,7 @@ def build_detailed_payload(
         )
     events.sort(key=lambda event: event["start"])
     return {
-        "calendar": {"name": f"Mila - {short_name}", "timezone": DEFAULT_TZ},
+        "calendar": {"name": f"{swimmer_name} - {short_name}", "timezone": DEFAULT_TZ},
         "meet": {"id": meet_id, "name": meet_name, "short_name": short_name},
         "events": events,
     }
@@ -710,6 +730,7 @@ def build_daily_payload(
     meet_id: str,
     meet_name: str,
     short_name: str,
+    swimmer_name: str,
     swims: list[SwimEvent],
     relays: list[RelayEvent],
     sessions: dict[int, SessionInfo],
@@ -721,7 +742,8 @@ def build_daily_payload(
     for relay in relays:
         by_day.setdefault(relay.timeline.date, []).append(relay)
 
-    for day, day_items in sorted(by_day.items()):
+    swimmer_slug = swimmer_uid_part(swimmer_name)
+    for day_number, (day, day_items) in enumerate(sorted(by_day.items()), start=1):
         day_items.sort(key=lambda item: item.timeline.start)
         first = day_items[0]
         session = sessions.get(first.timeline.session_number)
@@ -751,16 +773,16 @@ def build_daily_payload(
             calendar_start = min(calendar_start, checkin_time)
 
         lines = [
-            "Mila Cova",
+            swimmer_name,
             short_name,
             "",
-            f"Day: {safe_day_label(day)}",
+            f"Day: {meet_day_text(day, day_number)}",
             f"Session: #{first.timeline.session_number} - {first.timeline.session_name}",
             f"Warm-up: {display_time(session_warmup)}",
             f"Meet start: {display_time(session_start)}",
             f"Pool/course: {location_for_session(first.timeline)}; psych sheet lists events as LC Meter",
             "",
-            "Mila's swims:",
+            f"{possessive_name(swimmer_name)} swims:",
         ]
         for item in day_items:
             if isinstance(item, RelayEvent):
@@ -797,8 +819,8 @@ def build_daily_payload(
         lines.extend(["", "Source verification: psych sheet and timeline verified; review the audit report before import."])
         events.append(
             {
-                "uid": f"{meet_id}-{day.isoformat()}-mila@swimtimeline",
-                "title": f"Mila - {short_name}: {day.strftime('%A')}",
+                "uid": f"{meet_id}-{swimmer_slug}-{day.isoformat()}@swimtimeline",
+                "title": f"{swimmer_name} - {short_name}: Day {day_number} ({day.strftime('%A')})",
                 "start": calendar_start.isoformat(timespec="seconds"),
                 "end": max(item.timeline.end for item in day_items).isoformat(timespec="seconds"),
                 "location": location_for_session(first.timeline),
@@ -806,7 +828,7 @@ def build_daily_payload(
             }
         )
     return {
-        "calendar": {"name": f"Mila - {short_name} Daily", "timezone": DEFAULT_TZ},
+        "calendar": {"name": f"{swimmer_name} - {short_name} Daily", "timezone": DEFAULT_TZ},
         "meet": {"id": meet_id, "name": meet_name, "short_name": short_name},
         "events": events,
     }
@@ -816,25 +838,27 @@ def build_weekend_payload(
     meet_id: str,
     meet_name: str,
     short_name: str,
+    swimmer_name: str,
     swims: list[SwimEvent],
     relays: list[RelayEvent],
     sessions: dict[int, SessionInfo],
 ) -> dict:
-    daily = build_daily_payload(meet_id, meet_name, short_name, swims, relays, sessions)["events"]
+    swimmer_slug = swimmer_uid_part(swimmer_name)
+    daily = build_daily_payload(meet_id, meet_name, short_name, swimmer_name, swims, relays, sessions)["events"]
     if not daily:
-        return {"calendar": {"name": f"Mila - {short_name} Weekend", "timezone": DEFAULT_TZ}, "events": []}
+        return {"calendar": {"name": f"{swimmer_name} - {short_name} Weekend", "timezone": DEFAULT_TZ}, "events": []}
     start = min(datetime.fromisoformat(event["start"]) for event in daily)
     end = max(datetime.fromisoformat(event["end"]) for event in daily)
-    lines = ["Mila Cova", short_name, "", "Meet summary:"]
+    lines = [swimmer_name, short_name, "", "Meet summary:"]
     for event in daily:
-        lines.extend(["", event["title"].replace("Mila - ", ""), *event["description_lines"][9:]])
+        lines.extend(["", event["title"].removeprefix(f"{swimmer_name} - "), *event["description_lines"][9:]])
     return {
-        "calendar": {"name": f"Mila - {short_name} Weekend", "timezone": DEFAULT_TZ},
+        "calendar": {"name": f"{swimmer_name} - {short_name} Weekend", "timezone": DEFAULT_TZ},
         "meet": {"id": meet_id, "name": meet_name, "short_name": short_name},
         "events": [
             {
-                "uid": f"{meet_id}-weekend-mila@swimtimeline",
-                "title": f"Mila - {short_name}: Meet Weekend",
+                "uid": f"{meet_id}-{swimmer_slug}-weekend@swimtimeline",
+                "title": f"{swimmer_name} - {short_name}: Whole Meet",
                 "start": start.isoformat(timespec="seconds"),
                 "end": end.isoformat(timespec="seconds"),
                 "location": "Multiple meet facilities",
@@ -955,10 +979,11 @@ def analyze_uploads(
     relays = build_relay_events(relay_entries, timeline_events)
     short_name = short_meet_name(meet_name)
     meet_id = slugify(meet_name)
+    day_numbers = day_numbers_for_items(swims, relays)
     payload_map = {
-        "daily": build_daily_payload(meet_id, meet_name, short_name, swims, relays, sessions),
-        "weekend": build_weekend_payload(meet_id, meet_name, short_name, swims, relays, sessions),
-        "detailed": build_detailed_payload(meet_id, meet_name, short_name, swims, relays),
+        "daily": build_daily_payload(meet_id, meet_name, short_name, swimmer_name, swims, relays, sessions),
+        "weekend": build_weekend_payload(meet_id, meet_name, short_name, swimmer_name, swims, relays, sessions),
+        "detailed": build_detailed_payload(meet_id, meet_name, short_name, swimmer_name, swims, relays, day_numbers),
     }
     selected_payloads = {mode: payload_map[mode] for mode in modes if mode in payload_map}
     files = write_outputs(output_dir, meet_name, swimmer_name, entries, swims, relays, page_counts, selected_payloads)

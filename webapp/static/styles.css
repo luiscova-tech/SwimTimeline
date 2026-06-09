@@ -40,10 +40,6 @@ body {
 }
 
 .app-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 18px;
   padding: 6px 2px 18px;
 }
 
@@ -67,29 +63,16 @@ h1 {
   font-size: 32px;
 }
 
+.header-copy {
+  max-width: 620px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
 h2 {
   font-size: 19px;
-}
-
-.top-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.top-nav a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: white;
-  color: var(--navy);
-  font-size: 14px;
-  font-weight: 750;
-  text-decoration: none;
 }
 
 .panel,
@@ -457,16 +440,11 @@ td strong {
     padding: 12px;
   }
 
-  .app-header,
   .section-header,
   .result-header,
   .meet-card {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .top-nav {
-    justify-content: flex-start;
   }
 
   .control-strip,
