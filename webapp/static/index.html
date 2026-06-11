@@ -10,7 +10,10 @@
     <main class="shell">
       <header class="app-header">
         <div>
-          <p class="eyebrow">Meet calendar builder</p>
+          <div class="header-meta">
+            <p class="eyebrow">Meet calendar builder</p>
+            <span class="version-pill">v0.3.0</span>
+          </div>
           <h1>SwimTimeline</h1>
           <p class="header-copy">Find a swimmer in hosted meet documents or upload meet PDFs to create Google Calendar files.</p>
         </div>
@@ -67,12 +70,11 @@
             <div id="currentMeetList" class="meet-list"></div>
           </section>
 
-          <section id="howToUse" class="how-to-use">
-            <div class="section-header">
-              <div>
-                <h2>How to Use</h2>
-              </div>
-            </div>
+          <details id="howToUse" class="how-to-use">
+            <summary>
+              <span>Need help?</span>
+              <small>How to use SwimTimeline</small>
+            </summary>
             <div class="instruction-grid">
               <div class="instruction-card">
                 <span>1</span>
@@ -90,7 +92,7 @@
                 <p>Review the events, then download daily, whole-meet, or swim-by-swim calendar files.</p>
               </div>
             </div>
-          </section>
+          </details>
 
           <div id="uploadMeet" class="section-header upload-header">
             <div>

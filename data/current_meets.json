@@ -21,6 +21,28 @@
         "Psych/heat sheet",
         "Final timeline"
       ]
+    },
+    {
+      "id": "2026-shark-open",
+      "name": "2026 Shark Open",
+      "short_name": "Shark Open",
+      "dates": "2026-06-11 through 2026-06-14",
+      "start_date": "2026-06-11",
+      "end_date": "2026-06-14",
+      "expires_at": "2026-06-15",
+      "state": "FL",
+      "status": "ready",
+      "files": {
+        "flyer": "meets/2026-shark-open/input/2026-shark-open-flyer.pdf",
+        "psych": "meets/2026-shark-open/input/2026-shark-open-heat-sheet.pdf",
+        "timeline": "meets/2026-shark-open/input/2026-shark-open-timeline.pdf",
+        "relay": null
+      },
+      "documents": [
+        "Meet flyer",
+        "Psych/heat sheet",
+        "Final timeline"
+      ]
     }
   ]
 }

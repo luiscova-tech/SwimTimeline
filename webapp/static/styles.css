@@ -44,13 +44,34 @@ body {
   padding: 6px 2px 18px;
 }
 
+.header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
 .eyebrow {
-  margin: 0 0 4px;
+  margin: 0;
   color: var(--accent-dark);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.version-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 7px;
+  border: 1px solid #c8d8e9;
+  border-radius: 999px;
+  background: white;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 h1,
@@ -146,6 +167,50 @@ h2 {
 .instruction-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-top: 12px;
+}
+
+.how-to-use {
+  border-top: 1px solid var(--line);
+}
+
+.how-to-use summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0 0;
+  color: var(--navy);
+  cursor: pointer;
+  list-style: none;
+  font-weight: 800;
+}
+
+.how-to-use summary::-webkit-details-marker {
+  display: none;
+}
+
+.how-to-use summary::after {
+  content: "+";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+  color: var(--accent-dark);
+  font-size: 16px;
+}
+
+.how-to-use[open] summary::after {
+  content: "-";
+}
+
+.how-to-use summary small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .instruction-card {

@@ -516,7 +516,8 @@ def parse_meet_name(text: str) -> str:
             return clean.split(" - ", 1)[0]
     for line in text.splitlines():
         clean = normalize_space(line)
-        if "invite" in clean.lower() or "invitational" in clean.lower():
+        lower = clean.lower()
+        if "invite" in lower or "invitational" in lower or " open" in lower:
             return clean
     return "Swim Meet"
 
@@ -592,6 +593,9 @@ def parse_timeline(timeline_pdf: Path, flyer_text: str = "") -> tuple[str, dict[
     start_date, _end_date = date_range
     flyer_sessions = parse_flyer_sessions(flyer_text, start_date) if flyer_text else {}
     meet_name = parse_meet_name(text)
+    flyer_meet_name = parse_meet_name(flyer_text) if flyer_text else "Swim Meet"
+    if "sarastoa" in meet_name.lower() and flyer_meet_name != "Swim Meet":
+        meet_name = flyer_meet_name
 
     sessions: dict[int, SessionInfo] = {}
     events: list[TimelineEvent] = []
