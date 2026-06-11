@@ -30,13 +30,42 @@
               </label>
             </div>
 
-            <fieldset>
+            <fieldset class="calendar-options">
               <legend>Calendar files</legend>
-              <label class="check"><input type="checkbox" name="modes" value="daily" checked> Daily</label>
-              <label class="check"><input type="checkbox" name="modes" value="weekend" checked> Whole meet</label>
-              <label class="check"><input type="checkbox" name="modes" value="detailed" checked> Swim by swim</label>
+              <label class="calendar-option recommended">
+                <input type="checkbox" name="modes" value="daily" checked>
+                <span>
+                  <strong>Daily Calendar</strong>
+                  <small>One event per meet day, starts at warm-up. Best for Google Calendar.</small>
+                </span>
+                <em>Recommended</em>
+              </label>
+              <label class="calendar-option">
+                <input type="checkbox" name="modes" value="weekend" checked>
+                <span>
+                  <strong>Whole Meet Calendar</strong>
+                  <small>One event for the full meet. Good for blocking the weekend.</small>
+                </span>
+              </label>
+              <label class="calendar-option">
+                <input type="checkbox" name="modes" value="detailed" checked>
+                <span>
+                  <strong>Swim-by-Swim Calendar</strong>
+                  <small>One event per swim. More detailed, but busier.</small>
+                </span>
+              </label>
             </fieldset>
           </div>
+
+          <section id="currentMeets" class="current-meets">
+            <div class="section-header">
+              <div>
+                <h2>Current Meets</h2>
+                <p class="section-copy">Meet documents already loaded and ready to search.</p>
+              </div>
+            </div>
+            <div id="currentMeetList" class="meet-list"></div>
+          </section>
 
           <section id="howToUse" class="how-to-use">
             <div class="section-header">
@@ -63,18 +92,10 @@
             </div>
           </section>
 
-          <section id="currentMeets" class="current-meets">
-            <div class="section-header">
-              <div>
-                <h2>Current Meets</h2>
-              </div>
-            </div>
-            <div id="currentMeetList" class="meet-list"></div>
-          </section>
-
           <div id="uploadMeet" class="section-header upload-header">
             <div>
-              <h2>Upload Meet Documents</h2>
+              <h2>Meet Not Listed?</h2>
+              <p class="section-copy">Upload the meet documents and generate calendar files from scratch.</p>
             </div>
             <button class="primary" type="submit">Generate From Uploads</button>
           </div>

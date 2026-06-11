@@ -132,10 +132,10 @@ function renderResult(payload) {
   `;
 
   const downloadLabels = {
-    daily_ics: "Daily ICS",
-    weekend_ics: "Whole Meet ICS",
-    detailed_ics: "Swim-by-Swim ICS",
-    audit: "Audit",
+    daily_ics: "Download Daily Calendar",
+    weekend_ics: "Download Whole Meet Calendar",
+    detailed_ics: "Download Swim-by-Swim Calendar",
+    audit: "Download Audit",
   };
   for (const [key, label] of Object.entries(downloadLabels)) {
     if (payload.downloads[key]) {

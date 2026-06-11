@@ -8,6 +8,7 @@
   --accent: #0f766e;
   --accent-dark: #0b5f59;
   --navy: #17325d;
+  --navy-soft: #edf3fb;
   --gold: #b7791f;
   --warn: #8a5200;
   --warn-bg: #fff4db;
@@ -120,12 +121,26 @@ h2 {
   gap: 16px;
 }
 
-.how-to-use,
 .current-meets,
+.how-to-use,
 .upload-header {
   margin-top: 20px;
   padding-top: 18px;
   border-top: 1px solid var(--line);
+}
+
+.section-copy {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.current-meets {
+  padding: 18px;
+  border: 1px solid #c8d8e9;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f9fbfe 0%, #f2f7fb 100%);
 }
 
 .instruction-grid {
@@ -167,7 +182,7 @@ h2 {
 }
 
 .meet-list {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
   margin-top: 12px;
 }
 
@@ -183,9 +198,11 @@ fieldset,
 
 .meet-card {
   display: flex;
+  align-items: stretch;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px;
+  padding: 16px;
+  background: white;
 }
 
 .meet-title-row {
@@ -197,7 +214,7 @@ fieldset,
 
 .meet-card h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .muted {
@@ -276,21 +293,63 @@ input[name="state"] {
   font-size: 13px;
 }
 
-fieldset {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: 10px;
+.calendar-options {
+  display: grid;
+  gap: 8px;
   margin: 0;
   padding: 12px;
 }
 
-.check {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding-right: 8px;
+.calendar-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  min-height: 74px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+}
+
+.calendar-option input {
+  margin-top: 3px;
+}
+
+.calendar-option strong,
+.calendar-option small {
+  display: block;
+}
+
+.calendar-option strong {
+  font-size: 14px;
+}
+
+.calendar-option small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.calendar-option em {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--navy-soft);
+  color: var(--navy);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.calendar-option.recommended {
+  border-color: #a5c7d6;
+  background: #f6fbfb;
 }
 
 .primary,
