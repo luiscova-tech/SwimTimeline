@@ -66,6 +66,10 @@ class PsychEntry:
     source_line: str
     matched_name: str = ""
     name_match_type: str = "exact"
+    document_type: str = "psych"
+    heat: int | None = None
+    lane: int | None = None
+    round_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -75,6 +79,10 @@ class PsychLine:
     age: str
     seed_place: int
     swimmer_name: str
+    document_type: str = "psych"
+    heat: int | None = None
+    lane: int | None = None
+    round_name: str | None = None
 
 
 @dataclass
@@ -124,6 +132,7 @@ def extract_fragments(path: Path) -> list[Fragment]:
 
 
 def normalize_space(value: str) -> str:
+    value = value.replace("\u03d0", "f").replace("\ufb01", "fi").replace("\ufb02", "fl")
     return re.sub(r"\s+", " ", value).strip()
 
 
@@ -255,6 +264,7 @@ def page_column_for_line(page: int, line: str, fragments: list[Fragment]) -> str
 
 
 def parse_psych_line(line: str) -> PsychLine | None:
+    line, heat, round_name = normalize_entry_line(line)
     match = re.search(
         r"(?P<team>[A-Z0-9-]+)\s+"
         r"(?P<seed>(?:NT|(?:\d+:)?\d{1,2}\.\d{2}[A-Z]?))\s+"
@@ -272,7 +282,30 @@ def parse_psych_line(line: str) -> PsychLine | None:
         age=match.group("age"),
         swimmer_name=clean_swimmer_name(match.group("name")),
         seed_place=int(match.group("place")),
+        document_type="heat" if heat is not None else "psych",
+        heat=heat,
+        lane=int(match.group("place")) if heat is not None else None,
+        round_name=round_name,
     )
+
+
+def normalize_entry_line(line: str) -> tuple[str, int | None, str | None]:
+    clean = normalize_space(line)
+    clean = re.sub(r"^Age\s+TeamName\s+Seed\s+Time", "", clean, flags=re.IGNORECASE).strip()
+    heat = None
+    round_name = None
+    heat_match = re.match(
+        r"^Heat\s+(?P<heat>\d+)(?:\s+of\s+\d+)?\s+"
+        r"(?P<round>Prelims|Finals)"
+        r"(?:\s+\(#[^)]+\))?\s*",
+        clean,
+        flags=re.IGNORECASE,
+    )
+    if heat_match:
+        heat = int(heat_match.group("heat"))
+        round_name = heat_match.group("round").title()
+        clean = clean[heat_match.end() :].strip()
+    return clean, heat, round_name
 
 
 def parse_psych_entry_line(
@@ -293,10 +326,18 @@ def parse_psych_entry_line(
 def scan_event_header(lines: list[str], start_index: int) -> tuple[int, str] | None:
     for index in range(start_index, -1, -1):
         line = normalize_space(lines[index])
-        match = re.match(r"#\s*(\d+)\s+(.+)$", line)
+        match = re.match(r"(?:#|Event)\s*(\d+)\s+(.+)$", line, flags=re.IGNORECASE)
         if match:
-            return int(match.group(1)), normalize_space(match.group(2))
+            return int(match.group(1)), normalize_event_header_name(match.group(2))
     return None
+
+
+def normalize_event_header_name(value: str) -> str:
+    name = normalize_space(value)
+    continuation = re.match(r"\.\.\.\((.+)\)$", name)
+    if continuation:
+        return normalize_space(continuation.group(1))
+    return name
 
 
 def collect_psych_entries(
@@ -336,6 +377,10 @@ def collect_psych_entries(
                     source_line=normalize_space(line),
                     matched_name=row.swimmer_name,
                     name_match_type=match_type,
+                    document_type=row.document_type,
+                    heat=row.heat,
+                    lane=row.lane,
+                    round_name=row.round_name,
                 )
             )
         if count:
@@ -554,7 +599,7 @@ def parse_timeline(timeline_pdf: Path, flyer_text: str = "") -> tuple[str, dict[
     session_header = re.compile(r"Session:\s*(\d+)\s+(.+)")
     day_header = re.compile(r"Day of Meet:\s*(\d+)\s+Starts at\s+(\d{1,2}:\d{2}\s*[AP]M)", re.IGNORECASE)
     event_line = re.compile(
-        r"^(Prelims|Finals)\s+(\d+)\s+(.+?)\s+(\d+)\s+(\d+)\s+_+(\d{1,2}:\d{2})\s*([AP]M)u?$",
+        r"^(Prelims|Finals)\s+(\d+)\s+(.+?)\s+(\d+)\s+(\d+)\s+_+\s*(\d{1,2}:\d{2})\s*([AP]M)u?$",
         re.IGNORECASE,
     )
     finish_line = re.compile(r"Finish Time\s+_+(\d{1,2}:\d{2}\s*[AP]M)", re.IGNORECASE)
@@ -564,7 +609,7 @@ def parse_timeline(timeline_pdf: Path, flyer_text: str = "") -> tuple[str, dict[
         pending_session: tuple[int, str] | None = None
         page_events: list[TimelineEvent] = []
         for raw_line in page_text.splitlines():
-            line = normalize_space(raw_line)
+            line = normalize_timeline_line(raw_line)
             if not line:
                 continue
             session_match = session_header.search(line)
@@ -625,6 +670,13 @@ def parse_timeline(timeline_pdf: Path, flyer_text: str = "") -> tuple[str, dict[
     return meet_name, sessions, events
 
 
+def normalize_timeline_line(value: str) -> str:
+    line = normalize_space(value)
+    line = re.sub(r"^(Prelims|Finals)\s+(\d+)(?=[A-Za-z])", r"\1 \2 ", line, flags=re.IGNORECASE)
+    line = re.sub(r"(?<=\d)(Girls|Boys|Women|Men)\b", r" \1", line, flags=re.IGNORECASE)
+    return line
+
+
 def normalize_time_string(value: str) -> str:
     dt = combine_date_time(date(2000, 1, 1), value)
     return dt.strftime("%H:%M")
@@ -676,6 +728,22 @@ def event_short_name(event_name: str) -> str:
     text = text.replace("Breaststroke", "Breast").replace("Butterfly", "Fly")
     text = text.replace("Individual Medley", "IM")
     return normalize_space(text.replace(" & Under", "&U"))
+
+
+def entry_seed_summary(entry: PsychEntry) -> str:
+    if entry.heat is not None and entry.lane is not None:
+        return f"seed {entry.seed_time} | heat {entry.heat}, lane {entry.lane}"
+    return f"seed {entry.seed_time} | seed place {entry.seed_place}"
+
+
+def entry_position_line(entry: PsychEntry) -> str:
+    if entry.heat is not None and entry.lane is not None:
+        return f"Heat/lane: heat {entry.heat}, lane {entry.lane}"
+    return f"Seed place: {entry.seed_place}"
+
+
+def entry_source_label(entry: PsychEntry) -> str:
+    return "Heat sheet" if entry.heat is not None else "Psych/entry sheet"
 
 
 def location_for_session(session: SessionInfo | TimelineEvent) -> str:
@@ -799,11 +867,11 @@ def build_detailed_payload(
             "",
             f"Day: {meet_day_text(timeline.date, day_numbers.get(timeline.date, 1))}",
             f"Session: #{timeline.session_number} - {timeline.session_name}",
-            f"Pool/course: {location_for_session(timeline)}; psych sheet lists event as LC Meter",
+            f"Pool/course: {location_for_session(timeline)}; entry sheet lists event as LC Meter",
             "",
             f"Event: #{psych.event_number} - {psych.event_name}",
             f"Seed time: {psych.seed_time}",
-            f"Seed place: {psych.seed_place}",
+            entry_position_line(psych),
             f"Timeline event window: {display_window(timeline.start, timeline.end)}",
             "",
             f"Finals: {swim.finals_note}",
@@ -824,7 +892,7 @@ def build_detailed_payload(
             [
                 "",
                 "Source verification:",
-                f"Psych sheet: page {psych.page}, {psych.column.lower()} column",
+                f"{entry_source_label(psych)}: page {psych.page}, {psych.column.lower()} column",
                 f"Timeline: event #{psych.event_number}",
                 "Relay source: n/a",
             ]
@@ -937,7 +1005,7 @@ def build_daily_payload(
             f"Session: #{first.timeline.session_number} - {first.timeline.session_name}",
             f"Warm-up: {display_time(session_warmup)}",
             f"Meet start: {display_time(session_start)}",
-            f"Pool/course: {location_for_session(first.timeline)}; psych sheet lists events as LC Meter",
+            f"Pool/course: {location_for_session(first.timeline)}; entry sheet lists events as LC Meter",
             "",
             f"{possessive_name(swimmer_name)} swims:",
         ]
@@ -949,7 +1017,7 @@ def build_daily_payload(
                 )
             else:
                 lines.append(
-                    f"#{item.psych.event_number} {event_short_name(item.psych.event_name)} | seed {item.psych.seed_time} | seed place {item.psych.seed_place} | {display_window(item.timeline.start, item.timeline.end)}"
+                    f"#{item.psych.event_number} {event_short_name(item.psych.event_name)} | {entry_seed_summary(item.psych)} | {display_window(item.timeline.start, item.timeline.end)}"
                 )
         possible_finals = [
             f"#{item.psych.event_number} {event_short_name(item.psych.event_name)} at {display_time(item.final_timeline.start)} at {location_for_session_name(item.final_timeline.session_name)} if qualifies"
@@ -973,7 +1041,7 @@ def build_daily_payload(
                 lines.append(f"#{item.psych.event_number} {item.benchmarks['advanced']}")
         if any(isinstance(item, RelayEvent) for item in day_items):
             lines.append("Relays: benchmarks n/a.")
-        lines.extend(["", "Source verification: psych sheet and timeline verified; review the audit report before import."])
+        lines.extend(["", "Source verification: entry sheet and timeline verified; review the audit report before import."])
         events.append(
             {
                 "uid": f"{meet_id}-{swimmer_slug}-{day.isoformat()}@swimtimeline",
@@ -1082,12 +1150,13 @@ def build_audit(
     for row in page_counts:
         lines.append(f"| {row['page']} | {row['count']} |")
     lines.extend(["", f"Total psych entries parsed: {len(entries)}", "", "## Verified Events", ""])
-    lines.append("| Day | Event # | Event Name | Seed Time | Seed Place | Page | Column |")
-    lines.append("| --- | ---: | --- | --- | ---: | ---: | --- |")
+    lines.append("| Day | Event # | Event Name | Seed Time | Position | Page | Column | Source |")
+    lines.append("| --- | ---: | --- | --- | --- | ---: | --- | --- |")
     for swim in swims:
         psych = swim.psych
+        position = f"heat {psych.heat}, lane {psych.lane}" if psych.heat is not None and psych.lane is not None else f"seed place {psych.seed_place}"
         lines.append(
-            f"| {swim.timeline.date.strftime('%A')} | {psych.event_number} | {psych.event_name} | {psych.seed_time} | {psych.seed_place} | {psych.page} | {psych.column} |"
+            f"| {swim.timeline.date.strftime('%A')} | {psych.event_number} | {psych.event_name} | {psych.seed_time} | {position} | {psych.page} | {psych.column} | {entry_source_label(psych)} |"
         )
     lines.extend(["", "## Verified Relays", ""])
     if relays:
@@ -1184,6 +1253,10 @@ def summarize_swim(swim: SwimEvent) -> dict:
         "event_name": swim.psych.event_name,
         "seed_time": swim.psych.seed_time,
         "seed_place": swim.psych.seed_place,
+        "heat": swim.psych.heat,
+        "lane": swim.psych.lane,
+        "entry_position": entry_position_line(swim.psych),
+        "source_document": entry_source_label(swim.psych),
         "day": swim.timeline.date.strftime("%A"),
         "window": display_window(swim.timeline.start, swim.timeline.end),
         "page": swim.psych.page,

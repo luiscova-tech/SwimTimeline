@@ -31,6 +31,16 @@ Uploaded meets are not added automatically. A successful upload has to be promot
 
 Each Current Meets entry has `start_date`, `end_date`, and `expires_at`. The public list hides meets on `expires_at`, which is set to the day after the meet ends. The JSON record is left in place so the meet can still be archived or restored later.
 
+## Usage Stats
+
+The app can report aggregate usage at:
+
+```text
+https://swimtimeline.onrender.com/api/usage
+```
+
+The counter stores total lookups and hashed normalized swimmer names, not swimmer names in plain text. It is useful for estimating distinct swimmer-name searches, but on Render's free filesystem it may reset after restarts or redeploys unless persistent storage is added later.
+
 ## Optional Warm Monitoring
 
 The app exposes a lightweight health endpoint:

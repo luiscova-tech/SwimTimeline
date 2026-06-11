@@ -46,12 +46,25 @@ Current Meets entries store `start_date`, `end_date`, and `expires_at`. The publ
 
 ## Extraction Behavior
 
-- Swimmer matching supports `First Last` input against psych-sheet names like `Last, First M`. If exact matching finds no entries, the parser can use a high-confidence typo match such as one extra letter in the first or last name and shows a warning.
+- Swimmer matching supports `First Last` input against psych-sheet or heat-sheet names like `Last, First M`. If exact matching finds no entries, the parser can use a high-confidence typo match such as one extra letter in the first or last name and shows a warning.
 - Psych sheet extraction counts matching names first, then records event number, event name, seed time, seed place, page, and column.
-- Timeline extraction matches swims by event number and uses the next timeline row as the event-window end.
+- Heat sheet extraction supports HY-TEK `Meet Program` documents with `Event  1 ...` headers. When the row includes heat/lane information, the app records heat and lane instead of displaying that value as seed place.
+- Timeline extraction matches swims by event number and uses the next timeline row as the event-window end. It tolerates glued HY-TEK rows such as `Prelims 10Boys`.
 - Daily events start at the parsed session warm-up time. Distance check-in events can pull the daily calendar event earlier when the flyer requires check-in before another session's warm-up.
 - Possible finals are included in descriptions as `if qualifies`; separate finals events are not generated until qualification is known.
 - Relay uploads are parsed conservatively. Relays are included only when the relay document explicitly names the swimmer under a relay team.
+
+## Usage Stats
+
+The backend records aggregate usage in `data/usage_stats.json`, which is ignored by git. It stores total lookups and hashes of normalized swimmer names, not swimmer names in plain text.
+
+`GET /api/usage` returns:
+
+- `total_lookups`
+- `unique_swimmer_names`
+- `last_lookup_at`
+
+On Render's free filesystem, these runtime stats can reset on restart or redeploy unless the app is later connected to persistent storage.
 
 ## Standards
 

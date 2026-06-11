@@ -1,3 +1,4 @@
 .swimtimeline-runs/
+data/usage_stats.json
 __pycache__/
 *.pyc

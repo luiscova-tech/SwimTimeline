@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import cgi
 from datetime import date, timedelta
+import hashlib
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -23,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 RUNS_DIR = ROOT / ".swimtimeline-runs"
 CURRENT_MEETS_PATH = ROOT / "data" / "current_meets.json"
+USAGE_STATS_PATH = ROOT / "data" / "usage_stats.json"
 HOSTED_MEETS_DIR = ROOT / "meets" / "current-hosted"
 sys.path.insert(0, str(ROOT))
 
@@ -49,6 +51,9 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/current-meets":
             self.send_json({"current_meets": public_current_meets()})
+            return
+        if path == "/api/usage":
+            self.send_json(public_usage_stats())
             return
         self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -119,6 +124,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         result["downloads"] = {
             key: f"/download/{run_id}/{name}" for key, name in result["files"].items()
         }
+        record_swimmer_lookup(result.get("swimmer") or swimmer_name, result["meet"].get("id"), source="upload")
         write_run_manifest(
             run_dir,
             {
@@ -175,6 +181,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         result["downloads"] = {
             key: f"/download/{run_id}/{name}" for key, name in result["files"].items()
         }
+        record_swimmer_lookup(result.get("swimmer") or swimmer_name, result["meet"].get("id"), source="current_meet")
         return result
 
     def handle_publish_current(self) -> dict:
@@ -343,6 +350,62 @@ def write_json(path: Path, payload: dict) -> None:
 
 def write_run_manifest(run_dir: Path, payload: dict) -> None:
     write_json(run_dir / "manifest.json", payload)
+
+
+def load_usage_stats() -> dict:
+    if not USAGE_STATS_PATH.exists():
+        return {"total_lookups": 0, "swimmers": {}}
+    try:
+        data = json.loads(USAGE_STATS_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {"total_lookups": 0, "swimmers": {}}
+    data.setdefault("total_lookups", 0)
+    data.setdefault("swimmers", {})
+    return data
+
+
+def public_usage_stats() -> dict:
+    data = load_usage_stats()
+    swimmers = data.get("swimmers", {})
+    return {
+        "total_lookups": int(data.get("total_lookups") or 0),
+        "unique_swimmer_names": len(swimmers),
+        "last_lookup_at": data.get("last_lookup_at"),
+    }
+
+
+def record_swimmer_lookup(swimmer_name: str, meet_id: str | None, source: str) -> None:
+    normalized = normalize_swimmer_for_stats(swimmer_name)
+    if not normalized:
+        return
+    data = load_usage_stats()
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    swimmer_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    swimmers = data.setdefault("swimmers", {})
+    row = swimmers.setdefault(
+        swimmer_hash,
+        {
+            "count": 0,
+            "first_seen_at": now,
+            "last_seen_at": now,
+            "meet_ids": [],
+            "sources": {},
+        },
+    )
+    row["count"] = int(row.get("count") or 0) + 1
+    row["last_seen_at"] = now
+    meet_ids = row.setdefault("meet_ids", [])
+    if meet_id and meet_id not in meet_ids:
+        meet_ids.append(meet_id)
+    sources = row.setdefault("sources", {})
+    sources[source] = int(sources.get(source) or 0) + 1
+    data["total_lookups"] = int(data.get("total_lookups") or 0) + 1
+    data["last_lookup_at"] = now
+    write_json(USAGE_STATS_PATH, data)
+
+
+def normalize_swimmer_for_stats(swimmer_name: str) -> str:
+    return re.sub(r"[^a-z]+", " ", swimmer_name.casefold()).strip()
 
 
 def load_current_meets() -> list[dict]:

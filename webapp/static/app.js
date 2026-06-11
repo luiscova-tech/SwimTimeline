@@ -160,10 +160,10 @@ function renderResult(payload) {
     const row = document.createElement("tr");
     const seedCell = swim.type === "relay"
       ? `${escapeHtml(swim.seed_time)}<br>${escapeHtml(swim.relay_label || "Relay")}, leg ${escapeHtml(swim.leg || "")}`
-      : `${escapeHtml(swim.seed_time)}<br>seed place ${swim.seed_place}`;
+      : seedDetails(swim);
     const sourceCell = swim.type === "relay"
       ? `page ${swim.page}<br>relay document`
-      : `page ${swim.page}<br>${escapeHtml(swim.column)} column`;
+      : `page ${swim.page}<br>${escapeHtml(swim.source_document || "entry sheet")}<br>${escapeHtml(swim.column)} column`;
     row.innerHTML = `
       <td>${escapeHtml(swim.day)}</td>
       <td><strong>#${swim.event_number}${swim.type === "relay" ? " Relay" : ""}</strong>${escapeHtml(swim.event_name)}</td>
@@ -208,6 +208,16 @@ async function publishCurrentMeet() {
 function advancedLine(swim) {
   if (!swim.benchmarks.advanced) return "";
   return `<br>${escapeHtml(swim.benchmarks.advanced)}`;
+}
+
+function seedDetails(swim) {
+  const details = [`${escapeHtml(swim.seed_time)}`];
+  if (swim.heat && swim.lane) {
+    details.push(`heat ${escapeHtml(swim.heat)}, lane ${escapeHtml(swim.lane)}`);
+  } else {
+    details.push(`seed place ${escapeHtml(swim.seed_place)}`);
+  }
+  return details.join("<br>");
 }
 
 function escapeHtml(value) {
