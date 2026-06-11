@@ -5,6 +5,9 @@
       "name": "2026 MAC Narwhal Invite",
       "short_name": "Narwhal Invite",
       "dates": "2026-06-12 through 2026-06-14",
+      "start_date": "2026-06-12",
+      "end_date": "2026-06-14",
+      "expires_at": "2026-06-15",
       "state": "AZ",
       "status": "ready",
       "files": {
@@ -15,7 +18,7 @@
       },
       "documents": [
         "Meet flyer",
-        "Psych sheet",
+        "Psych/heat sheet",
         "Final timeline"
       ]
     }

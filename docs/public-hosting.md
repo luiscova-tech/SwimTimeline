@@ -29,6 +29,8 @@ python webapp/server.py --host 0.0.0.0
 
 Uploaded meets are not added automatically. A successful upload has to be promoted with `Save To Current Meets`; after deployment, promoted documents should be treated as public documents.
 
+Each Current Meets entry has `start_date`, `end_date`, and `expires_at`. The public list hides meets on `expires_at`, which is set to the day after the meet ends. The JSON record is left in place so the meet can still be archived or restored later.
+
 ## Optional Warm Monitoring
 
 The app exposes a lightweight health endpoint:

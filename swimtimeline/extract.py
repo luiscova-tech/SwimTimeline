@@ -64,6 +64,17 @@ class PsychEntry:
     page: int
     column: str
     source_line: str
+    matched_name: str = ""
+    name_match_type: str = "exact"
+
+
+@dataclass(frozen=True)
+class PsychLine:
+    team: str
+    seed: str
+    age: str
+    seed_place: int
+    swimmer_name: str
 
 
 @dataclass
@@ -116,6 +127,80 @@ def normalize_space(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
+def clean_swimmer_name(value: str) -> str:
+    cleaned = re.sub(r"[*\u2022\u2020\u2021]+", " ", value)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip(" ,")
+
+
+def name_pairs(value: str) -> list[tuple[str, str]]:
+    cleaned = clean_swimmer_name(value)
+    pairs: list[tuple[str, str]] = []
+    if "," in cleaned:
+        last_part, first_part = cleaned.split(",", 1)
+        first_tokens = re.findall(r"[A-Za-z][A-Za-z'-]*", first_part)
+        last_tokens = re.findall(r"[A-Za-z][A-Za-z'-]*", last_part)
+        if first_tokens and last_tokens:
+            pairs.append((normalize_name_token(first_tokens[0]), normalize_name_token(last_tokens[-1])))
+    else:
+        tokens = re.findall(r"[A-Za-z][A-Za-z'-]*", cleaned)
+        if len(tokens) >= 2:
+            pairs.append((normalize_name_token(tokens[0]), normalize_name_token(tokens[-1])))
+            if len(tokens) == 2:
+                pairs.append((normalize_name_token(tokens[-1]), normalize_name_token(tokens[0])))
+    return list(dict.fromkeys(pair for pair in pairs if pair[0] and pair[1]))
+
+
+def normalize_name_token(value: str) -> str:
+    return re.sub(r"[^a-z]", "", value.casefold())
+
+
+def display_first_last(value: str) -> str | None:
+    pairs = name_pairs(value)
+    if not pairs:
+        return None
+    first, last = pairs[0]
+    return f"{first.title()} {last.title()}"
+
+
+def levenshtein(left: str, right: str) -> int:
+    if left == right:
+        return 0
+    if not left:
+        return len(right)
+    if not right:
+        return len(left)
+    previous = list(range(len(right) + 1))
+    for left_index, left_char in enumerate(left, start=1):
+        current = [left_index]
+        for right_index, right_char in enumerate(right, start=1):
+            current.append(
+                min(
+                    previous[right_index] + 1,
+                    current[right_index - 1] + 1,
+                    previous[right_index - 1] + (left_char != right_char),
+                )
+            )
+        previous = current
+    return previous[-1]
+
+
+def close_name_pair(query: tuple[str, str], candidate: tuple[str, str]) -> bool:
+    query_first, query_last = query
+    candidate_first, candidate_last = candidate
+    if query_first == candidate_first and levenshtein(query_last, candidate_last) <= 1:
+        return True
+    if query_last == candidate_last and levenshtein(query_first, candidate_first) <= 1:
+        return True
+    full_query = f"{query_first}{query_last}"
+    full_candidate = f"{candidate_first}{candidate_last}"
+    return (
+        query_first[:1] == candidate_first[:1]
+        and query_last[:1] == candidate_last[:1]
+        and levenshtein(full_query, full_candidate) <= 2
+    )
+
+
 def make_name_patterns(swimmer_name: str) -> list[re.Pattern[str]]:
     raw = normalize_space(swimmer_name)
     patterns: list[str] = []
@@ -137,6 +222,23 @@ def line_matches_name(line: str, patterns: Iterable[re.Pattern[str]]) -> bool:
     return any(pattern.search(line) for pattern in patterns)
 
 
+def match_swimmer_name(
+    candidate_name: str,
+    patterns: Iterable[re.Pattern[str]],
+    query_pairs: list[tuple[str, str]],
+    allow_fuzzy: bool,
+) -> str | None:
+    cleaned = clean_swimmer_name(candidate_name)
+    if line_matches_name(cleaned, patterns):
+        return "exact"
+    candidate_pairs = name_pairs(cleaned)
+    if any(query == candidate for query in query_pairs for candidate in candidate_pairs):
+        return "exact"
+    if allow_fuzzy and any(close_name_pair(query, candidate) for query in query_pairs for candidate in candidate_pairs):
+        return "fuzzy"
+    return None
+
+
 def page_column_for_line(page: int, line: str, fragments: list[Fragment]) -> str:
     candidates = [fragment for fragment in fragments if fragment.page == page and line.strip() in fragment.text]
     if not candidates:
@@ -152,26 +254,39 @@ def page_column_for_line(page: int, line: str, fragments: list[Fragment]) -> str
     return "Right"
 
 
-def parse_psych_entry_line(line: str, patterns: Iterable[re.Pattern[str]]) -> tuple[str, str, str, int] | None:
-    for pattern in patterns:
-        match = pattern.search(line)
-        if not match:
-            continue
-        before = line[: match.start()]
-        after = line[match.end() :]
-        place_match = re.search(r"(\d+)\s*$", after)
-        prefix_match = re.search(
-            r"(?P<team>[A-Z0-9-]+)\s+(?P<seed>(?:NT|(?:\d+:)?\d{1,2}\.\d{2}[A-Z]?))\s+(?P<age>\d{1,2})\s*$",
-            before,
-            flags=re.IGNORECASE,
-        )
-        if prefix_match and place_match:
-            return (
-                prefix_match.group("team"),
-                prefix_match.group("seed"),
-                prefix_match.group("age"),
-                int(place_match.group(1)),
-            )
+def parse_psych_line(line: str) -> PsychLine | None:
+    match = re.search(
+        r"(?P<team>[A-Z0-9-]+)\s+"
+        r"(?P<seed>(?:NT|(?:\d+:)?\d{1,2}\.\d{2}[A-Z]?))\s+"
+        r"(?P<age>\d{1,2})\s*"
+        r"(?P<name>.+?)\s*"
+        r"(?P<place>\d+)\s*$",
+        line,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return None
+    return PsychLine(
+        team=match.group("team"),
+        seed=match.group("seed"),
+        age=match.group("age"),
+        swimmer_name=clean_swimmer_name(match.group("name")),
+        seed_place=int(match.group("place")),
+    )
+
+
+def parse_psych_entry_line(
+    line: str,
+    patterns: Iterable[re.Pattern[str]],
+    query_pairs: list[tuple[str, str]],
+    allow_fuzzy: bool = False,
+) -> tuple[PsychLine, str] | None:
+    row = parse_psych_line(line)
+    if row is None:
+        return None
+    match_type = match_swimmer_name(row.swimmer_name, patterns, query_pairs, allow_fuzzy=allow_fuzzy)
+    if match_type:
+        return row, match_type
     return None
 
 
@@ -184,10 +299,13 @@ def scan_event_header(lines: list[str], start_index: int) -> tuple[int, str] | N
     return None
 
 
-def extract_psych_entries(psych_pdf: Path, swimmer_name: str) -> tuple[list[PsychEntry], list[dict]]:
-    patterns = make_name_patterns(swimmer_name)
-    pages = extract_text_pages(psych_pdf)
-    fragments = extract_fragments(psych_pdf)
+def collect_psych_entries(
+    pages: list[str],
+    fragments: list[Fragment],
+    patterns: list[re.Pattern[str]],
+    query_pairs: list[tuple[str, str]],
+    allow_fuzzy: bool,
+) -> tuple[list[PsychEntry], list[dict]]:
     entries: list[PsychEntry] = []
     page_counts: list[dict] = []
 
@@ -195,27 +313,29 @@ def extract_psych_entries(psych_pdf: Path, swimmer_name: str) -> tuple[list[Psyc
         lines = text.splitlines()
         count = 0
         for index, line in enumerate(lines):
-            if not line_matches_name(line, patterns):
+            parsed = parse_psych_entry_line(line, patterns, query_pairs, allow_fuzzy=allow_fuzzy)
+            if parsed is None:
                 continue
+            row, match_type = parsed
             count += 1
-            parsed = parse_psych_entry_line(line, patterns)
             header = scan_event_header(lines, index)
-            if parsed is None or header is None:
+            if header is None:
                 continue
-            team, seed, age, seed_place = parsed
             event_number, event_name = header
             entries.append(
                 PsychEntry(
                     day="",
                     event_number=event_number,
                     event_name=event_name,
-                    seed_time=seed,
-                    seed_place=seed_place,
-                    age=age,
-                    team=team,
+                    seed_time=row.seed,
+                    seed_place=row.seed_place,
+                    age=row.age,
+                    team=row.team,
                     page=page_number,
                     column=page_column_for_line(page_number, line, fragments),
                     source_line=normalize_space(line),
+                    matched_name=row.swimmer_name,
+                    name_match_type=match_type,
                 )
             )
         if count:
@@ -225,13 +345,38 @@ def extract_psych_entries(psych_pdf: Path, swimmer_name: str) -> tuple[list[Psyc
     return entries, page_counts
 
 
+def extract_psych_entries(psych_pdf: Path, swimmer_name: str) -> tuple[list[PsychEntry], list[dict], list[str]]:
+    patterns = make_name_patterns(swimmer_name)
+    query_pairs = name_pairs(swimmer_name)
+    pages = extract_text_pages(psych_pdf)
+    fragments = extract_fragments(psych_pdf)
+
+    entries, page_counts = collect_psych_entries(pages, fragments, patterns, query_pairs, allow_fuzzy=False)
+    if entries:
+        return entries, page_counts, []
+
+    entries, page_counts = collect_psych_entries(pages, fragments, patterns, query_pairs, allow_fuzzy=True)
+    warnings: list[str] = []
+    if entries:
+        matched_names = sorted({entry.matched_name for entry in entries if entry.matched_name})
+        if matched_names:
+            warnings.append(
+                "No exact swimmer-name match was found. Used high-confidence match: "
+                + ", ".join(matched_names)
+                + "."
+            )
+    return entries, page_counts, warnings
+
+
 def extract_relay_entries(relay_pdf: Path | None, swimmer_name: str) -> tuple[list[RelayEntry], list[str]]:
     if relay_pdf is None:
         return [], []
 
     patterns = make_name_patterns(swimmer_name)
+    query_pairs = name_pairs(swimmer_name)
     pages = extract_text_pages(relay_pdf)
     relays: list[RelayEntry] = []
+    fuzzy_relays: list[RelayEntry] = []
     warnings: list[str] = []
     current: dict[str, str | int] | None = None
 
@@ -271,19 +416,31 @@ def extract_relay_entries(relay_pdf: Path | None, swimmer_name: str) -> tuple[li
                 continue
 
             swimmer = swimmer_line.match(line)
-            if swimmer and current and line_matches_name(swimmer.group("name"), patterns):
-                relays.append(
-                    RelayEntry(
-                        event_number=int(current["event_number"]),
-                        event_name=str(current["event_name"]),
-                        relay_label=str(current["relay_label"]),
-                        entry_time=str(current["entry_time"]),
-                        leg=int(swimmer.group("leg")),
-                        page=page_number,
-                        source_line=line,
-                    )
+            if swimmer and current:
+                match_type = match_swimmer_name(swimmer.group("name"), patterns, query_pairs, allow_fuzzy=False)
+                fuzzy_match_type = None if match_type else match_swimmer_name(
+                    swimmer.group("name"),
+                    patterns,
+                    query_pairs,
+                    allow_fuzzy=True,
                 )
+                relay = RelayEntry(
+                    event_number=int(current["event_number"]),
+                    event_name=str(current["event_name"]),
+                    relay_label=str(current["relay_label"]),
+                    entry_time=str(current["entry_time"]),
+                    leg=int(swimmer.group("leg")),
+                    page=page_number,
+                    source_line=line,
+                )
+                if match_type:
+                    relays.append(relay)
+                elif fuzzy_match_type:
+                    fuzzy_relays.append(relay)
 
+    if not relays and fuzzy_relays:
+        relays = fuzzy_relays
+        warnings.append("No exact relay-name match was found. Used a high-confidence relay name match.")
     if not relays:
         warnings.append("Relay document uploaded, but no relay rows explicitly named the swimmer.")
     relays.sort(key=lambda relay: (relay.event_number, relay.relay_label, relay.leg))
@@ -972,25 +1129,27 @@ def analyze_uploads(
 ) -> dict:
     flyer_text = "\n".join(extract_text_pages(flyer_pdf)) if flyer_pdf else ""
     meet_name, sessions, timeline_events = parse_timeline(timeline_pdf, flyer_text=flyer_text)
-    entries, page_counts = extract_psych_entries(psych_pdf, swimmer_name)
+    entries, page_counts, name_warnings = extract_psych_entries(psych_pdf, swimmer_name)
     relay_entries, relay_warnings = extract_relay_entries(relay_pdf, swimmer_name)
     assign_days(entries, timeline_events)
     swims = build_swim_events(entries, timeline_events, state=state)
     relays = build_relay_events(relay_entries, timeline_events)
     short_name = short_meet_name(meet_name)
     meet_id = slugify(meet_name)
+    output_swimmer_name = resolved_swimmer_name(swimmer_name, entries)
     day_numbers = day_numbers_for_items(swims, relays)
     payload_map = {
-        "daily": build_daily_payload(meet_id, meet_name, short_name, swimmer_name, swims, relays, sessions),
-        "weekend": build_weekend_payload(meet_id, meet_name, short_name, swimmer_name, swims, relays, sessions),
-        "detailed": build_detailed_payload(meet_id, meet_name, short_name, swimmer_name, swims, relays, day_numbers),
+        "daily": build_daily_payload(meet_id, meet_name, short_name, output_swimmer_name, swims, relays, sessions),
+        "weekend": build_weekend_payload(meet_id, meet_name, short_name, output_swimmer_name, swims, relays, sessions),
+        "detailed": build_detailed_payload(meet_id, meet_name, short_name, output_swimmer_name, swims, relays, day_numbers),
     }
     selected_payloads = {mode: payload_map[mode] for mode in modes if mode in payload_map}
-    files = write_outputs(output_dir, meet_name, swimmer_name, entries, swims, relays, page_counts, selected_payloads)
+    files = write_outputs(output_dir, meet_name, output_swimmer_name, entries, swims, relays, page_counts, selected_payloads)
 
     return {
         "meet": {"id": meet_id, "name": meet_name, "short_name": short_name},
-        "swimmer": swimmer_name,
+        "swimmer": output_swimmer_name,
+        "requested_swimmer": swimmer_name,
         "verified_event_count": len(swims),
         "verified_relay_count": len(relays),
         "psych_match_pages": page_counts,
@@ -1002,8 +1161,14 @@ def analyze_uploads(
         ),
         "files": files,
         "sessions": [serialize_session(session) for session in sessions.values()],
-        "warnings": build_warnings(entries, swims, relay_entries, relays, relay_warnings),
+        "warnings": build_warnings(entries, swims, relay_entries, relays, relay_warnings, name_warnings),
     }
+
+
+def resolved_swimmer_name(swimmer_name: str, entries: list[PsychEntry]) -> str:
+    if not entries or not any(entry.name_match_type == "fuzzy" for entry in entries):
+        return swimmer_name
+    return display_first_last(entries[0].matched_name) or swimmer_name
 
 
 def serialize_session(session: SessionInfo) -> dict:
@@ -1057,8 +1222,10 @@ def build_warnings(
     relay_entries: list[RelayEntry],
     relays: list[RelayEvent],
     relay_warnings: list[str],
+    name_warnings: list[str],
 ) -> list[str]:
     warnings: list[str] = []
+    warnings.extend(name_warnings)
     if not entries:
         warnings.append("No psych sheet entries matched the swimmer name. Try Last, First or include a middle initial.")
     if len(swims) < len(entries):

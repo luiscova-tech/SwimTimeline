@@ -288,6 +288,14 @@ input[name="state"] {
   padding: 12px;
 }
 
+.file-input small {
+  display: block;
+  margin: -2px 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .file-input input {
   width: 100%;
   font-size: 13px;

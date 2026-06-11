@@ -25,7 +25,7 @@ The app is deployable as a small Python web service. `requirements.txt` and `ren
 
 1. Enter the swimmer name and state/LSC.
 2. Use a hosted item from `Current Meets` when the meet documents are already listed.
-3. If the meet is not listed, upload a meet flyer, psych sheet, timeline PDF, and optional relay PDF.
+3. If the meet is not listed, upload a meet flyer, psych sheet or heat sheet, timeline PDF, and optional relay PDF.
 4. Choose calendar outputs:
    - daily
    - whole meet
@@ -42,9 +42,11 @@ The Narwhal Invite is preloaded with its meet flyer, final psych sheet, and fina
 
 When `Save To Current Meets` is used, the backend copies the uploaded PDFs into `meets/current-hosted/<meet-id>/input/`, appends an entry to `data/current_meets.json`, and refreshes the Current Meets list. It does not silently publish every upload; the user has to promote a parsed meet deliberately.
 
+Current Meets entries store `start_date`, `end_date`, and `expires_at`. The public Current Meets list hides an entry once `expires_at` arrives, which is the day after the meet ends.
+
 ## Extraction Behavior
 
-- Swimmer matching supports `First Last` input against psych-sheet names like `Last, First M`.
+- Swimmer matching supports `First Last` input against psych-sheet names like `Last, First M`. If exact matching finds no entries, the parser can use a high-confidence typo match such as one extra letter in the first or last name and shows a warning.
 - Psych sheet extraction counts matching names first, then records event number, event name, seed time, seed place, page, and column.
 - Timeline extraction matches swims by event number and uses the next timeline row as the event-window end.
 - Daily events start at the parsed session warm-up time. Distance check-in events can pull the daily calendar event earlier when the flyer requires check-in before another session's warm-up.

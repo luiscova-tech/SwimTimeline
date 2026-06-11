@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import cgi
+from datetime import date, timedelta
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -200,6 +201,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         short_name = str(meet.get("short_name") or meet_name)
         state = str(manifest.get("state") or "AZ").upper()
         dates = dates_label_from_sessions(manifest.get("sessions", []))
+        start_date, end_date = date_bounds_from_sessions(manifest.get("sessions", []))
         meet_id = unique_current_meet_id(meet_name, dates)
 
         target_dir = HOSTED_MEETS_DIR / meet_id / "input"
@@ -218,6 +220,9 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             "name": meet_name,
             "short_name": short_name,
             "dates": dates,
+            "start_date": start_date,
+            "end_date": end_date,
+            "expires_at": expiration_date(end_date),
             "state": state,
             "status": "ready",
             "files": files,
@@ -348,7 +353,7 @@ def load_current_meets() -> list[dict]:
 
 
 def public_current_meets() -> list[dict]:
-    return [public_current_meet(meet) for meet in load_current_meets()]
+    return [public_current_meet(meet) for meet in load_current_meets() if current_meet_is_active(meet)]
 
 
 def public_current_meet(meet: dict) -> dict:
@@ -358,11 +363,31 @@ def public_current_meet(meet: dict) -> dict:
         "name": meet.get("name"),
         "short_name": meet.get("short_name"),
         "dates": meet.get("dates"),
+        "start_date": meet.get("start_date"),
+        "end_date": meet.get("end_date"),
+        "expires_at": meet.get("expires_at"),
         "state": meet.get("state"),
         "status": meet.get("status"),
         "documents": meet.get("documents", []),
         "has_relay": bool(files.get("relay")),
     }
+
+
+def current_meet_is_active(meet: dict) -> bool:
+    expires_at = parse_iso_date(str(meet.get("expires_at") or ""))
+    if expires_at:
+        return date.today() < expires_at
+    end_date = parse_iso_date(str(meet.get("end_date") or ""))
+    if end_date:
+        return date.today() <= end_date
+    return True
+
+
+def parse_iso_date(value: str) -> date | None:
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 def resolve_current_meet(meet_id: str) -> dict:
@@ -400,7 +425,7 @@ def copy_hosted_upload(path_value: str | None, target_dir: Path) -> str | None:
 def hosted_document_labels(files: dict[str, str | None]) -> list[str]:
     labels = [
         ("flyer", "Meet flyer"),
-        ("psych", "Psych sheet"),
+        ("psych", "Psych/heat sheet"),
         ("timeline", "Final timeline"),
         ("relay", "Relay document"),
     ]
@@ -414,6 +439,20 @@ def dates_label_from_sessions(sessions: list[dict]) -> str:
     if len(dates) == 1:
         return dates[0]
     return f"{dates[0]} through {dates[-1]}"
+
+
+def date_bounds_from_sessions(sessions: list[dict]) -> tuple[str, str]:
+    dates = sorted({str(session.get("date")) for session in sessions if session.get("date")})
+    if not dates:
+        return "", ""
+    return dates[0], dates[-1]
+
+
+def expiration_date(end_date: str) -> str:
+    parsed = parse_iso_date(end_date)
+    if not parsed:
+        return ""
+    return (parsed + timedelta(days=1)).isoformat()
 
 
 def unique_current_meet_id(meet_name: str, dates: str) -> str:
