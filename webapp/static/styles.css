@@ -109,6 +109,42 @@ h2 {
   padding: 18px;
 }
 
+.workflow-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.workflow-strip div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 9px 10px;
+  border: 1px solid #c8d8e9;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: var(--navy);
+  font-weight: 800;
+}
+
+.workflow-strip strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: white;
+  font-size: 12px;
+}
+
+.workflow-strip span {
+  font-size: 13px;
+}
+
 .control-strip {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 0.55fr);
@@ -134,6 +170,13 @@ h2 {
   grid-template-columns: minmax(0, 1fr) minmax(220px, 0.6fr);
 }
 
+.primary-entry {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
 .upload-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-top: 14px;
@@ -149,8 +192,14 @@ h2 {
 
 .current-meets,
 .how-to-use,
-.upload-header {
+.advanced-options,
+.upload-section {
   margin-top: 20px;
+}
+
+.how-to-use,
+.advanced-options,
+.upload-section {
   padding-top: 18px;
   border-top: 1px solid var(--line);
 }
@@ -164,9 +213,13 @@ h2 {
 
 .current-meets {
   padding: 18px;
-  border: 1px solid #c8d8e9;
+  border: 1px solid #aec8de;
   border-radius: 8px;
   background: linear-gradient(180deg, #f9fbfe 0%, #f2f7fb 100%);
+}
+
+.primary-current-meets {
+  margin-top: 16px;
 }
 
 .instruction-grid {
@@ -174,11 +227,10 @@ h2 {
   margin-top: 12px;
 }
 
-.how-to-use {
-  border-top: 1px solid var(--line);
-}
-
-.how-to-use summary {
+.how-to-use summary,
+.advanced-options summary,
+.upload-section summary,
+.past-meets summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -190,11 +242,23 @@ h2 {
   font-weight: 800;
 }
 
-.how-to-use summary::-webkit-details-marker {
+.advanced-options summary,
+.upload-section summary,
+.past-meets summary {
+  padding: 0;
+}
+
+.how-to-use summary::-webkit-details-marker,
+.advanced-options summary::-webkit-details-marker,
+.upload-section summary::-webkit-details-marker,
+.past-meets summary::-webkit-details-marker {
   display: none;
 }
 
-.how-to-use summary::after {
+.how-to-use summary::after,
+.advanced-options summary::after,
+.upload-section summary::after,
+.past-meets summary::after {
   content: "+";
   display: inline-flex;
   align-items: center;
@@ -208,14 +272,31 @@ h2 {
   font-size: 16px;
 }
 
-.how-to-use[open] summary::after {
+.how-to-use[open] summary::after,
+.advanced-options[open] summary::after,
+.upload-section[open] summary::after,
+.past-meets[open] summary::after {
   content: "-";
 }
 
-.how-to-use summary small {
+.how-to-use summary small,
+.advanced-options summary small,
+.upload-section summary small,
+.past-meets summary small {
   color: var(--muted);
   font-size: 13px;
   font-weight: 650;
+}
+
+.advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.upload-panel {
+  margin-top: 14px;
 }
 
 .instruction-card {
@@ -256,6 +337,10 @@ h2 {
   margin-top: 12px;
 }
 
+.featured-meet {
+  margin-top: 14px;
+}
+
 .meet-card,
 .empty-state,
 .file-input,
@@ -275,6 +360,26 @@ fieldset,
   background: white;
 }
 
+.featured-meet-card {
+  align-items: center;
+  padding: 18px;
+  border-color: #d1a94c;
+  background: linear-gradient(180deg, #fffaf0 0%, #ffffff 72%);
+  box-shadow: 0 12px 28px rgba(183, 121, 31, 0.1);
+}
+
+.featured-meet-card .primary {
+  min-width: 180px;
+}
+
+.past-meet-card {
+  opacity: 0.82;
+}
+
+.meet-card-main {
+  min-width: 0;
+}
+
 .meet-title-row {
   display: flex;
   flex-wrap: wrap;
@@ -285,6 +390,55 @@ fieldset,
 .meet-card h3 {
   margin: 0;
   font-size: 18px;
+}
+
+.featured-meet-card h3 {
+  color: var(--navy);
+  font-size: 22px;
+}
+
+.featured-meta,
+.meet-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.featured-meta {
+  margin-bottom: 8px;
+}
+
+.featured-meta span,
+.meet-facts span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.featured-meta span {
+  background: #fff0c7;
+  color: #7c4d00;
+}
+
+.meet-facts {
+  margin-top: 8px;
+}
+
+.meet-facts span {
+  background: #f3f6fb;
+  color: #43505e;
+}
+
+.meet-note {
+  max-width: 620px;
+  margin: 7px 0 0;
+  color: #5b4620;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .muted {
@@ -318,6 +472,12 @@ fieldset,
 .doc-tags span {
   background: #e4f3f0;
   color: var(--accent-dark);
+}
+
+.past-meets {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #dbe5ef;
 }
 
 .empty-state {
@@ -547,10 +707,58 @@ input[name="state"] {
 }
 
 .status {
-  min-height: 28px;
+  position: sticky;
+  top: 8px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
   margin: 14px 0;
-  color: var(--muted);
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
   font-weight: 650;
+  box-shadow: 0 10px 24px rgba(23, 50, 93, 0.09);
+}
+
+.status::before {
+  content: "";
+  display: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #b7c5d6;
+  border-top-color: var(--accent);
+  border-radius: 999px;
+}
+
+.status-busy {
+  border-color: #9cc8bd;
+  color: var(--navy);
+}
+
+.status-busy::before {
+  display: inline-block;
+  animation: spin 0.8s linear infinite;
+}
+
+.status-success {
+  border-color: #9cc8bd;
+  background: #f4fbf9;
+  color: var(--accent-dark);
+}
+
+.status-error {
+  border-color: #f1c76d;
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .result {
@@ -606,32 +814,64 @@ input[name="state"] {
   bottom: 12px;
   z-index: 20;
   display: none;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px;
+  gap: 12px;
+  padding: 12px;
   border: 1px solid #9cc8bd;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 14px 30px rgba(23, 50, 93, 0.2);
 }
 
-.download-dock span {
+.download-dock-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.download-dock strong {
   color: var(--navy);
   font-size: 14px;
+}
+
+.download-dock span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.download-dock-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.download-dock-primary,
+.download-dock button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font: inherit;
   font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.download-dock-primary {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: white;
 }
 
 .download-dock button {
-  min-height: 38px;
-  padding: 0 12px;
-  border: 1px solid var(--accent);
-  border-radius: 6px;
-  background: var(--accent);
-  color: white;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--navy);
 }
 
 .downloads a.secondary,
@@ -755,8 +995,21 @@ td strong {
   .upload-grid,
   .meet-list,
   .instruction-grid,
+  .advanced-grid,
   .result-stats {
     grid-template-columns: 1fr;
+  }
+
+  .workflow-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-strip div {
+    min-height: 38px;
+  }
+
+  .featured-meet-card .primary {
+    min-width: 0;
   }
 
   .primary,
@@ -786,6 +1039,20 @@ td strong {
   }
 
   .download-dock:not(.hidden) {
-    display: flex;
+    display: grid;
+  }
+
+  .download-dock {
+    grid-template-columns: 1fr;
+  }
+
+  .download-dock-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .download-dock-primary,
+  .download-dock button {
+    width: 100%;
   }
 }

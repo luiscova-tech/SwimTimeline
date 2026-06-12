@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
+from functools import lru_cache
 from math import ceil
 from pathlib import Path
 import re
@@ -117,11 +118,25 @@ class RelayEvent:
 
 
 def extract_text_pages(path: Path) -> list[str]:
+    cache_key = pdf_cache_key(path)
+    return list(cached_text_pages(*cache_key))
+
+
+@lru_cache(maxsize=96)
+def cached_text_pages(path: str, mtime_ns: int, size: int) -> tuple[str, ...]:
+    del mtime_ns, size
     reader = PdfReader(str(path))
-    return [page.extract_text() or "" for page in reader.pages]
+    return tuple(page.extract_text() or "" for page in reader.pages)
 
 
 def extract_fragments(path: Path) -> list[Fragment]:
+    cache_key = pdf_cache_key(path)
+    return list(cached_fragments(*cache_key))
+
+
+@lru_cache(maxsize=48)
+def cached_fragments(path: str, mtime_ns: int, size: int) -> tuple[Fragment, ...]:
+    del mtime_ns, size
     reader = PdfReader(str(path))
     fragments: list[Fragment] = []
     for page_index, page in enumerate(reader.pages, start=1):
@@ -131,7 +146,13 @@ def extract_fragments(path: Path) -> list[Fragment]:
                 fragments.append(Fragment(page_index, float(tm[4]), float(tm[5]), clean))
 
         page.extract_text(visitor_text=visitor)
-    return fragments
+    return tuple(fragments)
+
+
+def pdf_cache_key(path: Path) -> tuple[str, int, int]:
+    resolved = path.resolve()
+    stat = resolved.stat()
+    return str(resolved), stat.st_mtime_ns, stat.st_size
 
 
 def normalize_space(value: str) -> str:
@@ -666,6 +687,19 @@ def session_is_finals(session_name: str) -> bool:
 
 
 def parse_timeline(timeline_pdf: Path, flyer_text: str = "") -> tuple[str, dict[int, SessionInfo], list[TimelineEvent]]:
+    cache_key = pdf_cache_key(timeline_pdf)
+    return cached_timeline(*cache_key, flyer_text)
+
+
+@lru_cache(maxsize=48)
+def cached_timeline(
+    path: str,
+    mtime_ns: int,
+    size: int,
+    flyer_text: str = "",
+) -> tuple[str, dict[int, SessionInfo], list[TimelineEvent]]:
+    del mtime_ns, size
+    timeline_pdf = Path(path)
     pages = extract_text_pages(timeline_pdf)
     text = "\n".join(pages)
     date_range = parse_date_range(text) or parse_date_range(flyer_text)
@@ -1551,7 +1585,7 @@ def analyze_uploads(
     output_dir: Path,
     relay_pdf: Path | None = None,
     state: str = DEFAULT_STATE,
-    modes: Iterable[str] = ("daily", "weekend", "detailed"),
+    modes: Iterable[str] = ("daily",),
     estimate_heat_lanes: bool = False,
 ) -> dict:
     flyer_text = "\n".join(extract_text_pages(flyer_pdf)) if flyer_pdf else ""
@@ -1565,13 +1599,38 @@ def analyze_uploads(
     short_name = short_meet_name(meet_name)
     meet_id = slugify(meet_name)
     output_swimmer_name = resolved_swimmer_name(swimmer_name, entries)
-    day_numbers = day_numbers_for_items(swims, relays)
-    payload_map = {
-        "daily": build_daily_payload(meet_id, meet_name, short_name, output_swimmer_name, swims, relays, sessions),
-        "weekend": build_weekend_payload(meet_id, meet_name, short_name, output_swimmer_name, swims, relays, sessions),
-        "detailed": build_detailed_payload(meet_id, meet_name, short_name, output_swimmer_name, swims, relays, day_numbers),
-    }
-    selected_payloads = {mode: payload_map[mode] for mode in modes if mode in payload_map}
+    selected_modes = [mode for mode in modes if mode in {"daily", "weekend", "detailed"}]
+    selected_payloads: dict[str, dict] = {}
+    if "daily" in selected_modes:
+        selected_payloads["daily"] = build_daily_payload(
+            meet_id,
+            meet_name,
+            short_name,
+            output_swimmer_name,
+            swims,
+            relays,
+            sessions,
+        )
+    if "weekend" in selected_modes:
+        selected_payloads["weekend"] = build_weekend_payload(
+            meet_id,
+            meet_name,
+            short_name,
+            output_swimmer_name,
+            swims,
+            relays,
+            sessions,
+        )
+    if "detailed" in selected_modes:
+        selected_payloads["detailed"] = build_detailed_payload(
+            meet_id,
+            meet_name,
+            short_name,
+            output_swimmer_name,
+            swims,
+            relays,
+            day_numbers_for_items(swims, relays),
+        )
     files = write_outputs(output_dir, meet_name, output_swimmer_name, entries, swims, relays, page_counts, selected_payloads)
 
     return {

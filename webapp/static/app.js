@@ -8,10 +8,15 @@ const warningsEl = document.querySelector("#warnings");
 const eventsBody = document.querySelector("#eventsBody");
 const resultStatsEl = document.querySelector("#resultStats");
 const currentMeetList = document.querySelector("#currentMeetList");
+const featuredMeetEl = document.querySelector("#featuredMeet");
+const pastMeetsEl = document.querySelector("#pastMeets");
+const pastMeetList = document.querySelector("#pastMeetList");
 const publishCurrentBtn = document.querySelector("#publishCurrent");
 const swimmerList = document.querySelector("#swimmerList");
 const addSwimmerBtn = document.querySelector("#addSwimmer");
 const downloadDock = document.querySelector("#downloadDock");
+const downloadDockMessage = document.querySelector("#downloadDockMessage");
+const downloadDockPrimary = document.querySelector("#downloadDockPrimary");
 const jumpDownloadsBtn = document.querySelector("#jumpDownloads");
 let lastPayload = null;
 
@@ -20,6 +25,9 @@ updateRemoveButtons();
 
 publishCurrentBtn.addEventListener("click", publishCurrentMeet);
 addSwimmerBtn.addEventListener("click", () => addSwimmerRow());
+downloadDockPrimary.addEventListener("click", () => {
+  downloadDock.classList.add("hidden");
+});
 jumpDownloadsBtn.addEventListener("click", () => {
   downloadsEl.scrollIntoView({ behavior: "smooth", block: "start" });
   downloadDock.classList.add("hidden");
@@ -33,19 +41,19 @@ swimmerList.addEventListener("click", (event) => {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  statusEl.textContent = "Processing PDFs...";
+  setStatus("Creating calendar files from uploaded PDFs...", "busy");
   resultEl.classList.add("hidden");
-  downloadDock.classList.add("hidden");
+  hideDownloadDock();
 
   const data = new FormData(form);
   data.set("combine_family", form.elements.combine_family.checked ? "1" : "0");
   data.set("estimate_heat_lanes", form.elements.estimate_heat_lanes.checked ? "1" : "0");
   if (!getSwimmerNames().length) {
-    statusEl.textContent = "At least one swimmer name is required.";
+    setStatus("At least one swimmer name is required.", "error");
     return;
   }
   if (!data.getAll("modes").length) {
-    statusEl.textContent = "Select at least one calendar file.";
+    setStatus("Select at least one calendar file.", "error");
     return;
   }
 
@@ -59,9 +67,9 @@ form.addEventListener("submit", async (event) => {
       throw new Error(payload.error || "Upload failed.");
     }
     renderResult(payload);
-    statusEl.textContent = "Ready";
+    setStatus("Calendar files are ready.", "success");
   } catch (error) {
-    statusEl.textContent = error.message;
+    setStatus(error.message, "error");
   }
 });
 
@@ -69,36 +77,75 @@ async function loadCurrentMeets() {
   try {
     const response = await fetch("/api/current-meets");
     const payload = await response.json();
-    renderCurrentMeets(payload.current_meets || []);
+    renderCurrentMeets(payload.current_meets || [], payload.past_meets || []);
   } catch (error) {
     currentMeetList.innerHTML = `<div class="empty-state">Current meets could not be loaded.</div>`;
   }
 }
 
-function renderCurrentMeets(meets) {
+function renderCurrentMeets(meets, pastMeets = []) {
+  featuredMeetEl.innerHTML = "";
   currentMeetList.innerHTML = "";
+  pastMeetList.innerHTML = "";
+  const featuredMeet = meets.find((meet) => meet.is_featured);
+  const regularMeets = meets.filter((meet) => meet !== featuredMeet);
+  if (featuredMeet) {
+    featuredMeetEl.appendChild(buildMeetCard(featuredMeet, { featured: true }));
+  }
   if (!meets.length) {
     currentMeetList.innerHTML = `<div class="empty-state">No hosted meets yet.</div>`;
-    return;
   }
-  for (const meet of meets) {
-    const card = document.createElement("article");
-    card.className = "meet-card";
-    const docs = (meet.documents || []).map((doc) => `<span>${escapeHtml(doc)}</span>`).join("");
-    card.innerHTML = `
-      <div>
-        <div class="meet-title-row">
-          <h3>${escapeHtml(meet.name)}</h3>
-          <span class="status-pill">${escapeHtml(meet.status || "ready")}</span>
-        </div>
-        <p class="muted">${escapeHtml(meet.dates || "")}</p>
-        <div class="doc-tags">${docs}</div>
+  for (const meet of regularMeets) {
+    currentMeetList.appendChild(buildMeetCard(meet));
+  }
+  if (featuredMeet && !regularMeets.length) {
+    currentMeetList.classList.add("hidden");
+  } else {
+    currentMeetList.classList.remove("hidden");
+  }
+  pastMeetsEl.classList.toggle("hidden", !pastMeets.length);
+  for (const meet of pastMeets) {
+    pastMeetList.appendChild(buildMeetCard(meet, { past: true }));
+  }
+}
+
+function buildMeetCard(meet, options = {}) {
+  const card = document.createElement("article");
+  card.className = options.featured ? "meet-card featured-meet-card" : "meet-card";
+  if (options.past) {
+    card.classList.add("past-meet-card");
+  }
+  const docs = (meet.documents || []).map((doc) => `<span>${escapeHtml(doc)}</span>`).join("");
+  const featuredMeta = options.featured
+    ? `<div class="featured-meta">
+        <span>${escapeHtml(meet.featured_label || "Featured current meet")}</span>
+        ${meet.featured_until_label ? `<span>Through ${escapeHtml(meet.featured_until_label)}</span>` : ""}
+      </div>`
+    : "";
+  const note = options.featured && meet.featured_note ? `<p class="meet-note">${escapeHtml(meet.featured_note)}</p>` : "";
+  card.innerHTML = `
+    <div class="meet-card-main">
+      ${featuredMeta}
+      <div class="meet-title-row">
+        <h3>${escapeHtml(meet.name)}</h3>
+        <span class="status-pill">${escapeHtml(statusLabel(meet.status))}</span>
       </div>
-      <button class="primary" type="button">Use Meet</button>
-    `;
-    card.querySelector("button").addEventListener("click", () => analyzeCurrentMeet(meet));
-    currentMeetList.appendChild(card);
-  }
+      <p class="muted">${escapeHtml(meet.dates || "")}</p>
+      ${note}
+      <div class="meet-facts">
+        ${meet.state ? `<span>${escapeHtml(meet.state)}</span>` : ""}
+        ${meet.has_relay ? "<span>Relay doc</span>" : ""}
+      </div>
+      <div class="doc-tags">${docs}</div>
+    </div>
+    <button class="primary" type="button">${options.featured ? "Use featured meet" : "Use this meet"}</button>
+  `;
+  card.querySelector("button").addEventListener("click", () => analyzeCurrentMeet(meet));
+  return card;
+}
+
+function statusLabel(status) {
+  return String(status || "ready").replace("-", " ");
 }
 
 async function analyzeCurrentMeet(meet) {
@@ -106,16 +153,16 @@ async function analyzeCurrentMeet(meet) {
   const state = form.elements.state.value.trim() || meet.state || "";
   const modes = new FormData(form).getAll("modes");
   if (!swimmerNames.length) {
-    statusEl.textContent = "At least one swimmer name is required.";
+    setStatus("At least one swimmer name is required.", "error");
     return;
   }
   if (!modes.length) {
-    statusEl.textContent = "Select at least one calendar file.";
+    setStatus("Select at least one calendar file.", "error");
     return;
   }
-  statusEl.textContent = `Processing ${meet.short_name || meet.name}...`;
+  setStatus(`Creating calendar files for ${meet.short_name || meet.name}...`, "busy");
   resultEl.classList.add("hidden");
-  downloadDock.classList.add("hidden");
+  hideDownloadDock();
   try {
     const response = await fetch("/api/analyze-current", {
       method: "POST",
@@ -134,9 +181,9 @@ async function analyzeCurrentMeet(meet) {
       throw new Error(payload.error || "Current meet analysis failed.");
     }
     renderResult(payload);
-    statusEl.textContent = "Ready";
+    setStatus("Calendar files are ready.", "success");
   } catch (error) {
-    statusEl.textContent = error.message;
+    setStatus(error.message, "error");
   }
 }
 
@@ -215,7 +262,7 @@ function renderResult(payload) {
   }
 
   resultEl.classList.remove("hidden");
-  revealResultDownloads();
+  revealResultDownloads(payload);
 }
 
 function renderIndividualDownloads(payload) {
@@ -261,11 +308,11 @@ function appendDownloadGroup(title, links) {
 
 async function publishCurrentMeet() {
   if (!lastPayload?.run_id) {
-    statusEl.textContent = "No uploaded meet is ready to save.";
+    setStatus("No uploaded meet is ready to save.", "error");
     return;
   }
   publishCurrentBtn.disabled = true;
-  statusEl.textContent = "Saving to Current Meets...";
+  setStatus("Saving to Current Meets...", "busy");
   try {
     const response = await fetch("/api/publish-current", {
       method: "POST",
@@ -279,9 +326,9 @@ async function publishCurrentMeet() {
     publishCurrentBtn.classList.add("hidden");
     lastPayload.can_publish_current = false;
     await loadCurrentMeets();
-    statusEl.textContent = payload.already_saved ? "Already saved to Current Meets" : "Saved to Current Meets";
+    setStatus(payload.already_saved ? "Already saved to Current Meets." : "Saved to Current Meets.", "success");
   } catch (error) {
-    statusEl.textContent = error.message;
+    setStatus(error.message, "error");
     publishCurrentBtn.disabled = false;
   }
 }
@@ -325,11 +372,82 @@ function addSwimmerRow(value = "") {
   row.querySelector("input").focus();
 }
 
-function revealResultDownloads() {
+function setStatus(message, state = "idle") {
+  statusEl.className = "status";
+  statusEl.setAttribute("aria-busy", state === "busy" ? "true" : "false");
+  if (!message) {
+    statusEl.textContent = "";
+    statusEl.classList.add("hidden");
+    return;
+  }
+  statusEl.textContent = message;
+  statusEl.classList.add(`status-${state}`);
+}
+
+function hideDownloadDock() {
+  downloadDock.classList.add("hidden");
+  downloadDockPrimary.removeAttribute("href");
+}
+
+function revealResultDownloads(payload) {
+  updateReadyDock(payload);
   if (window.matchMedia("(max-width: 860px)").matches) {
-    resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    requestAnimationFrame(() => {
+      resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    setTimeout(() => {
+      resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
     downloadDock.classList.remove("hidden");
   }
+}
+
+function updateReadyDock(payload) {
+  const primary = primaryCalendarDownload(payload);
+  if (!primary) {
+    downloadDockPrimary.classList.add("hidden");
+    downloadDockMessage.textContent = "Calendar files are ready.";
+    return;
+  }
+  downloadDockPrimary.href = primary.href;
+  downloadDockPrimary.textContent = primary.label;
+  downloadDockPrimary.classList.remove("hidden");
+  downloadDockMessage.textContent = primary.message;
+}
+
+function primaryCalendarDownload(payload) {
+  const downloads = payload.downloads || {};
+  if (downloads.family_daily_ics) {
+    return {
+      href: downloads.family_daily_ics,
+      label: "Download Daily Calendar",
+      message: "Your family daily calendar is ready to download.",
+    };
+  }
+  if (downloads.daily_ics) {
+    return {
+      href: downloads.daily_ics,
+      label: "Download Daily Calendar",
+      message: "Your daily calendar is ready to download.",
+    };
+  }
+  for (const swimmer of payload.swimmers || []) {
+    const href = swimmer.downloads?.daily_ics;
+    if (href) {
+      return {
+        href,
+        label: `Download ${swimmer.name} Daily`,
+        message: "A daily calendar is ready to download.",
+      };
+    }
+  }
+  const fallback = Object.entries(downloads).find(([key]) => key.endsWith("_ics"));
+  if (!fallback) return null;
+  return {
+    href: fallback[1],
+    label: "Download Calendar",
+    message: "A calendar file is ready to download.",
+  };
 }
 
 function updateRemoveButtons() {

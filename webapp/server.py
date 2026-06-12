@@ -26,6 +26,8 @@ RUNS_DIR = ROOT / ".swimtimeline-runs"
 CURRENT_MEETS_PATH = ROOT / "data" / "current_meets.json"
 USAGE_STATS_PATH = ROOT / "data" / "usage_stats.json"
 HOSTED_MEETS_DIR = ROOT / "meets" / "current-hosted"
+DEFAULT_MODES = ["daily"]
+VALID_MODES = {"daily", "weekend", "detailed"}
 sys.path.insert(0, str(ROOT))
 
 from swimtimeline.extract import analyze_uploads
@@ -51,7 +53,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
             return
         if path == "/api/current-meets":
-            self.send_json({"current_meets": public_current_meets()})
+            self.send_json(public_meets_payload())
             return
         if path == "/api/usage":
             self.send_json(public_usage_stats())
@@ -96,7 +98,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             raise ValueError("At least one swimmer name is required.")
 
         state = form_value(form, "state").strip().upper()
-        modes = form_values(form, "modes") or ["daily", "weekend", "detailed"]
+        modes = normalize_modes(form_values(form, "modes"))
         combine_family = form_bool(form, "combine_family", default=True)
         estimate_heat_lanes = form_bool(form, "estimate_heat_lanes", default=False)
 
@@ -154,7 +156,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
         meet_id = str(payload.get("meet_id", "")).strip()
         swimmer_names = swimmer_names_from_payload(payload)
-        modes = payload.get("modes") or ["daily", "weekend", "detailed"]
+        modes = normalize_modes(payload.get("modes"))
         combine_family = payload_bool(payload, "combine_family", default=True)
         estimate_heat_lanes = payload_bool(payload, "estimate_heat_lanes", default=False)
         if not meet_id:
@@ -337,6 +339,21 @@ def payload_bool(payload: dict, name: str, default: bool = False) -> bool:
     if value is None:
         return default
     return str(value).strip().lower() not in {"", "0", "false", "off", "no"}
+
+
+def normalize_modes(raw_modes: object) -> list[str]:
+    if isinstance(raw_modes, str):
+        candidates = [raw_modes]
+    elif isinstance(raw_modes, list):
+        candidates = [str(mode) for mode in raw_modes]
+    else:
+        candidates = []
+    modes: list[str] = []
+    for mode in candidates:
+        cleaned = mode.strip().lower()
+        if cleaned in VALID_MODES and cleaned not in modes:
+            modes.append(cleaned)
+    return modes or DEFAULT_MODES.copy()
 
 
 def swimmer_names_from_form(form: cgi.FieldStorage) -> list[str]:
@@ -717,12 +734,22 @@ def load_current_meets() -> list[dict]:
     return data.get("current_meets", [])
 
 
-def public_current_meets() -> list[dict]:
-    return [public_current_meet(meet) for meet in load_current_meets() if current_meet_is_active(meet)]
+def public_meets_payload() -> dict:
+    current_meets: list[dict] = []
+    past_meets: list[dict] = []
+    for meet in load_current_meets():
+        public_meet = public_current_meet(meet)
+        if current_meet_is_active(meet):
+            current_meets.append(public_meet)
+        else:
+            past_meets.append(public_meet)
+    return {"current_meets": current_meets, "past_meets": past_meets}
 
 
 def public_current_meet(meet: dict) -> dict:
     files = meet.get("files", {})
+    featured_until = parse_iso_date(str(meet.get("featured_until") or ""))
+    is_featured = current_meet_is_featured(meet)
     return {
         "id": meet.get("id"),
         "name": meet.get("name"),
@@ -735,17 +762,31 @@ def public_current_meet(meet: dict) -> dict:
         "status": meet.get("status"),
         "documents": meet.get("documents", []),
         "has_relay": bool(files.get("relay")),
+        "is_featured": is_featured,
+        "featured_until": meet.get("featured_until"),
+        "featured_until_label": short_date_label(featured_until) if featured_until else "",
+        "featured_label": meet.get("featured_label") or "Featured current meet",
+        "featured_note": meet.get("featured_note") or "",
     }
 
 
 def current_meet_is_active(meet: dict) -> bool:
     expires_at = parse_iso_date(str(meet.get("expires_at") or ""))
     if expires_at:
-        return date.today() < expires_at
+        return date.today() <= expires_at
     end_date = parse_iso_date(str(meet.get("end_date") or ""))
     if end_date:
         return date.today() <= end_date
     return True
+
+
+def current_meet_is_featured(meet: dict) -> bool:
+    if not meet.get("featured"):
+        return False
+    featured_until = parse_iso_date(str(meet.get("featured_until") or ""))
+    if featured_until:
+        return date.today() <= featured_until
+    return current_meet_is_active(meet)
 
 
 def parse_iso_date(value: str) -> date | None:
@@ -753,6 +794,10 @@ def parse_iso_date(value: str) -> date | None:
         return date.fromisoformat(value)
     except ValueError:
         return None
+
+
+def short_date_label(value: date) -> str:
+    return f"{value.strftime('%A')}, {value.strftime('%b')} {value.day}"
 
 
 def resolve_current_meet(meet_id: str) -> dict:

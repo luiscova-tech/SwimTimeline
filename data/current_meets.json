@@ -32,6 +32,10 @@
       "expires_at": "2026-06-15",
       "state": "AZ",
       "status": "ready",
+      "featured": true,
+      "featured_until": "2026-06-15",
+      "featured_label": "Featured current meet",
+      "featured_note": "Most families are using this meet right now.",
       "files": {
         "flyer": "meets/2026-narwhal-invite/input/Narwhal Invite.pdf",
         "psych": "meets/2026-narwhal-invite/input/narwhal final psych again.pdf",

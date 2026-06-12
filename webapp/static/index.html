@@ -12,7 +12,7 @@
         <div>
           <div class="header-meta">
             <p class="eyebrow">Meet calendar builder</p>
-            <span class="version-pill">v0.4.1</span>
+            <span class="version-pill">v0.4.3</span>
           </div>
           <h1>SwimTimeline</h1>
           <p class="header-copy">Find a swimmer in hosted meet documents or upload meet PDFs to create Google Calendar files.</p>
@@ -21,80 +21,109 @@
 
       <section class="workspace">
         <form id="uploadForm" class="panel">
-          <div class="control-strip">
-            <div class="grid entry-grid">
-              <div class="swimmer-fieldset">
-                <div class="field-heading">
-                  <span>Swimmers</span>
-                </div>
-                <div id="swimmerList" class="swimmer-list">
-                  <div class="swimmer-row">
-                    <input name="swimmer_names" placeholder="First Last" required autocomplete="off">
-                    <button class="icon-button remove-swimmer hidden" type="button" aria-label="Remove swimmer">&times;</button>
-                  </div>
-                </div>
-                <button id="addSwimmer" class="add-swimmer-button" type="button">+ Add another swimmer</button>
-              </div>
-              <label>
-                <span>State / LSC <small>(optional)</small></span>
-                <input name="state" placeholder="Optional, e.g. AZ" maxlength="8" autocomplete="off">
-              </label>
+          <div class="workflow-strip" aria-label="Create calendar steps">
+            <div>
+              <strong>1</strong>
+              <span>Enter swimmer</span>
             </div>
-
-            <fieldset class="family-options">
-              <legend>Family options</legend>
-              <label class="check-option">
-                <input type="checkbox" name="combine_family" value="1" checked>
-                <span>
-                  <strong>Combine swimmers into one family calendar</strong>
-                  <small>Also keeps individual swimmer downloads available.</small>
-                </span>
-              </label>
-              <label class="check-option">
-                <input type="checkbox" name="estimate_heat_lanes" value="1">
-                <span>
-                  <strong>Estimate heat/lane from psych sheet</strong>
-                  <small>Estimated only. Actual heat/lane may change after scratches, check-in, deck entries, circle seeding, or meet-management updates.</small>
-                </span>
-              </label>
-            </fieldset>
-
-            <fieldset class="calendar-options">
-              <legend>Calendar files</legend>
-              <label class="calendar-option recommended">
-                <input type="checkbox" name="modes" value="daily" checked>
-                <span>
-                  <strong>Daily Calendar</strong>
-                  <small>One event per meet day, starts at warm-up. Best for Google Calendar.</small>
-                </span>
-                <em>Recommended</em>
-              </label>
-              <label class="calendar-option">
-                <input type="checkbox" name="modes" value="weekend" checked>
-                <span>
-                  <strong>Whole Meet Calendar</strong>
-                  <small>One event for the full meet. Good for blocking the weekend.</small>
-                </span>
-              </label>
-              <label class="calendar-option">
-                <input type="checkbox" name="modes" value="detailed" checked>
-                <span>
-                  <strong>Swim-by-Swim Calendar</strong>
-                  <small>One event per swim. More detailed, but busier.</small>
-                </span>
-              </label>
-            </fieldset>
+            <div>
+              <strong>2</strong>
+              <span>Choose meet</span>
+            </div>
+            <div>
+              <strong>3</strong>
+              <span>Download daily calendar</span>
+            </div>
           </div>
 
-          <section id="currentMeets" class="current-meets">
+          <div class="grid entry-grid primary-entry">
+            <div class="swimmer-fieldset">
+              <div class="field-heading">
+                <span>Swimmers</span>
+              </div>
+              <div id="swimmerList" class="swimmer-list">
+                <div class="swimmer-row">
+                  <input name="swimmer_names" placeholder="First Last" required autocomplete="off">
+                  <button class="icon-button remove-swimmer hidden" type="button" aria-label="Remove swimmer">&times;</button>
+                </div>
+              </div>
+              <button id="addSwimmer" class="add-swimmer-button" type="button">+ Add another swimmer</button>
+            </div>
+            <label>
+              <span>State / LSC <small>(optional)</small></span>
+              <input name="state" placeholder="Optional, e.g. AZ" maxlength="8" autocomplete="off">
+            </label>
+          </div>
+
+          <section id="currentMeets" class="current-meets primary-current-meets">
             <div class="section-header">
               <div>
-                <h2>Current Meets</h2>
-                <p class="section-copy">Meet documents already loaded and ready to search.</p>
+                <h2>Choose A Meet</h2>
+                <p class="section-copy">Hosted meet documents are ready to search.</p>
               </div>
             </div>
+            <div id="featuredMeet" class="featured-meet"></div>
             <div id="currentMeetList" class="meet-list"></div>
+            <details id="pastMeets" class="past-meets hidden">
+              <summary>
+                <span>Past meets</span>
+                <small>Hosted documents from recently completed meets</small>
+              </summary>
+              <div id="pastMeetList" class="meet-list"></div>
+            </details>
           </section>
+
+          <details class="advanced-options">
+            <summary>
+              <span>More options</span>
+              <small>Family calendars, heat/lane estimates, and extra calendar files</small>
+            </summary>
+            <div class="advanced-grid">
+              <fieldset class="family-options">
+                <legend>Family options</legend>
+                <label class="check-option">
+                  <input type="checkbox" name="combine_family" value="1" checked>
+                  <span>
+                    <strong>Combine swimmers into one family calendar</strong>
+                    <small>Also keeps individual swimmer downloads available.</small>
+                  </span>
+                </label>
+                <label class="check-option">
+                  <input type="checkbox" name="estimate_heat_lanes" value="1">
+                  <span>
+                    <strong>Estimate heat/lane from psych sheet</strong>
+                    <small>Estimated only. Actual heat/lane may change after scratches, check-in, deck entries, circle seeding, or meet-management updates.</small>
+                  </span>
+                </label>
+              </fieldset>
+
+              <fieldset class="calendar-options">
+                <legend>Calendar files</legend>
+                <label class="calendar-option recommended">
+                  <input type="checkbox" name="modes" value="daily" checked>
+                  <span>
+                    <strong>Daily Calendar</strong>
+                    <small>One event per meet day, starts at warm-up. Best for Google Calendar.</small>
+                  </span>
+                  <em>Recommended</em>
+                </label>
+                <label class="calendar-option">
+                  <input type="checkbox" name="modes" value="weekend">
+                  <span>
+                    <strong>Whole Meet Calendar</strong>
+                    <small>One event for the full meet. Good for blocking the weekend.</small>
+                  </span>
+                </label>
+                <label class="calendar-option">
+                  <input type="checkbox" name="modes" value="detailed">
+                  <span>
+                    <strong>Swim-by-Swim Calendar</strong>
+                    <small>One event per swim. More detailed, but busier.</small>
+                  </span>
+                </label>
+              </fieldset>
+            </div>
+          </details>
 
           <details id="howToUse" class="how-to-use">
             <summary>
@@ -115,41 +144,49 @@
               <div class="instruction-card">
                 <span>3</span>
                 <h3>Download calendar</h3>
-                <p>Review the events, then download family or individual daily, whole-meet, or swim-by-swim calendar files.</p>
+                <p>Daily calendar is selected by default. Add whole-meet or swim-by-swim files only when you want extra calendar detail.</p>
               </div>
             </div>
           </details>
 
-          <div id="uploadMeet" class="section-header upload-header">
-            <div>
-              <h2>Meet Not Listed?</h2>
-              <p class="section-copy">Upload the meet documents and generate calendar files from scratch.</p>
-            </div>
-            <button class="primary" type="submit">Generate From Uploads</button>
-          </div>
+          <details id="uploadMeet" class="upload-section">
+            <summary>
+              <span>Meet not listed?</span>
+              <small>Upload meet PDFs instead</small>
+            </summary>
+            <div class="upload-panel">
+              <div class="section-header upload-header">
+                <div>
+                  <h2>Upload Meet Documents</h2>
+                  <p class="section-copy">Use this when the meet is not available above.</p>
+                </div>
+                <button class="primary" type="submit">Generate From Uploads</button>
+              </div>
 
-          <div class="upload-grid">
-            <label class="file-input">
-              <span>Meet Flyer</span>
-              <input type="file" name="flyer_pdf" accept="application/pdf">
-            </label>
-            <label class="file-input">
-              <span>Psych Sheet or Heat Sheet</span>
-              <small>Use whichever athlete entry sheet the meet has posted.</small>
-              <input type="file" name="psych_pdf" accept="application/pdf" required>
-            </label>
-            <label class="file-input">
-              <span>Timeline</span>
-              <input type="file" name="timeline_pdf" accept="application/pdf" required>
-            </label>
-            <label class="file-input">
-              <span>Relay Doc</span>
-              <input type="file" name="relay_pdf" accept="application/pdf">
-            </label>
-          </div>
+              <div class="upload-grid">
+                <label class="file-input">
+                  <span>Meet Flyer</span>
+                  <input type="file" name="flyer_pdf" accept="application/pdf">
+                </label>
+                <label class="file-input">
+                  <span>Psych Sheet or Heat Sheet</span>
+                  <small>Use whichever athlete entry sheet the meet has posted.</small>
+                  <input type="file" name="psych_pdf" accept="application/pdf">
+                </label>
+                <label class="file-input">
+                  <span>Timeline</span>
+                  <input type="file" name="timeline_pdf" accept="application/pdf">
+                </label>
+                <label class="file-input">
+                  <span>Relay Doc</span>
+                  <input type="file" name="relay_pdf" accept="application/pdf">
+                </label>
+              </div>
+            </div>
+          </details>
         </form>
 
-        <section id="status" class="status" aria-live="polite"></section>
+        <section id="status" class="status hidden" aria-live="polite"></section>
 
         <section id="result" class="result hidden">
           <div class="result-header">
@@ -182,9 +219,15 @@
         </section>
       </section>
     </main>
-    <div id="downloadDock" class="download-dock hidden">
-      <span>Calendar files ready</span>
-      <button id="jumpDownloads" type="button">Go to downloads</button>
+    <div id="downloadDock" class="download-dock hidden" role="status" aria-live="polite">
+      <div class="download-dock-copy">
+        <strong>Calendar ready</strong>
+        <span id="downloadDockMessage">Your daily calendar is ready to download.</span>
+      </div>
+      <div class="download-dock-actions">
+        <a id="downloadDockPrimary" class="download-dock-primary" href="#">Download Daily Calendar</a>
+        <button id="jumpDownloads" type="button">View all files</button>
+      </div>
     </div>
     <script src="/static/app.js"></script>
   </body>

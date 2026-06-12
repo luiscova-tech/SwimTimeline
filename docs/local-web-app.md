@@ -24,28 +24,31 @@ The app is deployable as a small Python web service. `requirements.txt` and `ren
 ## Current Flow
 
 1. Enter one or more swimmer names. State/LSC is optional; hosted meets can supply their saved state, and blank uploads still generate calendars without local standards.
-2. Use a hosted item from `Current Meets` when the meet documents are already listed.
-3. If the meet is not listed, upload a meet flyer, psych sheet or heat sheet, timeline PDF, and optional relay PDF.
-4. Choose family options:
+2. Choose a hosted item from `Current Meets` when the meet documents are already listed. Featured meets appear first while their `featured_until` date is active.
+3. Download the daily calendar, which is selected by default.
+4. Open `More options` for family options:
    - combine swimmers into one family calendar, on by default
    - estimate heat/lane from a psych sheet, off by default because estimates are not final
-5. Choose calendar outputs:
-   - daily
-   - whole meet
-   - swim by swim
-6. Review the extracted swims and warnings.
-7. Download family `.ics` files, individual swimmer `.ics` files, and swimmer audits.
-8. For uploaded meets, use `Save To Current Meets` after a successful parse to make those documents reusable for other swimmers in the same meet.
+5. Open `More options` for extra calendar outputs:
+   - daily, on by default
+   - whole meet, optional
+   - swim by swim, optional
+6. If the meet is not listed, open `Meet not listed?` and upload a meet flyer, psych sheet or heat sheet, timeline PDF, and optional relay PDF.
+7. Review the extracted swims and warnings.
+8. Download family `.ics` files, individual swimmer `.ics` files, and swimmer audits.
+9. For uploaded meets, use `Save To Current Meets` after a successful parse to make those documents reusable for other swimmers in the same meet.
 
 ## Current Meets
 
 Hosted meets are tracked in `data/current_meets.json`. The app lists those entries under `Current Meets` and sends the selected swimmer names to the backend without requiring another upload.
 
+Narwhal Invite is marked as a featured current meet through Monday, June 15, 2026. Featured metadata is temporary and date-gated; once the active window passes, the meet can still appear under Past Meets.
+
 Narwhal Invite and Shark Open are preloaded with final timeline-style documents. Para Nationals is preloaded from a meet packet and psych sheet, so it is marked schedule-only and produces estimated event windows from session order.
 
 When `Save To Current Meets` is used, the backend copies the uploaded PDFs into `meets/current-hosted/<meet-id>/input/`, appends an entry to `data/current_meets.json`, and refreshes the Current Meets list. It does not silently publish every upload; the user has to promote a parsed meet deliberately.
 
-Current Meets entries store `start_date`, `end_date`, and `expires_at`. The public Current Meets list hides an entry once `expires_at` arrives, which is the day after the meet ends.
+Current Meets entries store `start_date`, `end_date`, and `expires_at`. The public Current Meets list keeps an entry through `expires_at`; after that date the entry moves to Past Meets.
 
 ## Extraction Behavior
 
@@ -54,6 +57,7 @@ Current Meets entries store `start_date`, `end_date`, and `expires_at`. The publ
 - Heat sheet extraction supports HY-TEK `Meet Program` documents with `Event  1 ...` headers. When the row includes heat/lane information, the app records heat and lane instead of displaying that value as seed place.
 - Optional heat/lane estimates use psych-sheet seed order and timeline heat counts. If the meet flyer identifies deck-seeded or circle-seeded event ranges, those events are skipped while other events can still receive estimated heat/lane values. Estimated values are labeled as estimated in the table, audit, and calendar descriptions.
 - Timeline extraction matches swims by event number and uses the next timeline row as the event-window end. It tolerates glued HY-TEK rows such as `Prelims 10Boys`.
+- PDF text and layout extraction are cached per server process by file path, size, and modification time. This makes repeat Current Meet lookups and multi-swimmer searches faster after the first parse.
 - Meet packet schedules can be used when no final timeline is available. Those event windows are estimated from session order and are less precise because the packet does not include heat counts or projected event times.
 - Event rows include a format label such as `Prelim/final`, `Timed final`, or `Prelim only` based on the timeline sessions available for that event.
 - Daily events start at the parsed session warm-up time. Distance check-in events can pull the daily calendar event earlier when the flyer requires check-in before another session's warm-up.
