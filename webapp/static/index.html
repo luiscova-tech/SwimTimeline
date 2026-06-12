@@ -12,7 +12,7 @@
         <div>
           <div class="header-meta">
             <p class="eyebrow">Meet calendar builder</p>
-            <span class="version-pill">v0.4.0</span>
+            <span class="version-pill">v0.4.1</span>
           </div>
           <h1>SwimTimeline</h1>
           <p class="header-copy">Find a swimmer in hosted meet documents or upload meet PDFs to create Google Calendar files.</p>
@@ -22,11 +22,10 @@
       <section class="workspace">
         <form id="uploadForm" class="panel">
           <div class="control-strip">
-            <div class="grid">
+            <div class="grid entry-grid">
               <div class="swimmer-fieldset">
                 <div class="field-heading">
                   <span>Swimmers</span>
-                  <button id="addSwimmer" class="inline-button" type="button">Add swimmer</button>
                 </div>
                 <div id="swimmerList" class="swimmer-list">
                   <div class="swimmer-row">
@@ -34,10 +33,11 @@
                     <button class="icon-button remove-swimmer hidden" type="button" aria-label="Remove swimmer">&times;</button>
                   </div>
                 </div>
+                <button id="addSwimmer" class="add-swimmer-button" type="button">+ Add another swimmer</button>
               </div>
               <label>
-                <span>State / LSC</span>
-                <input name="state" value="AZ" maxlength="8" autocomplete="off">
+                <span>State / LSC <small>(optional)</small></span>
+                <input name="state" placeholder="Optional, e.g. AZ" maxlength="8" autocomplete="off">
               </label>
             </div>
 
@@ -182,6 +182,10 @@
         </section>
       </section>
     </main>
+    <div id="downloadDock" class="download-dock hidden">
+      <span>Calendar files ready</span>
+      <button id="jumpDownloads" type="button">Go to downloads</button>
+    </div>
     <script src="/static/app.js"></script>
   </body>
 </html>

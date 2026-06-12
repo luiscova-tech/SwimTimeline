@@ -23,7 +23,7 @@ The app is deployable as a small Python web service. `requirements.txt` and `ren
 
 ## Current Flow
 
-1. Enter one or more swimmer names and the state/LSC.
+1. Enter one or more swimmer names. State/LSC is optional; hosted meets can supply their saved state, and blank uploads still generate calendars without local standards.
 2. Use a hosted item from `Current Meets` when the meet documents are already listed.
 3. If the meet is not listed, upload a meet flyer, psych sheet or heat sheet, timeline PDF, and optional relay PDF.
 4. Choose family options:

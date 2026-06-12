@@ -11,6 +11,8 @@ const currentMeetList = document.querySelector("#currentMeetList");
 const publishCurrentBtn = document.querySelector("#publishCurrent");
 const swimmerList = document.querySelector("#swimmerList");
 const addSwimmerBtn = document.querySelector("#addSwimmer");
+const downloadDock = document.querySelector("#downloadDock");
+const jumpDownloadsBtn = document.querySelector("#jumpDownloads");
 let lastPayload = null;
 
 loadCurrentMeets();
@@ -18,6 +20,10 @@ updateRemoveButtons();
 
 publishCurrentBtn.addEventListener("click", publishCurrentMeet);
 addSwimmerBtn.addEventListener("click", () => addSwimmerRow());
+jumpDownloadsBtn.addEventListener("click", () => {
+  downloadsEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  downloadDock.classList.add("hidden");
+});
 swimmerList.addEventListener("click", (event) => {
   if (event.target.classList.contains("remove-swimmer")) {
     event.target.closest(".swimmer-row").remove();
@@ -29,6 +35,7 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   statusEl.textContent = "Processing PDFs...";
   resultEl.classList.add("hidden");
+  downloadDock.classList.add("hidden");
 
   const data = new FormData(form);
   data.set("combine_family", form.elements.combine_family.checked ? "1" : "0");
@@ -96,7 +103,7 @@ function renderCurrentMeets(meets) {
 
 async function analyzeCurrentMeet(meet) {
   const swimmerNames = getSwimmerNames();
-  const state = form.elements.state.value.trim() || meet.state || "AZ";
+  const state = form.elements.state.value.trim() || meet.state || "";
   const modes = new FormData(form).getAll("modes");
   if (!swimmerNames.length) {
     statusEl.textContent = "At least one swimmer name is required.";
@@ -108,6 +115,7 @@ async function analyzeCurrentMeet(meet) {
   }
   statusEl.textContent = `Processing ${meet.short_name || meet.name}...`;
   resultEl.classList.add("hidden");
+  downloadDock.classList.add("hidden");
   try {
     const response = await fetch("/api/analyze-current", {
       method: "POST",
@@ -207,6 +215,7 @@ function renderResult(payload) {
   }
 
   resultEl.classList.remove("hidden");
+  revealResultDownloads();
 }
 
 function renderIndividualDownloads(payload) {
@@ -314,6 +323,13 @@ function addSwimmerRow(value = "") {
   swimmerList.appendChild(row);
   updateRemoveButtons();
   row.querySelector("input").focus();
+}
+
+function revealResultDownloads() {
+  if (window.matchMedia("(max-width: 860px)").matches) {
+    resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    downloadDock.classList.remove("hidden");
+  }
 }
 
 function updateRemoveButtons() {

@@ -95,7 +95,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         if not swimmer_names:
             raise ValueError("At least one swimmer name is required.")
 
-        state = (form_value(form, "state") or "AZ").strip().upper()
+        state = form_value(form, "state").strip().upper()
         modes = form_values(form, "modes") or ["daily", "weekend", "detailed"]
         combine_family = form_bool(form, "combine_family", default=True)
         estimate_heat_lanes = form_bool(form, "estimate_heat_lanes", default=False)
@@ -163,7 +163,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             raise ValueError("At least one swimmer name is required.")
 
         meet = resolve_current_meet(meet_id)
-        state = str(payload.get("state") or meet.get("state") or "AZ").strip().upper()
+        state = str(payload.get("state") or meet.get("state") or "").strip().upper()
         files = meet.get("files", {})
         flyer_path = resolve_repo_file(files.get("flyer"), required=False)
         psych_path = resolve_repo_file(files.get("psych"), required=True)
@@ -216,7 +216,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         uploads = manifest.get("uploads", {})
         meet_name = str(meet.get("name") or "Swim Meet")
         short_name = str(meet.get("short_name") or meet_name)
-        state = str(manifest.get("state") or "AZ").upper()
+        state = str(manifest.get("state") or "").upper()
         dates = dates_label_from_sessions(manifest.get("sessions", []))
         start_date, end_date = date_bounds_from_sessions(manifest.get("sessions", []))
         meet_id = unique_current_meet_id(meet_name, dates)

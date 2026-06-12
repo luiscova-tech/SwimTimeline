@@ -130,6 +130,10 @@ h2 {
   align-items: start;
 }
 
+.entry-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.6fr);
+}
+
 .upload-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-top: 14px;
@@ -330,10 +334,16 @@ legend {
   font-weight: 750;
 }
 
+label span small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .field-heading {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 10px;
   margin-bottom: 6px;
 }
@@ -372,7 +382,7 @@ input[name="state"] {
   background: white;
 }
 
-.inline-button,
+.add-swimmer-button,
 .icon-button {
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -383,9 +393,11 @@ input[name="state"] {
   cursor: pointer;
 }
 
-.inline-button {
-  min-height: 30px;
-  padding: 0 10px;
+.add-swimmer-button {
+  justify-self: start;
+  min-height: 34px;
+  margin-top: 8px;
+  padding: 0 11px;
   font-size: 13px;
 }
 
@@ -587,6 +599,41 @@ input[name="state"] {
   justify-content: flex-end;
 }
 
+.download-dock {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 20;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #9cc8bd;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 14px 30px rgba(23, 50, 93, 0.2);
+}
+
+.download-dock span {
+  color: var(--navy);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.download-dock button {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .downloads a.secondary,
 .secondary-button {
   border-color: var(--line);
@@ -720,5 +767,25 @@ td strong {
   .result-actions,
   .downloads {
     justify-content: flex-start;
+  }
+
+  .downloads,
+  .download-group,
+  .download-links {
+    justify-items: stretch;
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .download-links {
+    display: grid;
+  }
+
+  .downloads a {
+    width: 100%;
+  }
+
+  .download-dock:not(.hidden) {
+    display: flex;
   }
 }
