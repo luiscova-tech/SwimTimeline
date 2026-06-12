@@ -15,10 +15,12 @@ const publishCurrentBtn = document.querySelector("#publishCurrent");
 const swimmerList = document.querySelector("#swimmerList");
 const addSwimmerBtn = document.querySelector("#addSwimmer");
 const downloadDock = document.querySelector("#downloadDock");
+const downloadDockTitle = downloadDock.querySelector("strong");
 const downloadDockMessage = document.querySelector("#downloadDockMessage");
 const downloadDockPrimary = document.querySelector("#downloadDockPrimary");
 const jumpDownloadsBtn = document.querySelector("#jumpDownloads");
 let lastPayload = null;
+let activeMeetCard = null;
 
 loadCurrentMeets();
 updateRemoveButtons();
@@ -29,6 +31,10 @@ downloadDockPrimary.addEventListener("click", () => {
   downloadDock.classList.add("hidden");
 });
 jumpDownloadsBtn.addEventListener("click", () => {
+  if (jumpDownloadsBtn.dataset.action === "close") {
+    hideDownloadDock();
+    return;
+  }
   downloadsEl.scrollIntoView({ behavior: "smooth", block: "start" });
   downloadDock.classList.add("hidden");
 });
@@ -41,7 +47,6 @@ swimmerList.addEventListener("click", (event) => {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  setStatus("Creating calendar files from uploaded PDFs...", "busy");
   resultEl.classList.add("hidden");
   hideDownloadDock();
 
@@ -57,6 +62,12 @@ form.addEventListener("submit", async (event) => {
     return;
   }
 
+  setStatus("Creating calendar files from uploaded PDFs...", "busy");
+  showProcessingDock({
+    title: "Creating calendar",
+    message: "Reading uploaded meet documents and preparing the calendar files.",
+  });
+
   try {
     const response = await fetch("/api/analyze", {
       method: "POST",
@@ -70,6 +81,7 @@ form.addEventListener("submit", async (event) => {
     setStatus("Calendar files are ready.", "success");
   } catch (error) {
     setStatus(error.message, "error");
+    showErrorDock(error.message);
   }
 });
 
@@ -137,10 +149,13 @@ function buildMeetCard(meet, options = {}) {
         ${meet.has_relay ? "<span>Relay doc</span>" : ""}
       </div>
       <div class="doc-tags">${docs}</div>
+      <div class="meet-progress hidden" aria-live="polite"></div>
     </div>
-    <button class="primary" type="button">${options.featured ? "Use featured meet" : "Use this meet"}</button>
+    <button class="primary meet-action-button" type="button">${options.featured ? "Use featured meet" : "Use this meet"}</button>
   `;
-  card.querySelector("button").addEventListener("click", () => analyzeCurrentMeet(meet));
+  const button = card.querySelector(".meet-action-button");
+  button.dataset.idleLabel = button.textContent;
+  button.addEventListener("click", () => analyzeCurrentMeet(meet, card));
   return card;
 }
 
@@ -148,7 +163,7 @@ function statusLabel(status) {
   return String(status || "ready").replace("-", " ");
 }
 
-async function analyzeCurrentMeet(meet) {
+async function analyzeCurrentMeet(meet, card) {
   const swimmerNames = getSwimmerNames();
   const state = form.elements.state.value.trim() || meet.state || "";
   const modes = new FormData(form).getAll("modes");
@@ -163,6 +178,15 @@ async function analyzeCurrentMeet(meet) {
   setStatus(`Creating calendar files for ${meet.short_name || meet.name}...`, "busy");
   resultEl.classList.add("hidden");
   hideDownloadDock();
+  if (activeMeetCard && activeMeetCard !== card) {
+    setMeetCardState(activeMeetCard, "idle");
+  }
+  activeMeetCard = card;
+  setMeetCardState(card, "busy", { meet, swimmerNames });
+  showProcessingDock({
+    title: "Creating calendar",
+    message: `${meet.short_name || meet.name} is being prepared for ${swimmerListLabel(swimmerNames)}.`,
+  });
   try {
     const response = await fetch("/api/analyze-current", {
       method: "POST",
@@ -181,9 +205,89 @@ async function analyzeCurrentMeet(meet) {
       throw new Error(payload.error || "Current meet analysis failed.");
     }
     renderResult(payload);
+    setMeetCardState(card, "success", { meet, swimmerNames, payload });
     setStatus("Calendar files are ready.", "success");
   } catch (error) {
+    setMeetCardState(card, "error", { message: error.message });
     setStatus(error.message, "error");
+    showErrorDock(error.message);
+  }
+}
+
+function setMeetCardState(card, state, options = {}) {
+  const button = card.querySelector(".meet-action-button");
+  const progress = card.querySelector(".meet-progress");
+  const idleLabel = button.dataset.idleLabel || "Use this meet";
+  card.classList.remove("is-busy", "is-ready", "is-error");
+  progress.classList.add("hidden");
+  progress.innerHTML = "";
+  button.disabled = false;
+  button.innerHTML = idleLabel;
+
+  if (state === "idle") return;
+
+  if (state === "busy") {
+    card.classList.add("is-busy");
+    button.disabled = true;
+    button.innerHTML = `<span class="mini-spinner" aria-hidden="true"></span>Creating calendar...`;
+    progress.classList.remove("hidden");
+    progress.innerHTML = `
+      <div class="meet-progress-main">
+        <span class="mini-spinner" aria-hidden="true"></span>
+        <div>
+          <strong>Creating calendar for ${escapeHtml(swimmerListLabel(options.swimmerNames || []))}</strong>
+          <span>Reading hosted documents and matching swimmer events.</span>
+        </div>
+      </div>
+      <div class="progress-steps" aria-label="Calendar progress">
+        <span>Finding swimmer</span>
+        <span>Building calendar</span>
+        <span>Preparing download</span>
+      </div>
+    `;
+    return;
+  }
+
+  if (state === "success") {
+    const primary = primaryCalendarDownload(options.payload || {});
+    const primaryLink = primary
+      ? `<a class="inline-download-primary" href="${escapeHtml(primary.href)}">${escapeHtml(primary.label)}</a>`
+      : "";
+    card.classList.add("is-ready");
+    button.innerHTML = "Create again";
+    progress.classList.remove("hidden");
+    progress.innerHTML = `
+      <div class="meet-progress-main">
+        <span class="ready-dot" aria-hidden="true"></span>
+        <div>
+          <strong>Calendar ready for ${escapeHtml(swimmerListLabel(options.swimmerNames || []))}</strong>
+          <span>Download it now, or open the full file list below.</span>
+        </div>
+      </div>
+      <div class="inline-ready-actions">
+        ${primaryLink}
+        <button class="inline-secondary-button" type="button">View all files</button>
+      </div>
+    `;
+    progress.querySelector(".inline-secondary-button")?.addEventListener("click", () => {
+      downloadsEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return;
+  }
+
+  if (state === "error") {
+    card.classList.add("is-error");
+    button.innerHTML = idleLabel;
+    progress.classList.remove("hidden");
+    progress.innerHTML = `
+      <div class="meet-progress-main">
+        <span class="error-dot" aria-hidden="true"></span>
+        <div>
+          <strong>Calendar could not be created</strong>
+          <span>${escapeHtml(options.message || "Try again or check the swimmer name.")}</span>
+        </div>
+      </div>
+    `;
   }
 }
 
@@ -386,7 +490,36 @@ function setStatus(message, state = "idle") {
 
 function hideDownloadDock() {
   downloadDock.classList.add("hidden");
+  downloadDock.classList.remove("dock-busy", "dock-ready", "dock-error");
+  downloadDockTitle.textContent = "Calendar ready";
+  downloadDockMessage.textContent = "";
   downloadDockPrimary.removeAttribute("href");
+  downloadDockPrimary.classList.remove("hidden");
+  jumpDownloadsBtn.textContent = "View all files";
+  jumpDownloadsBtn.dataset.action = "downloads";
+  jumpDownloadsBtn.classList.remove("hidden");
+}
+
+function showProcessingDock({ title, message }) {
+  downloadDock.classList.remove("hidden", "dock-ready", "dock-error");
+  downloadDock.classList.add("dock-busy");
+  downloadDockTitle.textContent = title;
+  downloadDockMessage.textContent = message;
+  downloadDockPrimary.classList.add("hidden");
+  downloadDockPrimary.removeAttribute("href");
+  jumpDownloadsBtn.classList.add("hidden");
+}
+
+function showErrorDock(message) {
+  downloadDock.classList.remove("hidden", "dock-busy", "dock-ready");
+  downloadDock.classList.add("dock-error");
+  downloadDockTitle.textContent = "Calendar was not created";
+  downloadDockMessage.textContent = message || "Try again or check the swimmer name.";
+  downloadDockPrimary.classList.add("hidden");
+  downloadDockPrimary.removeAttribute("href");
+  jumpDownloadsBtn.textContent = "Close";
+  jumpDownloadsBtn.dataset.action = "close";
+  jumpDownloadsBtn.classList.remove("hidden");
 }
 
 function revealResultDownloads(payload) {
@@ -403,6 +536,12 @@ function revealResultDownloads(payload) {
 }
 
 function updateReadyDock(payload) {
+  downloadDock.classList.remove("dock-busy", "dock-error");
+  downloadDock.classList.add("dock-ready");
+  downloadDockTitle.textContent = "Calendar ready";
+  jumpDownloadsBtn.textContent = "View all files";
+  jumpDownloadsBtn.dataset.action = "downloads";
+  jumpDownloadsBtn.classList.remove("hidden");
   const primary = primaryCalendarDownload(payload);
   if (!primary) {
     downloadDockPrimary.classList.add("hidden");
@@ -448,6 +587,14 @@ function primaryCalendarDownload(payload) {
     label: "Download Calendar",
     message: "A calendar file is ready to download.",
   };
+}
+
+function swimmerListLabel(names) {
+  const cleanNames = (names || []).filter(Boolean);
+  if (!cleanNames.length) return "this swimmer";
+  if (cleanNames.length === 1) return cleanNames[0];
+  if (cleanNames.length === 2) return `${cleanNames[0]} and ${cleanNames[1]}`;
+  return `${cleanNames[0]} and ${cleanNames.length - 1} more swimmers`;
 }
 
 function updateRemoveButtons() {
