@@ -16,7 +16,7 @@ Then open:
 http://127.0.0.1:8765
 ```
 
-The app accepts a meet flyer, psych sheet, timeline, optional relay document, swimmer name, and state/LSC. It generates reviewable calendar files for daily, whole-meet, and swim-by-swim imports. Relays are included only when the relay document explicitly names the swimmer. Uploaded files and generated outputs are stored under `.swimtimeline-runs/`, which is ignored by git.
+The app accepts a meet flyer, psych sheet or heat sheet, timeline, optional relay document, one or more swimmer names, and state/LSC. It generates reviewable calendar files for daily, whole-meet, and swim-by-swim imports, with optional combined family calendars. Relays are included only when the relay document explicitly names the swimmer. Uploaded files and generated outputs are stored under `.swimtimeline-runs/`, which is ignored by git.
 
 Advanced cuts beyond AAAA are loaded from `data/advanced_standards.json`; see `docs/standards-data.md`.
 
@@ -27,7 +27,7 @@ The app can run as a public Python web service. This repo includes:
 - `requirements.txt` for the Python dependency.
 - `render.yaml` for a free Render web-service deployment.
 
-The hosted Current Meets registry keeps the Narwhal Invite available without re-uploading its PDFs.
+The hosted Current Meets registry keeps reusable meets available without re-uploading their PDFs.
 
 ## Meet Layout
 

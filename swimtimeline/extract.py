@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
+from math import ceil
 from pathlib import Path
 import re
 from typing import Iterable
@@ -70,6 +71,8 @@ class PsychEntry:
     heat: int | None = None
     lane: int | None = None
     round_name: str | None = None
+    heat_is_estimated: bool = False
+    estimate_note: str | None = None
 
 
 @dataclass(frozen=True)
@@ -275,7 +278,7 @@ def parse_psych_line(line: str) -> PsychLine | None:
         flags=re.IGNORECASE,
     )
     if not match:
-        return None
+        return parse_para_psych_line(line, heat, round_name)
     return PsychLine(
         team=match.group("team"),
         seed=match.group("seed"),
@@ -285,6 +288,36 @@ def parse_psych_line(line: str) -> PsychLine | None:
         document_type="heat" if heat is not None else "psych",
         heat=heat,
         lane=int(match.group("place")) if heat is not None else None,
+        round_name=round_name,
+    )
+
+
+def parse_para_psych_line(line: str, heat: int | None, round_name: str | None) -> PsychLine | None:
+    match = re.search(
+        r"^(?:(?P<class_prefix>[A-Z]{1,3}\d{1,2})-)?"
+        r"(?P<team>.+?)\s+"
+        r"(?P<seed>NT|(?:\d+:)?\d{1,2}\.\d{2})\s*"
+        r"(?P<name>.+?,\s*[A-Za-z][A-Za-z' .-]*?)\s+"
+        r"(?P<class>[A-Z]{1,3}\d{1,2})\s+"
+        r"(?P<age>\d{1,2})(?:\s+.*)?$",
+        line,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return None
+    team = normalize_space(match.group("team"))
+    class_prefix = match.group("class_prefix")
+    if class_prefix:
+        team = f"{class_prefix.upper()}-{team}"
+    return PsychLine(
+        team=team,
+        seed=match.group("seed"),
+        age=match.group("age"),
+        swimmer_name=clean_swimmer_name(match.group("name")),
+        seed_place=0,
+        document_type="heat" if heat is not None else "psych",
+        heat=heat,
+        lane=None,
         round_name=round_name,
     )
 
@@ -349,27 +382,34 @@ def collect_psych_entries(
 ) -> tuple[list[PsychEntry], list[dict]]:
     entries: list[PsychEntry] = []
     page_counts: list[dict] = []
+    auto_place_by_event: dict[int, int] = {}
 
     for page_number, text in enumerate(pages, start=1):
         lines = text.splitlines()
         count = 0
         for index, line in enumerate(lines):
-            parsed = parse_psych_entry_line(line, patterns, query_pairs, allow_fuzzy=allow_fuzzy)
-            if parsed is None:
+            row = parse_psych_line(line)
+            if row is None:
                 continue
-            row, match_type = parsed
-            count += 1
             header = scan_event_header(lines, index)
             if header is None:
                 continue
             event_number, event_name = header
+            seed_place = row.seed_place
+            if seed_place <= 0:
+                seed_place = auto_place_by_event.get(event_number, 0) + 1
+            auto_place_by_event[event_number] = max(auto_place_by_event.get(event_number, 0), seed_place)
+            match_type = match_swimmer_name(row.swimmer_name, patterns, query_pairs, allow_fuzzy=allow_fuzzy)
+            if not match_type:
+                continue
+            count += 1
             entries.append(
                 PsychEntry(
                     day="",
                     event_number=event_number,
                     event_name=event_name,
                     seed_time=row.seed,
-                    seed_place=row.seed_place,
+                    seed_place=seed_place,
                     age=row.age,
                     team=row.team,
                     page=page_number,
@@ -503,13 +543,49 @@ def parse_date_range(text: str) -> tuple[date, date] | None:
         r"(\d{1,2})/(\d{1,2})/(\d{4})\s+to\s+(\d{1,2})/(\d{1,2})/(\d{4})",
         text,
     )
-    if not match:
-        return None
-    sm, sd, sy, em, ed, ey = map(int, match.groups())
-    return date(sy, sm, sd), date(ey, em, ed)
+    if match:
+        sm, sd, sy, em, ed, ey = map(int, match.groups())
+        return date(sy, sm, sd), date(ey, em, ed)
+
+    named_match = re.search(
+        r"\b([A-Za-z]+)\s+(\d{1,2})\s*(?:-|–|—)\s*(?:(?:[A-Za-z]+)\s+)?(\d{1,2}),\s*(\d{4})",
+        text,
+    )
+    if named_match:
+        month_name, start_day, end_day, year = named_match.groups()
+        month = month_number(month_name)
+        if month:
+            return date(int(year), month, int(start_day)), date(int(year), month, int(end_day))
+    return None
+
+
+def month_number(month_name: str) -> int | None:
+    months = {
+        "january": 1,
+        "february": 2,
+        "march": 3,
+        "april": 4,
+        "may": 5,
+        "june": 6,
+        "july": 7,
+        "august": 8,
+        "september": 9,
+        "october": 10,
+        "november": 11,
+        "december": 12,
+    }
+    return months.get(month_name.casefold())
 
 
 def parse_meet_name(text: str) -> str:
+    full_text = normalize_space(text)
+    championship_match = re.search(
+        r"\b(20\d{2}\s+U\.S\.\s+Paralympics Swimming National Championships)\b",
+        full_text,
+        flags=re.IGNORECASE,
+    )
+    if championship_match:
+        return championship_match.group(1)
     for line in text.splitlines():
         clean = normalize_space(line)
         if " - " in clean and re.search(r"\d{1,2}/\d{1,2}/\d{4}\s+to\s+\d{1,2}/\d{1,2}/\d{4}", clean):
@@ -517,7 +593,7 @@ def parse_meet_name(text: str) -> str:
     for line in text.splitlines():
         clean = normalize_space(line)
         lower = clean.lower()
-        if "invite" in lower or "invitational" in lower or " open" in lower:
+        if "invite" in lower or "invitational" in lower or " open" in lower or "championship" in lower or "nationals" in lower:
             return clean
     return "Swim Meet"
 
@@ -582,6 +658,11 @@ def infer_facility(session_name: str) -> str:
     if "ag" in lower or "age group" in lower:
         return "Kino Aquatic Complex"
     return "Meet facility"
+
+
+def session_is_finals(session_name: str) -> bool:
+    lower = session_name.lower()
+    return "final" in lower and "prelim" not in lower and "distance" not in lower
 
 
 def parse_timeline(timeline_pdf: Path, flyer_text: str = "") -> tuple[str, dict[int, SessionInfo], list[TimelineEvent]]:
@@ -671,7 +752,134 @@ def parse_timeline(timeline_pdf: Path, flyer_text: str = "") -> tuple[str, dict[
                 item.end = item.start + timedelta(minutes=20)
         events.extend(page_events)
 
+    if not events:
+        packet_sessions, packet_events = parse_meet_packet_schedule(text, meet_name)
+        if packet_events:
+            return meet_name, packet_sessions, packet_events
+
     return meet_name, sessions, events
+
+
+def parse_meet_packet_schedule(text: str, meet_name: str) -> tuple[dict[int, SessionInfo], list[TimelineEvent]]:
+    sessions: dict[int, SessionInfo] = {}
+    events_by_session: dict[int, list[tuple[int, str]]] = {}
+    current_session: SessionInfo | None = None
+    current_warmup: str | None = None
+    current_start: str | None = None
+    next_session_number = 1
+    facility = packet_facility(text)
+
+    day_header = re.compile(
+        r"^Day\s+(\d+):\s+([A-Za-z]+),\s+([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})\s*(?:-|–|—)\s*(.+?Session)\s*$",
+        re.IGNORECASE,
+    )
+    warmup_line = re.compile(r"^Warmups?:\s*(\d{1,2}:\d{2})\s*([AP]M)", re.IGNORECASE)
+    start_line = re.compile(r"^Start:\s*(\d{1,2}:\d{2})\s*([AP]M)", re.IGNORECASE)
+    event_line = re.compile(r"^(\d{1,3})\.\s+(.+)$")
+
+    for raw_line in text.splitlines():
+        line = normalize_space(raw_line)
+        if not line:
+            continue
+        day_match = day_header.match(line)
+        if day_match:
+            day_of_meet = int(day_match.group(1))
+            month = month_number(day_match.group(3))
+            if not month:
+                current_session = None
+                continue
+            session_date = date(int(day_match.group(5)), month, int(day_match.group(4)))
+            session_name = normalize_space(day_match.group(6))
+            current_session = SessionInfo(
+                number=next_session_number,
+                name=session_name,
+                day_of_meet=day_of_meet,
+                date=session_date,
+                start_time="",
+                warmup_time=None,
+                facility=facility,
+            )
+            sessions[current_session.number] = current_session
+            events_by_session[current_session.number] = []
+            next_session_number += 1
+            current_warmup = None
+            current_start = None
+            continue
+
+        if current_session is None:
+            continue
+
+        warmup_match = warmup_line.match(line)
+        if warmup_match:
+            current_warmup = normalize_pdf_time(warmup_match.group(1), warmup_match.group(2))
+            current_session.warmup_time = current_warmup
+            continue
+
+        start_match = start_line.match(line)
+        if start_match:
+            current_start = normalize_pdf_time(start_match.group(1), start_match.group(2))
+            current_session.start_time = current_start
+            continue
+
+        event_match = event_line.match(line)
+        if event_match and current_start:
+            event_number = int(event_match.group(1))
+            event_name = normalize_space(event_match.group(2))
+            events_by_session[current_session.number].append((event_number, event_name))
+
+    events: list[TimelineEvent] = []
+    for session in sessions.values():
+        if not session.start_time:
+            continue
+        cursor = combine_date_time(session.date, session.start_time)
+        round_name = "Finals" if "final" in session.name.lower() and "prelim" not in session.name.lower() else "Prelims"
+        for event_number, event_name in events_by_session.get(session.number, []):
+            duration = timedelta(minutes=estimated_schedule_event_minutes(event_name))
+            start = cursor
+            end = start + duration
+            events.append(
+                TimelineEvent(
+                    event_number=event_number,
+                    event_name=event_name,
+                    round_name=round_name,
+                    session_number=session.number,
+                    session_name=session.name,
+                    date=session.date,
+                    start=start,
+                    end=end,
+                    entries=None,
+                    heats=None,
+                )
+            )
+            cursor = end
+        if events_by_session.get(session.number):
+            session.finish_time = cursor.strftime("%H:%M")
+    return sessions, events
+
+
+def packet_facility(text: str) -> str | None:
+    if "Idaho Central Aquatic Center" in text:
+        return "Idaho Central Aquatic Center, Boise, ID"
+    return None
+
+
+def estimated_schedule_event_minutes(event_name: str) -> int:
+    lower = event_name.lower()
+    if "1500" in lower:
+        return 60
+    if "800" in lower:
+        return 35
+    if "400" in lower:
+        return 25
+    if "200" in lower:
+        return 18
+    if "150m" in lower or "150 m" in lower:
+        return 14
+    if "100" in lower:
+        return 12
+    if "relay" in lower:
+        return 16
+    return 8
 
 
 def normalize_timeline_line(value: str) -> str:
@@ -703,12 +911,127 @@ def assign_days(entries: list[PsychEntry], timeline_events: list[TimelineEvent])
             entry.day = timeline.date.strftime("%A")
 
 
+def estimate_heat_lanes_for_entries(entries: list[PsychEntry], timeline_events: list[TimelineEvent], flyer_text: str) -> list[str]:
+    if not entries:
+        return []
+    excluded_events, has_unscoped_seeded_rule = circle_or_deck_seeded_events(flyer_text, timeline_events)
+    if has_unscoped_seeded_rule and not excluded_events:
+        return [
+            "Estimated heat/lane was requested, but this meet appears to mention circle or deck seeding without a parseable event range. Heat/lane estimates were not added."
+        ]
+
+    by_event = primary_timeline_by_event(timeline_events)
+    estimated_count = 0
+    skipped_events: set[int] = set()
+    missing_heat_count_events: set[int] = set()
+    for entry in entries:
+        if entry.event_number in excluded_events:
+            skipped_events.add(entry.event_number)
+            continue
+        if entry.heat is not None or entry.lane is not None:
+            continue
+        timeline = by_event.get(entry.event_number)
+        if not timeline or entry.seed_place <= 0:
+            continue
+        if not timeline.heats or not timeline.entries:
+            missing_heat_count_events.add(entry.event_number)
+            continue
+        lanes = max(1, min(10, ceil(timeline.entries / timeline.heats)))
+        heat = timeline.heats - ((entry.seed_place - 1) // lanes)
+        if heat < 1:
+            continue
+        rank_in_heat = ((entry.seed_place - 1) % lanes) + 1
+        lanes_by_rank = lane_order(lanes)
+        entry.heat = heat
+        entry.lane = lanes_by_rank[rank_in_heat - 1]
+        entry.heat_is_estimated = True
+        entry.estimate_note = "Estimated from psych sheet seed order and timeline heat count."
+        estimated_count += 1
+
+    warnings: list[str] = []
+    if estimated_count:
+        warnings.append(
+            "Estimated heat/lane values are not final. Scratches, deck entries, positive check-in, circle seeding, and meet-management changes can alter actual heat/lane assignments."
+        )
+    if skipped_events:
+        warnings.append(f"Heat/lane estimates skipped for deck/circle-seeded event(s): {event_list_label(skipped_events)}.")
+    if missing_heat_count_events:
+        warnings.append(
+            f"Heat/lane estimates unavailable for event(s) {event_list_label(missing_heat_count_events)} because the timeline source does not include entry and heat counts."
+        )
+    return warnings
+
+
+def circle_or_deck_seeded_events(flyer_text: str, timeline_events: list[TimelineEvent]) -> tuple[set[int], bool]:
+    chunks = re.split(r"(?<=[.;])\s+|\n+", flyer_text)
+    event_numbers: set[int] = set()
+    found_seeded_rule = False
+    for chunk in chunks:
+        lower = chunk.lower()
+        if not re.search(r"\b(?:circle|deck)[- ]?seed", lower):
+            continue
+        found_seeded_rule = True
+        event_numbers.update(event_numbers_from_seeded_rule(chunk))
+        if re.search(r"\bprelim\s*/?\s*final events\b", lower):
+            event_numbers.update(final_timeline_by_event(timeline_events))
+    return event_numbers, found_seeded_rule
+
+
+def event_numbers_from_seeded_rule(text: str) -> set[int]:
+    event_numbers: set[int] = set()
+    for match in re.finditer(
+        r"\bevents?\s*#?\s*(\d{1,3})(?:\s*(?:-|–|—|to|through)\s*#?\s*(\d{1,3}))?",
+        text,
+        flags=re.IGNORECASE,
+    ):
+        start = int(match.group(1))
+        end = int(match.group(2) or start)
+        if end < start:
+            start, end = end, start
+        if end - start <= 200:
+            event_numbers.update(range(start, end + 1))
+    return event_numbers
+
+
+def event_list_label(event_numbers: set[int]) -> str:
+    ordered = sorted(event_numbers)
+    if not ordered:
+        return ""
+    ranges: list[str] = []
+    start = previous = ordered[0]
+    for number in ordered[1:]:
+        if number == previous + 1:
+            previous = number
+            continue
+        ranges.append(f"#{start}" if start == previous else f"#{start}-#{previous}")
+        start = previous = number
+    ranges.append(f"#{start}" if start == previous else f"#{start}-#{previous}")
+    return ", ".join(ranges)
+
+
+def lane_order(lanes: int) -> list[int]:
+    if lanes == 10:
+        return [5, 6, 4, 7, 3, 8, 2, 9, 1, 10]
+    if lanes == 8:
+        return [4, 5, 3, 6, 2, 7, 1, 8]
+    if lanes == 6:
+        return [3, 4, 2, 5, 1, 6]
+    center_left = (lanes + 1) // 2
+    order: list[int] = []
+    for offset in range(lanes):
+        left = center_left - offset
+        right = center_left + 1 + offset
+        if 1 <= left <= lanes:
+            order.append(left)
+        if 1 <= right <= lanes:
+            order.append(right)
+    return order[:lanes]
+
+
 def primary_timeline_by_event(timeline_events: list[TimelineEvent]) -> dict[int, TimelineEvent]:
     result: dict[int, TimelineEvent] = {}
     for event in timeline_events:
-        lower = event.session_name.lower()
-        is_evening_final = "finals" in lower and "prelim" not in lower and "distance" not in lower
-        if event.event_number not in result and not is_evening_final:
+        if event.event_number not in result and not session_is_finals(event.session_name):
             result[event.event_number] = event
     for event in timeline_events:
         result.setdefault(event.event_number, event)
@@ -718,8 +1041,7 @@ def primary_timeline_by_event(timeline_events: list[TimelineEvent]) -> dict[int,
 def final_timeline_by_event(timeline_events: list[TimelineEvent]) -> dict[int, TimelineEvent]:
     result: dict[int, TimelineEvent] = {}
     for event in timeline_events:
-        lower = event.session_name.lower()
-        if "finals" in lower and "prelim" not in lower:
+        if session_is_finals(event.session_name):
             result[event.event_number] = event
     return result
 
@@ -736,18 +1058,39 @@ def event_short_name(event_name: str) -> str:
 
 def entry_seed_summary(entry: PsychEntry) -> str:
     if entry.heat is not None and entry.lane is not None:
-        return f"seed {entry.seed_time} | heat {entry.heat}, lane {entry.lane}"
+        prefix = "estimated heat" if entry.heat_is_estimated else "heat"
+        return f"seed {entry.seed_time} | {prefix} {entry.heat}, lane {entry.lane}"
     return f"seed {entry.seed_time} | seed place {entry.seed_place}"
 
 
 def entry_position_line(entry: PsychEntry) -> str:
     if entry.heat is not None and entry.lane is not None:
-        return f"Heat/lane: heat {entry.heat}, lane {entry.lane}"
+        label = "Estimated heat/lane" if entry.heat_is_estimated else "Heat/lane"
+        return f"{label}: heat {entry.heat}, lane {entry.lane}"
     return f"Seed place: {entry.seed_place}"
 
 
 def entry_source_label(entry: PsychEntry) -> str:
+    if entry.heat_is_estimated:
+        return "Psych/entry sheet + estimated heat/lane"
     return "Heat sheet" if entry.heat is not None else "Psych/entry sheet"
+
+
+def event_format_label(swim: SwimEvent) -> str:
+    if event_name_is_timed_final(swim.psych.event_name) or event_name_is_timed_final(swim.timeline.event_name):
+        return "Timed final"
+    if swim.final_timeline and swim.final_timeline.session_number != swim.timeline.session_number:
+        return "Prelim/final"
+    if swim.timeline.round_name.lower() == "finals":
+        return "Timed final"
+    lower_session = swim.timeline.session_name.lower()
+    if "distance" in lower_session or "afternoon" in lower_session:
+        return "Timed final"
+    return "Prelim only"
+
+
+def event_name_is_timed_final(event_name: str) -> bool:
+    return bool(re.search(r"\bTF\b|timed[- ]?final", event_name, flags=re.IGNORECASE))
 
 
 def location_for_session(session: SessionInfo | TimelineEvent) -> str:
@@ -758,6 +1101,8 @@ def location_for_session(session: SessionInfo | TimelineEvent) -> str:
         return "Kino Aquatic Complex, 848 N. Horne, Mesa, AZ 85203"
     if facility and "skyline" in facility.lower():
         return "Skyline Aquatic Center, 845 S. Crismon Rd., Mesa, AZ"
+    if facility:
+        return facility
     return "Meet facility"
 
 
@@ -808,6 +1153,8 @@ def build_relay_events(relay_entries: list[RelayEntry], timeline_events: list[Ti
 
 
 def finals_note(timeline: TimelineEvent, final_timeline: TimelineEvent | None) -> str:
+    if event_name_is_timed_final(timeline.event_name):
+        return "Timed final; no separate finals swim."
     if final_timeline and final_timeline.session_number != timeline.session_number:
         return f"Possible if qualifies; finals event starts at {display_time(final_timeline.start)} at {location_for_session_name(final_timeline.session_name)}."
     lower_session = timeline.session_name.lower()
@@ -874,6 +1221,7 @@ def build_detailed_payload(
             f"Pool/course: {location_for_session(timeline)}; entry sheet lists event as LC Meter",
             "",
             f"Event: #{psych.event_number} - {psych.event_name}",
+            f"Format: {event_format_label(swim)}",
             f"Seed time: {psych.seed_time}",
             entry_position_line(psych),
             f"Timeline event window: {display_window(timeline.start, timeline.end)}",
@@ -923,6 +1271,7 @@ def build_detailed_payload(
             f"Pool/course: {location_for_session(timeline)}; relay document lists entry as {relay.entry_time[-1:] if relay.entry_time else 'provided'}",
             "",
             f"Relay: #{relay.event_number} - {relay.event_name}",
+            "Format: Timed final relay",
             f"Team: {relay.relay_label}",
             f"Entry time: {relay.entry_time}",
             f"Leg: {relay.leg}",
@@ -1017,11 +1366,11 @@ def build_daily_payload(
             if isinstance(item, RelayEvent):
                 relay = item.relay
                 lines.append(
-                    f"#{relay.event_number} Relay - {event_short_name(relay.event_name)} | {relay.relay_label}, leg {relay.leg} | {display_window(item.timeline.start, item.timeline.end)}"
+                    f"#{relay.event_number} Relay - {event_short_name(relay.event_name)} | timed final relay | {relay.relay_label}, leg {relay.leg} | {display_window(item.timeline.start, item.timeline.end)}"
                 )
             else:
                 lines.append(
-                    f"#{item.psych.event_number} {event_short_name(item.psych.event_name)} | {entry_seed_summary(item.psych)} | {display_window(item.timeline.start, item.timeline.end)}"
+                    f"#{item.psych.event_number} {event_short_name(item.psych.event_name)} | {event_format_label(item)} | {entry_seed_summary(item.psych)} | {display_window(item.timeline.start, item.timeline.end)}"
                 )
         possible_finals = [
             f"#{item.psych.event_number} {event_short_name(item.psych.event_name)} at {display_time(item.final_timeline.start)} at {location_for_session_name(item.final_timeline.session_name)} if qualifies"
@@ -1154,13 +1503,17 @@ def build_audit(
     for row in page_counts:
         lines.append(f"| {row['page']} | {row['count']} |")
     lines.extend(["", f"Total psych entries parsed: {len(entries)}", "", "## Verified Events", ""])
-    lines.append("| Day | Event # | Event Name | Seed Time | Position | Page | Column | Source |")
-    lines.append("| --- | ---: | --- | --- | --- | ---: | --- | --- |")
+    lines.append("| Day | Event # | Event Name | Format | Seed Time | Position | Page | Column | Source |")
+    lines.append("| --- | ---: | --- | --- | --- | --- | ---: | --- | --- |")
     for swim in swims:
         psych = swim.psych
-        position = f"heat {psych.heat}, lane {psych.lane}" if psych.heat is not None and psych.lane is not None else f"seed place {psych.seed_place}"
+        if psych.heat is not None and psych.lane is not None:
+            prefix = "estimated heat" if psych.heat_is_estimated else "heat"
+            position = f"{prefix} {psych.heat}, lane {psych.lane}"
+        else:
+            position = f"seed place {psych.seed_place}"
         lines.append(
-            f"| {swim.timeline.date.strftime('%A')} | {psych.event_number} | {psych.event_name} | {psych.seed_time} | {position} | {psych.page} | {psych.column} | {entry_source_label(psych)} |"
+            f"| {swim.timeline.date.strftime('%A')} | {psych.event_number} | {psych.event_name} | {event_format_label(swim)} | {psych.seed_time} | {position} | {psych.page} | {psych.column} | {entry_source_label(psych)} |"
         )
     lines.extend(["", "## Verified Relays", ""])
     if relays:
@@ -1199,12 +1552,14 @@ def analyze_uploads(
     relay_pdf: Path | None = None,
     state: str = DEFAULT_STATE,
     modes: Iterable[str] = ("daily", "weekend", "detailed"),
+    estimate_heat_lanes: bool = False,
 ) -> dict:
     flyer_text = "\n".join(extract_text_pages(flyer_pdf)) if flyer_pdf else ""
     meet_name, sessions, timeline_events = parse_timeline(timeline_pdf, flyer_text=flyer_text)
     entries, page_counts, name_warnings = extract_psych_entries(psych_pdf, swimmer_name)
     relay_entries, relay_warnings = extract_relay_entries(relay_pdf, swimmer_name)
     assign_days(entries, timeline_events)
+    estimate_warnings = estimate_heat_lanes_for_entries(entries, timeline_events, flyer_text) if estimate_heat_lanes else []
     swims = build_swim_events(entries, timeline_events, state=state)
     relays = build_relay_events(relay_entries, timeline_events)
     short_name = short_meet_name(meet_name)
@@ -1234,7 +1589,14 @@ def analyze_uploads(
         ),
         "files": files,
         "sessions": [serialize_session(session) for session in sessions.values()],
-        "warnings": build_warnings(entries, swims, relay_entries, relays, relay_warnings, name_warnings),
+        "warnings": build_warnings(
+            entries,
+            swims,
+            relay_entries,
+            relays,
+            relay_warnings,
+            name_warnings + estimate_warnings + timeline_source_warnings(timeline_events),
+        ),
     }
 
 
@@ -1259,8 +1621,11 @@ def summarize_swim(swim: SwimEvent) -> dict:
         "seed_place": swim.psych.seed_place,
         "heat": swim.psych.heat,
         "lane": swim.psych.lane,
+        "heat_is_estimated": swim.psych.heat_is_estimated,
+        "estimate_note": swim.psych.estimate_note,
         "entry_position": entry_position_line(swim.psych),
         "source_document": entry_source_label(swim.psych),
+        "event_format": event_format_label(swim),
         "day": swim.timeline.date.strftime("%A"),
         "window": display_window(swim.timeline.start, swim.timeline.end),
         "page": swim.psych.page,
@@ -1288,6 +1653,7 @@ def summarize_relay(relay_event: RelayEvent) -> dict:
         "column": "Relay document",
         "benchmarks": {"usa": "n/a for relay", "lsc": "n/a for relay", "advanced": None},
         "finals_note": relay_event.finals_note,
+        "event_format": "Timed final relay",
         "checkin_note": None,
         "sort_start": relay_event.timeline.start.isoformat(timespec="seconds"),
     }
@@ -1315,8 +1681,18 @@ def build_warnings(
     return warnings
 
 
+def timeline_source_warnings(timeline_events: list[TimelineEvent]) -> list[str]:
+    if timeline_events and any(event.entries is None or event.heats is None for event in timeline_events):
+        return [
+            "The timeline source appears to be a meet-packet schedule rather than a final timeline. Event windows are estimated from session order and are less precise."
+        ]
+    return []
+
+
 def short_meet_name(meet_name: str) -> str:
     cleaned = meet_name
+    if "Paralympics Swimming National Championships" in cleaned:
+        return "Para Nationals"
     cleaned = re.sub(r"^\d{4}\s+", "", cleaned)
     cleaned = re.sub(r"^\d+(?:st|nd|rd|th)\s+Annual\s+", "", cleaned, flags=re.IGNORECASE)
     cleaned = cleaned.replace("MAC ", "")

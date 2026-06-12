@@ -25,7 +25,7 @@ python webapp/server.py --host 0.0.0.0
 
 ## Current Meets
 
-`data/current_meets.json` is public app data once deployed. The Narwhal Invite stays listed there.
+`data/current_meets.json` is public app data once deployed. Hosted Current Meets entries stay listed there until their `expires_at` date.
 
 Uploaded meets are not added automatically. A successful upload has to be promoted with `Save To Current Meets`; after deployment, promoted documents should be treated as public documents.
 

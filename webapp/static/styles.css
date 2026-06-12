@@ -127,6 +127,7 @@ h2 {
 
 .grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
 }
 
 .upload-grid {
@@ -329,6 +330,29 @@ legend {
   font-weight: 750;
 }
 
+.field-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.field-heading span {
+  margin: 0;
+}
+
+.swimmer-list {
+  display: grid;
+  gap: 8px;
+}
+
+.swimmer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 8px;
+}
+
 input[type="text"],
 input:not([type]) {
   width: 100%;
@@ -339,12 +363,75 @@ input {
 }
 
 input[name="swimmer_name"],
+input[name="swimmer_names"],
 input[name="state"] {
   height: 44px;
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: white;
+}
+
+.inline-button,
+.icon-button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: var(--navy);
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.inline-button {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.icon-button {
+  height: 44px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.family-options {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 12px;
+}
+
+.check-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.check-option input {
+  margin-top: 3px;
+}
+
+.check-option strong,
+.check-option small {
+  display: block;
+}
+
+.check-option strong {
+  font-size: 14px;
+}
+
+.check-option small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .file-input {
@@ -369,7 +456,7 @@ input[name="state"] {
 .calendar-options {
   display: grid;
   gap: 8px;
-  margin: 0;
+  margin: 14px 0 0;
   padding: 12px;
 }
 
@@ -462,8 +549,7 @@ input[name="state"] {
   display: none !important;
 }
 
-.result-actions,
-.downloads {
+.result-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -472,6 +558,33 @@ input[name="state"] {
 
 .result-actions {
   align-items: flex-start;
+}
+
+.downloads {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
+.download-group {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.download-group h3 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.download-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .downloads a.secondary,
@@ -499,7 +612,7 @@ input[name="state"] {
 }
 
 .result-stats {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-top: 14px;
 }
 
@@ -565,6 +678,17 @@ th {
 
 td strong {
   display: block;
+}
+
+.swimmer-chip {
+  display: inline-flex;
+  margin-bottom: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--navy-soft);
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 @media (max-width: 860px) {

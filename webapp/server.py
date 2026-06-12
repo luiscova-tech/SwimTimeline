@@ -29,6 +29,7 @@ HOSTED_MEETS_DIR = ROOT / "meets" / "current-hosted"
 sys.path.insert(0, str(ROOT))
 
 from swimtimeline.extract import analyze_uploads
+from swimtimeline.ics import build_ics
 
 
 class SwimTimelineHandler(BaseHTTPRequestHandler):
@@ -90,12 +91,14 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             },
         )
 
-        swimmer_name = form_value(form, "swimmer_name").strip()
-        if not swimmer_name:
-            raise ValueError("Swimmer name is required.")
+        swimmer_names = swimmer_names_from_form(form)
+        if not swimmer_names:
+            raise ValueError("At least one swimmer name is required.")
 
         state = (form_value(form, "state") or "AZ").strip().upper()
         modes = form_values(form, "modes") or ["daily", "weekend", "detailed"]
+        combine_family = form_bool(form, "combine_family", default=True)
+        estimate_heat_lanes = form_bool(form, "estimate_heat_lanes", default=False)
 
         run_id = f"{int(time.time())}-{uuid4().hex[:8]}"
         run_dir = RUNS_DIR / run_id
@@ -108,28 +111,31 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         timeline_path = save_upload(form, "timeline_pdf", upload_dir, required=True)
         relay_path = save_upload(form, "relay_pdf", upload_dir, required=False)
 
-        result = analyze_uploads(
-            flyer_pdf=flyer_path,
-            psych_pdf=psych_path,
-            timeline_pdf=timeline_path,
-            swimmer_name=swimmer_name,
+        result = analyze_swimmer_set(
+            flyer_path=flyer_path,
+            psych_path=psych_path,
+            timeline_path=timeline_path,
+            relay_path=relay_path,
+            swimmer_names=swimmer_names,
             output_dir=output_dir,
-            relay_pdf=relay_path,
             state=state,
             modes=modes,
+            combine_family=combine_family,
+            estimate_heat_lanes=estimate_heat_lanes,
         )
         result["run_id"] = run_id
         result["relay_status"] = "uploaded_and_parsed" if relay_path else "not_uploaded"
         result["can_publish_current"] = True
-        result["downloads"] = {
-            key: f"/download/{run_id}/{name}" for key, name in result["files"].items()
-        }
-        record_swimmer_lookup(result.get("swimmer") or swimmer_name, result["meet"].get("id"), source="upload")
+        result["downloads"] = download_urls(run_id, result["files"])
+        add_individual_download_urls(run_id, result)
+        for swimmer in result.get("swimmers", [{"name": result.get("swimmer") or swimmer_names[0]}]):
+            record_swimmer_lookup(str(swimmer.get("name") or ""), result["meet"].get("id"), source="upload")
         write_run_manifest(
             run_dir,
             {
                 "run_id": run_id,
-                "swimmer": swimmer_name,
+                "swimmer": swimmer_names[0],
+                "swimmers": swimmer_names,
                 "state": state,
                 "meet": result["meet"],
                 "sessions": result["sessions"],
@@ -147,12 +153,14 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
         meet_id = str(payload.get("meet_id", "")).strip()
-        swimmer_name = str(payload.get("swimmer_name", "")).strip()
+        swimmer_names = swimmer_names_from_payload(payload)
         modes = payload.get("modes") or ["daily", "weekend", "detailed"]
+        combine_family = payload_bool(payload, "combine_family", default=True)
+        estimate_heat_lanes = payload_bool(payload, "estimate_heat_lanes", default=False)
         if not meet_id:
             raise ValueError("Current meet id is required.")
-        if not swimmer_name:
-            raise ValueError("Swimmer name is required.")
+        if not swimmer_names:
+            raise ValueError("At least one swimmer name is required.")
 
         meet = resolve_current_meet(meet_id)
         state = str(payload.get("state") or meet.get("state") or "AZ").strip().upper()
@@ -164,24 +172,26 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
 
         run_id = f"{int(time.time())}-{uuid4().hex[:8]}"
         output_dir = RUNS_DIR / run_id / "outputs"
-        result = analyze_uploads(
-            flyer_pdf=flyer_path,
-            psych_pdf=psych_path,
-            timeline_pdf=timeline_path,
-            swimmer_name=swimmer_name,
+        result = analyze_swimmer_set(
+            flyer_path=flyer_path,
+            psych_path=psych_path,
+            timeline_path=timeline_path,
+            relay_path=relay_path,
+            swimmer_names=swimmer_names,
             output_dir=output_dir,
-            relay_pdf=relay_path,
             state=state,
             modes=modes,
+            combine_family=combine_family,
+            estimate_heat_lanes=estimate_heat_lanes,
         )
         result["run_id"] = run_id
         result["current_meet_id"] = meet_id
         result["relay_status"] = "hosted_and_parsed" if relay_path else "not_uploaded"
         result["can_publish_current"] = False
-        result["downloads"] = {
-            key: f"/download/{run_id}/{name}" for key, name in result["files"].items()
-        }
-        record_swimmer_lookup(result.get("swimmer") or swimmer_name, result["meet"].get("id"), source="current_meet")
+        result["downloads"] = download_urls(run_id, result["files"])
+        add_individual_download_urls(run_id, result)
+        for swimmer in result.get("swimmers", [{"name": result.get("swimmer") or swimmer_names[0]}]):
+            record_swimmer_lookup(str(swimmer.get("name") or ""), result["meet"].get("id"), source="current_meet")
         return result
 
     def handle_publish_current(self) -> dict:
@@ -263,11 +273,11 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
 
     def send_download(self, path: str) -> None:
         parts = [unquote(part) for part in path.split("/") if part]
-        if len(parts) != 3:
+        if len(parts) < 3:
             self.send_error(HTTPStatus.NOT_FOUND)
             return
-        _download, run_id, filename = parts
-        target = (RUNS_DIR / run_id / "outputs" / filename).resolve()
+        _download, run_id, *filename_parts = parts
+        target = (RUNS_DIR / run_id / "outputs" / Path(*filename_parts)).resolve()
         allowed_root = (RUNS_DIR / run_id / "outputs").resolve()
         if allowed_root not in [target, *target.parents] or not target.is_file():
             self.send_error(HTTPStatus.NOT_FOUND)
@@ -311,6 +321,57 @@ def form_values(form: cgi.FieldStorage, name: str) -> list[str]:
     return [field.value for field in item if isinstance(field.value, str)]
 
 
+def form_bool(form: cgi.FieldStorage, name: str, default: bool = False) -> bool:
+    if name not in form:
+        return default
+    value = form_value(form, name).strip().lower()
+    return value not in {"", "0", "false", "off", "no"}
+
+
+def payload_bool(payload: dict, name: str, default: bool = False) -> bool:
+    if name not in payload:
+        return default
+    value = payload.get(name)
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() not in {"", "0", "false", "off", "no"}
+
+
+def swimmer_names_from_form(form: cgi.FieldStorage) -> list[str]:
+    names = [name.strip() for name in form_values(form, "swimmer_names") if name.strip()]
+    if not names:
+        single = form_value(form, "swimmer_name").strip()
+        if single:
+            names = [single]
+    return unique_swimmer_names(names)
+
+
+def swimmer_names_from_payload(payload: dict) -> list[str]:
+    raw_names = payload.get("swimmer_names")
+    names: list[str] = []
+    if isinstance(raw_names, list):
+        names = [str(name).strip() for name in raw_names if str(name).strip()]
+    if not names:
+        single = str(payload.get("swimmer_name", "")).strip()
+        if single:
+            names = [single]
+    return unique_swimmer_names(names)
+
+
+def unique_swimmer_names(names: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for name in names:
+        key = normalize_swimmer_for_stats(name)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        result.append(name)
+    return result
+
+
 def save_upload(form: cgi.FieldStorage, name: str, upload_dir: Path, required: bool) -> Path | None:
     if name not in form:
         if required:
@@ -339,6 +400,247 @@ def relative_path(path: Path | None) -> str | None:
     if path is None:
         return None
     return path.resolve().relative_to(ROOT).as_posix()
+
+
+def analyze_swimmer_set(
+    flyer_path: Path | None,
+    psych_path: Path,
+    timeline_path: Path,
+    relay_path: Path | None,
+    swimmer_names: list[str],
+    output_dir: Path,
+    state: str,
+    modes: list[str],
+    combine_family: bool,
+    estimate_heat_lanes: bool,
+) -> dict:
+    if len(swimmer_names) == 1:
+        return analyze_uploads(
+            flyer_pdf=flyer_path,
+            psych_pdf=psych_path,
+            timeline_pdf=timeline_path,
+            swimmer_name=swimmer_names[0],
+            output_dir=output_dir,
+            relay_pdf=relay_path,
+            state=state,
+            modes=modes,
+            estimate_heat_lanes=estimate_heat_lanes,
+        )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    individual_results: list[dict] = []
+    warnings: list[str] = []
+    combined_items: list[dict] = []
+    used_dirs: set[str] = set()
+
+    for index, swimmer_name in enumerate(swimmer_names, start=1):
+        subdir_name = unique_output_subdir(index, swimmer_name, used_dirs)
+        swimmer_output_dir = output_dir / subdir_name
+        result = analyze_uploads(
+            flyer_pdf=flyer_path,
+            psych_pdf=psych_path,
+            timeline_pdf=timeline_path,
+            swimmer_name=swimmer_name,
+            output_dir=swimmer_output_dir,
+            relay_pdf=relay_path,
+            state=state,
+            modes=modes,
+            estimate_heat_lanes=estimate_heat_lanes,
+        )
+        result["output_subdir"] = subdir_name
+        result["files"] = {key: f"{subdir_name}/{name}" for key, name in result["files"].items()}
+        for warning in result.get("warnings", []):
+            warnings.append(f"{result['swimmer']}: {warning}")
+        for item in result.get("items", []):
+            combined_items.append({**item, "swimmer": result["swimmer"]})
+        individual_results.append(result)
+
+    first = individual_results[0]
+    family_files: dict[str, str] = {}
+    if combine_family:
+        family_files = write_family_outputs(output_dir, individual_results, modes)
+
+    return {
+        "family": True,
+        "combine_family": combine_family,
+        "meet": first["meet"],
+        "swimmer": f"Family ({len(individual_results)} swimmers)",
+        "swimmers": [
+            {
+                "name": result["swimmer"],
+                "requested_name": result.get("requested_swimmer"),
+                "verified_event_count": result.get("verified_event_count", 0),
+                "verified_relay_count": result.get("verified_relay_count", 0),
+                "files": result.get("files", {}),
+            }
+            for result in individual_results
+        ],
+        "verified_event_count": sum(int(result.get("verified_event_count", 0)) for result in individual_results),
+        "verified_relay_count": sum(int(result.get("verified_relay_count", 0)) for result in individual_results),
+        "psych_match_pages": [],
+        "events": combined_items,
+        "relays": [],
+        "items": sorted(combined_items, key=lambda item: item["sort_start"]),
+        "files": family_files,
+        "sessions": first.get("sessions", []),
+        "warnings": warnings,
+    }
+
+
+def unique_output_subdir(index: int, swimmer_name: str, used_dirs: set[str]) -> str:
+    base = f"{index}-{slugify_value(swimmer_name)}"
+    candidate = base
+    suffix = 2
+    while candidate in used_dirs:
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    used_dirs.add(candidate)
+    return candidate
+
+
+def write_family_outputs(output_dir: Path, individual_results: list[dict], modes: list[str]) -> dict[str, str]:
+    files: dict[str, str] = {}
+    for mode in modes:
+        if mode not in {"daily", "weekend", "detailed"}:
+            continue
+        payloads = load_mode_payloads(output_dir, individual_results, mode)
+        if not payloads:
+            continue
+        family_payload = build_family_payload(mode, payloads, individual_results)
+        json_name = f"family-{mode}.json"
+        ics_name = f"family-{mode}.ics"
+        (output_dir / json_name).write_text(json.dumps(family_payload, indent=2), encoding="utf-8")
+        (output_dir / ics_name).write_text(build_ics(family_payload), encoding="utf-8")
+        files[f"family_{mode}_json"] = json_name
+        files[f"family_{mode}_ics"] = ics_name
+    return files
+
+
+def load_mode_payloads(output_dir: Path, individual_results: list[dict], mode: str) -> list[dict]:
+    payloads: list[dict] = []
+    key = f"{mode}_json"
+    for result in individual_results:
+        file_value = result.get("files", {}).get(key)
+        if not file_value:
+            continue
+        path = output_dir / file_value
+        if path.is_file():
+            payloads.append({"swimmer": result["swimmer"], "payload": json.loads(path.read_text(encoding="utf-8"))})
+    return payloads
+
+
+def build_family_payload(mode: str, payloads: list[dict], individual_results: list[dict]) -> dict:
+    first_payload = payloads[0]["payload"]
+    meet = first_payload.get("meet", {})
+    short_name = str(meet.get("short_name") or meet.get("name") or "Swim Meet")
+    swimmer_names = [str(result["swimmer"]) for result in individual_results]
+    family_name = ", ".join(swimmer_names)
+    if mode == "detailed":
+        events = []
+        for row in payloads:
+            events.extend(row["payload"].get("events", []))
+        events.sort(key=lambda event: event["start"])
+        return {
+            "calendar": {"name": f"Family - {short_name} Swim-by-Swim", "timezone": first_payload["calendar"].get("timezone", "America/Phoenix")},
+            "meet": meet,
+            "events": events,
+        }
+
+    daily_events = build_family_daily_events(payloads, meet, short_name, family_name)
+    if mode == "daily":
+        return {
+            "calendar": {"name": f"Family - {short_name} Daily", "timezone": first_payload["calendar"].get("timezone", "America/Phoenix")},
+            "meet": meet,
+            "events": daily_events,
+        }
+
+    if not daily_events:
+        return {"calendar": {"name": f"Family - {short_name} Whole Meet", "timezone": first_payload["calendar"].get("timezone", "America/Phoenix")}, "meet": meet, "events": []}
+    start = min(event["start"] for event in daily_events)
+    end = max(event["end"] for event in daily_events)
+    lines = [family_name, short_name, "", "Meet summary:"]
+    for event in daily_events:
+        lines.extend(["", event["title"], *event["description_lines"][5:]])
+    return {
+        "calendar": {"name": f"Family - {short_name} Whole Meet", "timezone": first_payload["calendar"].get("timezone", "America/Phoenix")},
+        "meet": meet,
+        "events": [
+            {
+                "uid": f"{meet.get('id', 'swim-meet')}-family-weekend@swimtimeline",
+                "title": f"Family - {short_name}: Whole Meet",
+                "start": start,
+                "end": end,
+                "location": "Multiple meet facilities",
+                "description_lines": lines,
+            }
+        ],
+    }
+
+
+def build_family_daily_events(payloads: list[dict], meet: dict, short_name: str, family_name: str) -> list[dict]:
+    by_day: dict[str, list[dict]] = {}
+    for row in payloads:
+        swimmer = row["swimmer"]
+        for event in row["payload"].get("events", []):
+            day = str(event.get("start", ""))[:10]
+            if not day:
+                continue
+            by_day.setdefault(day, []).append({"swimmer": swimmer, "event": event})
+
+    events: list[dict] = []
+    for day_number, (day, rows) in enumerate(sorted(by_day.items()), start=1):
+        rows.sort(key=lambda row: row["event"]["start"])
+        starts = [row["event"]["start"] for row in rows]
+        ends = [row["event"]["end"] for row in rows]
+        first_event = rows[0]["event"]
+        day_name = display_day_name(first_event)
+        lines = [
+            family_name,
+            short_name,
+            "",
+            f"Day: Day {day_number} ({day_name})",
+            "Combined family calendar.",
+        ]
+        for row in rows:
+            event = row["event"]
+            swimmer = row["swimmer"]
+            lines.extend(["", swimmer])
+            swimmer_lines = event.get("description_lines", [])
+            if len(swimmer_lines) > 9:
+                lines.extend(swimmer_lines[9:])
+            else:
+                lines.extend(swimmer_lines)
+        events.append(
+            {
+                "uid": f"{meet.get('id', 'swim-meet')}-family-{day}@swimtimeline",
+                "title": f"{short_name}: Family Day {day_number} ({day_name})",
+                "start": min(starts),
+                "end": max(ends),
+                "location": first_event.get("location", "Meet facility"),
+                "description_lines": lines,
+            }
+        )
+    return events
+
+
+def display_day_name(event: dict) -> str:
+    title = str(event.get("title", ""))
+    match = re.search(r"\(([^)]+)\)\s*$", title)
+    if match:
+        return match.group(1)
+    return str(event.get("start", ""))[:10]
+
+
+def download_urls(run_id: str, files: dict) -> dict:
+    return {key: f"/download/{run_id}/{name}" for key, name in files.items()}
+
+
+def add_individual_download_urls(run_id: str, result: dict) -> None:
+    for swimmer in result.get("swimmers", []):
+        files = swimmer.get("files", {})
+        swimmer["downloads"] = download_urls(run_id, files)
+    for individual in result.get("individual_results", []):
+        individual["downloads"] = download_urls(run_id, individual.get("files", {}))
 
 
 def write_json(path: Path, payload: dict) -> None:

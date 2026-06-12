@@ -9,11 +9,21 @@ const eventsBody = document.querySelector("#eventsBody");
 const resultStatsEl = document.querySelector("#resultStats");
 const currentMeetList = document.querySelector("#currentMeetList");
 const publishCurrentBtn = document.querySelector("#publishCurrent");
+const swimmerList = document.querySelector("#swimmerList");
+const addSwimmerBtn = document.querySelector("#addSwimmer");
 let lastPayload = null;
 
 loadCurrentMeets();
+updateRemoveButtons();
 
 publishCurrentBtn.addEventListener("click", publishCurrentMeet);
+addSwimmerBtn.addEventListener("click", () => addSwimmerRow());
+swimmerList.addEventListener("click", (event) => {
+  if (event.target.classList.contains("remove-swimmer")) {
+    event.target.closest(".swimmer-row").remove();
+    updateRemoveButtons();
+  }
+});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -21,6 +31,12 @@ form.addEventListener("submit", async (event) => {
   resultEl.classList.add("hidden");
 
   const data = new FormData(form);
+  data.set("combine_family", form.elements.combine_family.checked ? "1" : "0");
+  data.set("estimate_heat_lanes", form.elements.estimate_heat_lanes.checked ? "1" : "0");
+  if (!getSwimmerNames().length) {
+    statusEl.textContent = "At least one swimmer name is required.";
+    return;
+  }
   if (!data.getAll("modes").length) {
     statusEl.textContent = "Select at least one calendar file.";
     return;
@@ -79,11 +95,11 @@ function renderCurrentMeets(meets) {
 }
 
 async function analyzeCurrentMeet(meet) {
-  const swimmerName = form.elements.swimmer_name.value.trim();
+  const swimmerNames = getSwimmerNames();
   const state = form.elements.state.value.trim() || meet.state || "AZ";
   const modes = new FormData(form).getAll("modes");
-  if (!swimmerName) {
-    statusEl.textContent = "Swimmer name is required.";
+  if (!swimmerNames.length) {
+    statusEl.textContent = "At least one swimmer name is required.";
     return;
   }
   if (!modes.length) {
@@ -98,9 +114,11 @@ async function analyzeCurrentMeet(meet) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         meet_id: meet.id,
-        swimmer_name: swimmerName,
+        swimmer_names: swimmerNames,
         state,
         modes,
+        combine_family: form.elements.combine_family.checked,
+        estimate_heat_lanes: form.elements.estimate_heat_lanes.checked,
       }),
     });
     const payload = await response.json();
@@ -117,7 +135,10 @@ async function analyzeCurrentMeet(meet) {
 function renderResult(payload) {
   lastPayload = payload;
   meetNameEl.textContent = payload.meet.name;
-  summaryEl.textContent = `${payload.verified_event_count} verified individual events and ${payload.verified_relay_count || 0} verified relays for ${payload.swimmer}`;
+  const swimmerCount = payload.family ? (payload.swimmers || []).length : 1;
+  summaryEl.textContent = payload.family
+    ? `${payload.verified_event_count} verified individual events and ${payload.verified_relay_count || 0} verified relays for ${swimmerCount} swimmers`
+    : `${payload.verified_event_count} verified individual events and ${payload.verified_relay_count || 0} verified relays for ${payload.swimmer}`;
   downloadsEl.innerHTML = "";
   warningsEl.innerHTML = "";
   eventsBody.innerHTML = "";
@@ -125,29 +146,39 @@ function renderResult(payload) {
   publishCurrentBtn.disabled = false;
   publishCurrentBtn.classList.toggle("hidden", !payload.can_publish_current || !payload.run_id);
   const calendarCount = ["daily_ics", "weekend_ics", "detailed_ics"].filter((key) => payload.downloads[key]).length;
+  const familyCalendarCount = Object.keys(payload.downloads || {}).filter((key) => key.endsWith("_ics")).length;
+  const individualCalendarCount = (payload.swimmers || []).reduce(
+    (count, swimmer) => count + Object.keys(swimmer.downloads || {}).filter((key) => key.endsWith("_ics")).length,
+    0,
+  );
+  const resultCalendarCount = payload.family ? familyCalendarCount || individualCalendarCount : calendarCount;
+  const resultCalendarLabel = payload.family
+    ? (familyCalendarCount ? "Combined calendars" : "Individual calendars")
+    : "Calendar files";
   resultStatsEl.innerHTML = `
+    <div><strong>${swimmerCount}</strong><span>Swimmers</span></div>
     <div><strong>${payload.verified_event_count}</strong><span>Individual events</span></div>
     <div><strong>${payload.verified_relay_count || 0}</strong><span>Relays</span></div>
-    <div><strong>${calendarCount}</strong><span>Calendar files</span></div>
+    <div><strong>${resultCalendarCount}</strong><span>${resultCalendarLabel}</span></div>
   `;
 
   const downloadLabels = {
+    family_daily_ics: "Download Family Daily Calendar",
+    family_weekend_ics: "Download Family Whole Meet Calendar",
+    family_detailed_ics: "Download Family Swim-by-Swim Calendar",
     daily_ics: "Download Daily Calendar",
     weekend_ics: "Download Whole Meet Calendar",
     detailed_ics: "Download Swim-by-Swim Calendar",
     audit: "Download Audit",
   };
+  const primaryLinks = [];
   for (const [key, label] of Object.entries(downloadLabels)) {
     if (payload.downloads[key]) {
-      const link = document.createElement("a");
-      link.href = payload.downloads[key];
-      link.textContent = label;
-      if (key === "audit") {
-        link.className = "secondary";
-      }
-      downloadsEl.appendChild(link);
+      primaryLinks.push({ href: payload.downloads[key], label, secondary: key === "audit" });
     }
   }
+  appendDownloadGroup(payload.family ? "Combined family calendars" : "Calendar files", primaryLinks);
+  renderIndividualDownloads(payload);
 
   for (const warning of payload.warnings || []) {
     const item = document.createElement("div");
@@ -166,7 +197,7 @@ function renderResult(payload) {
       : `page ${swim.page}<br>${escapeHtml(swim.source_document || "entry sheet")}<br>${escapeHtml(swim.column)} column`;
     row.innerHTML = `
       <td>${escapeHtml(swim.day)}</td>
-      <td><strong>#${swim.event_number}${swim.type === "relay" ? " Relay" : ""}</strong>${escapeHtml(swim.event_name)}</td>
+      <td>${swimmerChip(swim, payload)}<strong>#${swim.event_number}${swim.type === "relay" ? " Relay" : ""}</strong>${escapeHtml(swim.event_name)}<br>${escapeHtml(swim.event_format || "")}</td>
       <td>${seedCell}</td>
       <td>${escapeHtml(swim.window)}</td>
       <td>${escapeHtml(swim.benchmarks.usa || "")}<br>${escapeHtml(swim.benchmarks.lsc || "")}${advancedLine(swim)}</td>
@@ -176,6 +207,47 @@ function renderResult(payload) {
   }
 
   resultEl.classList.remove("hidden");
+}
+
+function renderIndividualDownloads(payload) {
+  if (!payload.family) return;
+  const individualLinks = [];
+  for (const swimmer of payload.swimmers || []) {
+    const links = swimmer.downloads || {};
+    const ordered = [
+      ["daily_ics", `${swimmer.name} Daily`],
+      ["weekend_ics", `${swimmer.name} Whole Meet`],
+      ["detailed_ics", `${swimmer.name} Swim-by-Swim`],
+      ["audit", `${swimmer.name} Audit`],
+    ];
+    for (const [key, label] of ordered) {
+      if (!links[key]) continue;
+      individualLinks.push({ href: links[key], label, secondary: true });
+    }
+  }
+  appendDownloadGroup("Individual swimmer files", individualLinks);
+}
+
+function appendDownloadGroup(title, links) {
+  if (!links.length) return;
+  const group = document.createElement("section");
+  group.className = "download-group";
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  group.appendChild(heading);
+  const list = document.createElement("div");
+  list.className = "download-links";
+  for (const item of links) {
+    const link = document.createElement("a");
+    link.href = item.href;
+    link.textContent = item.label;
+    if (item.secondary) {
+      link.className = "secondary";
+    }
+    list.appendChild(link);
+  }
+  group.appendChild(list);
+  downloadsEl.appendChild(group);
 }
 
 async function publishCurrentMeet() {
@@ -213,11 +285,43 @@ function advancedLine(swim) {
 function seedDetails(swim) {
   const details = [`${escapeHtml(swim.seed_time)}`];
   if (swim.heat && swim.lane) {
-    details.push(`heat ${escapeHtml(swim.heat)}, lane ${escapeHtml(swim.lane)}`);
+    const label = swim.heat_is_estimated ? "estimated heat" : "heat";
+    details.push(`${label} ${escapeHtml(swim.heat)}, lane ${escapeHtml(swim.lane)}`);
   } else {
     details.push(`seed place ${escapeHtml(swim.seed_place)}`);
   }
   return details.join("<br>");
+}
+
+function swimmerChip(swim, payload) {
+  if (!payload.family || !swim.swimmer) return "";
+  return `<span class="swimmer-chip">${escapeHtml(swim.swimmer)}</span>`;
+}
+
+function getSwimmerNames() {
+  return Array.from(form.querySelectorAll('input[name="swimmer_names"]'))
+    .map((input) => input.value.trim())
+    .filter(Boolean);
+}
+
+function addSwimmerRow(value = "") {
+  const row = document.createElement("div");
+  row.className = "swimmer-row";
+  row.innerHTML = `
+    <input name="swimmer_names" placeholder="First Last" autocomplete="off" value="${escapeHtml(value)}">
+    <button class="icon-button remove-swimmer" type="button" aria-label="Remove swimmer">&times;</button>
+  `;
+  swimmerList.appendChild(row);
+  updateRemoveButtons();
+  row.querySelector("input").focus();
+}
+
+function updateRemoveButtons() {
+  const rows = swimmerList.querySelectorAll(".swimmer-row");
+  rows.forEach((row) => {
+    row.querySelector(".remove-swimmer").classList.toggle("hidden", rows.length === 1);
+    row.querySelector("input").required = rows.length === 1;
+  });
 }
 
 function escapeHtml(value) {

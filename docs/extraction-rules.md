@@ -1,6 +1,6 @@
 # Swimmer Timeline Extraction Rules
 
-Extract swim meet schedules for one swimmer from the documents provided for the current meet only.
+Extract swim meet schedules for the swimmer names provided by the user from the documents for the current meet only.
 
 ## Hard Rules
 
@@ -22,7 +22,7 @@ Extract swim meet schedules for one swimmer from the documents provided for the 
 
 ## Extraction Rules
 
-- Only include an event when `Cova, Mila L` appears explicitly in that event.
+- Only include an event when the swimmer appears explicitly in that event or matches the parser's high-confidence name correction rules.
 - For each verified occurrence, record:
   - day
   - event number
@@ -42,13 +42,14 @@ Extract swim meet schedules for one swimmer from the documents provided for the 
 
 ## Timeline Rules
 
-- Use the timeline document to estimate morning and finals times.
+- Use the timeline document to estimate event windows and finals times.
 - Match timeline entries by event number.
 - Assume top 10 per age group advance to finals unless the timeline or meet document states otherwise.
+- Optional heat/lane estimates may be shown only when clearly labeled as estimates. Do not treat estimated heat/lane as verified heat-sheet data.
 
 ## Verification Rules
 
-- Make one full pass through the psych sheet and log every exact occurrence of `Cova, Mila L` with page and column.
+- Make one full pass through the psych sheet or heat sheet and log swimmer occurrences with page and column.
 - Make a second pass to confirm the count and check for missed entries.
 - If both passes cannot be completed, mark the result incomplete.
 
@@ -68,5 +69,5 @@ Extract swim meet schedules for one swimmer from the documents provided for the 
 ```text
 Total verified events found: X
 Total verified relays found: X
-No additional entries for "Cova, Mila L" were found after full document verification.
+No additional entries for the swimmer were found after full document verification.
 ```

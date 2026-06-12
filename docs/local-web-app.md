@@ -19,26 +19,29 @@ The app is deployable as a small Python web service. `requirements.txt` and `ren
 - build command: `pip install -r requirements.txt`
 - start command: `python webapp/server.py --host 0.0.0.0`
 
-`data/current_meets.json` keeps the Narwhal Invite listed as a hosted meet. Uploaded meets can be promoted into Current Meets from the app after a successful parse.
+`data/current_meets.json` keeps reusable hosted meets listed, including Narwhal Invite, Shark Open, and Para Nationals. Uploaded meets can be promoted into Current Meets from the app after a successful parse.
 
 ## Current Flow
 
-1. Enter the swimmer name and state/LSC.
+1. Enter one or more swimmer names and the state/LSC.
 2. Use a hosted item from `Current Meets` when the meet documents are already listed.
 3. If the meet is not listed, upload a meet flyer, psych sheet or heat sheet, timeline PDF, and optional relay PDF.
-4. Choose calendar outputs:
+4. Choose family options:
+   - combine swimmers into one family calendar, on by default
+   - estimate heat/lane from a psych sheet, off by default because estimates are not final
+5. Choose calendar outputs:
    - daily
    - whole meet
    - swim by swim
-5. Review the extracted swims and warnings.
-6. Download `.ics` files and the audit.
-7. For uploaded meets, use `Save To Current Meets` after a successful parse to make those documents reusable for other swimmers in the same meet.
+6. Review the extracted swims and warnings.
+7. Download family `.ics` files, individual swimmer `.ics` files, and swimmer audits.
+8. For uploaded meets, use `Save To Current Meets` after a successful parse to make those documents reusable for other swimmers in the same meet.
 
 ## Current Meets
 
-Hosted meets are tracked in `data/current_meets.json`. The app lists those entries under `Current Meets` and sends the selected swimmer name to the backend without requiring another upload.
+Hosted meets are tracked in `data/current_meets.json`. The app lists those entries under `Current Meets` and sends the selected swimmer names to the backend without requiring another upload.
 
-The Narwhal Invite is preloaded with its meet flyer, final psych sheet, and final timeline from `meets/2026-narwhal-invite/input/`.
+Narwhal Invite and Shark Open are preloaded with final timeline-style documents. Para Nationals is preloaded from a meet packet and psych sheet, so it is marked schedule-only and produces estimated event windows from session order.
 
 When `Save To Current Meets` is used, the backend copies the uploaded PDFs into `meets/current-hosted/<meet-id>/input/`, appends an entry to `data/current_meets.json`, and refreshes the Current Meets list. It does not silently publish every upload; the user has to promote a parsed meet deliberately.
 
@@ -49,7 +52,10 @@ Current Meets entries store `start_date`, `end_date`, and `expires_at`. The publ
 - Swimmer matching supports `First Last` input against psych-sheet or heat-sheet names like `Last, First M`. If exact matching finds no entries, the parser can use a high-confidence typo match such as one extra letter in the first or last name and shows a warning.
 - Psych sheet extraction counts matching names first, then records event number, event name, seed time, seed place, page, and column.
 - Heat sheet extraction supports HY-TEK `Meet Program` documents with `Event  1 ...` headers. When the row includes heat/lane information, the app records heat and lane instead of displaying that value as seed place.
+- Optional heat/lane estimates use psych-sheet seed order and timeline heat counts. If the meet flyer identifies deck-seeded or circle-seeded event ranges, those events are skipped while other events can still receive estimated heat/lane values. Estimated values are labeled as estimated in the table, audit, and calendar descriptions.
 - Timeline extraction matches swims by event number and uses the next timeline row as the event-window end. It tolerates glued HY-TEK rows such as `Prelims 10Boys`.
+- Meet packet schedules can be used when no final timeline is available. Those event windows are estimated from session order and are less precise because the packet does not include heat counts or projected event times.
+- Event rows include a format label such as `Prelim/final`, `Timed final`, or `Prelim only` based on the timeline sessions available for that event.
 - Daily events start at the parsed session warm-up time. Distance check-in events can pull the daily calendar event earlier when the flyer requires check-in before another session's warm-up.
 - Possible finals are included in descriptions as `if qualifies`; separate finals events are not generated until qualification is known.
 - Relay uploads are parsed conservatively. Relays are included only when the relay document explicitly names the swimmer under a relay team.

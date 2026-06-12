@@ -1,6 +1,28 @@
 {
   "current_meets": [
     {
+      "id": "2026-para-nationals",
+      "name": "2026 U.S. Paralympics Swimming National Championships",
+      "short_name": "Para Nationals",
+      "dates": "2026-06-12 through 2026-06-14",
+      "start_date": "2026-06-12",
+      "end_date": "2026-06-14",
+      "expires_at": "2026-06-15",
+      "state": "ID",
+      "status": "schedule-only",
+      "files": {
+        "flyer": "meets/2026-para-nationals/input/2026_NC_Meet_Packet.eqdx.pdf",
+        "psych": "meets/2026-para-nationals/input/2026_para_swim_nationals_psych_sheet.pdf",
+        "timeline": "meets/2026-para-nationals/input/2026_NC_Meet_Packet.eqdx.pdf",
+        "relay": null
+      },
+      "documents": [
+        "Meet packet",
+        "Psych sheet",
+        "Schedule source"
+      ]
+    },
+    {
       "id": "2026-narwhal-invite",
       "name": "2026 MAC Narwhal Invite",
       "short_name": "Narwhal Invite",

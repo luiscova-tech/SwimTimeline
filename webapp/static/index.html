@@ -12,7 +12,7 @@
         <div>
           <div class="header-meta">
             <p class="eyebrow">Meet calendar builder</p>
-            <span class="version-pill">v0.3.0</span>
+            <span class="version-pill">v0.4.0</span>
           </div>
           <h1>SwimTimeline</h1>
           <p class="header-copy">Find a swimmer in hosted meet documents or upload meet PDFs to create Google Calendar files.</p>
@@ -23,15 +23,41 @@
         <form id="uploadForm" class="panel">
           <div class="control-strip">
             <div class="grid">
-              <label>
-                <span>Swimmer</span>
-                <input name="swimmer_name" placeholder="First Last" required autocomplete="off">
-              </label>
+              <div class="swimmer-fieldset">
+                <div class="field-heading">
+                  <span>Swimmers</span>
+                  <button id="addSwimmer" class="inline-button" type="button">Add swimmer</button>
+                </div>
+                <div id="swimmerList" class="swimmer-list">
+                  <div class="swimmer-row">
+                    <input name="swimmer_names" placeholder="First Last" required autocomplete="off">
+                    <button class="icon-button remove-swimmer hidden" type="button" aria-label="Remove swimmer">&times;</button>
+                  </div>
+                </div>
+              </div>
               <label>
                 <span>State / LSC</span>
                 <input name="state" value="AZ" maxlength="8" autocomplete="off">
               </label>
             </div>
+
+            <fieldset class="family-options">
+              <legend>Family options</legend>
+              <label class="check-option">
+                <input type="checkbox" name="combine_family" value="1" checked>
+                <span>
+                  <strong>Combine swimmers into one family calendar</strong>
+                  <small>Also keeps individual swimmer downloads available.</small>
+                </span>
+              </label>
+              <label class="check-option">
+                <input type="checkbox" name="estimate_heat_lanes" value="1">
+                <span>
+                  <strong>Estimate heat/lane from psych sheet</strong>
+                  <small>Estimated only. Actual heat/lane may change after scratches, check-in, deck entries, circle seeding, or meet-management updates.</small>
+                </span>
+              </label>
+            </fieldset>
 
             <fieldset class="calendar-options">
               <legend>Calendar files</legend>
@@ -89,7 +115,7 @@
               <div class="instruction-card">
                 <span>3</span>
                 <h3>Download calendar</h3>
-                <p>Review the events, then download daily, whole-meet, or swim-by-swim calendar files.</p>
+                <p>Review the events, then download family or individual daily, whole-meet, or swim-by-swim calendar files.</p>
               </div>
             </div>
           </details>
