@@ -27,7 +27,7 @@ The app can run as a public Python web service. This repo includes:
 - `requirements.txt` for the Python dependency.
 - `render.yaml` for a free Render web-service deployment.
 
-The hosted Current Meets registry keeps reusable meets available without re-uploading their PDFs. Featured current meets can be date-gated so a meet such as Narwhal Invite appears prominently only while families are actively using it.
+The hosted Current Meets registry keeps reusable meets available without re-uploading their PDFs. Featured current meets can be date-gated so a meet such as Age Group State appears prominently only while families are actively using it.
 
 ## Meet Layout
 
@@ -44,9 +44,9 @@ meets/
 
 ## Current Meet
 
-- Meet: 2026 MAC Narwhal Invite
-- Dates: 2026-06-12 through 2026-06-14
-- Status: meet flyer, psych sheet, and timeline received; calendar files generated for 7 verified individual events. No relay events are listed in the meet flyer.
+- Meet: AZ 2026 Long Course Age Group State Championship
+- Dates: 2026-07-23 through 2026-07-26
+- Status: meet flyer, psych sheet, and final timeline received; hosted current meet is ready for swimmer lookup. No relay document is included.
 
 See `docs/extraction-rules.md` for the extraction rules to use for each meet.
 

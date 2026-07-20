@@ -19,7 +19,7 @@ The app is deployable as a small Python web service. `requirements.txt` and `ren
 - build command: `pip install -r requirements.txt`
 - start command: `python webapp/server.py --host 0.0.0.0`
 
-`data/current_meets.json` keeps reusable hosted meets listed, including Narwhal Invite, Shark Open, and Para Nationals. Uploaded meets can be promoted into Current Meets from the app after a successful parse.
+`data/current_meets.json` keeps reusable hosted meets listed, including Age Group State, Narwhal Invite, Shark Open, and Para Nationals. Uploaded meets can be promoted into Current Meets from the app after a successful parse.
 
 ## Current Flow
 
@@ -42,9 +42,9 @@ The app is deployable as a small Python web service. `requirements.txt` and `ren
 
 Hosted meets are tracked in `data/current_meets.json`. The app lists those entries under `Current Meets` and sends the selected swimmer names to the backend without requiring another upload.
 
-Narwhal Invite is marked as a featured current meet through Monday, June 15, 2026. Featured metadata is temporary and date-gated; once the active window passes, the meet can still appear under Past Meets.
+Age Group State is marked as a featured current meet through Monday, July 27, 2026. Featured metadata is temporary and date-gated; once the active window passes, the meet can still appear under Past Meets.
 
-Narwhal Invite and Shark Open are preloaded with final timeline-style documents. Para Nationals is preloaded from a meet packet and psych sheet, so it is marked schedule-only and produces estimated event windows from session order.
+Age Group State, Narwhal Invite, and Shark Open are preloaded with final timeline-style documents. Para Nationals is preloaded from a meet packet and psych sheet, so it is marked schedule-only and produces estimated event windows from session order.
 
 When `Save To Current Meets` is used, the backend copies the uploaded PDFs into `meets/current-hosted/<meet-id>/input/`, appends an entry to `data/current_meets.json`, and refreshes the Current Meets list. It does not silently publish every upload; the user has to promote a parsed meet deliberately.
 
@@ -57,6 +57,7 @@ Current Meets entries store `start_date`, `end_date`, and `expires_at`. The publ
 - Heat sheet extraction supports HY-TEK `Meet Program` documents with `Event  1 ...` headers. When the row includes heat/lane information, the app records heat and lane instead of displaying that value as seed place.
 - Optional heat/lane estimates use psych-sheet seed order and timeline heat counts. If the meet flyer identifies deck-seeded or circle-seeded event ranges, those events are skipped while other events can still receive estimated heat/lane values. Estimated values are labeled as estimated in the table, audit, and calendar descriptions.
 - Timeline extraction matches swims by event number and uses the next timeline row as the event-window end. It tolerates glued HY-TEK rows such as `Prelims 10Boys`.
+- Timeline extraction also handles HY-TEK suffixed rounds such as `Finals-S 69Girls` and carries the parsed meet/session facility into calendar locations.
 - PDF text and layout extraction are cached per server process by file path, size, and modification time. This makes repeat Current Meet lookups and multi-swimmer searches faster after the first parse.
 - Meet packet schedules can be used when no final timeline is available. Those event windows are estimated from session order and are less precise because the packet does not include heat counts or projected event times.
 - Event rows include a format label such as `Prelim/final`, `Timed final`, or `Prelim only` based on the timeline sessions available for that event.

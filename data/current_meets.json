@@ -1,6 +1,32 @@
 {
   "current_meets": [
     {
+      "id": "2026-az-lc-age-group-state",
+      "name": "AZ 2026 Long Course Age Group State Championship",
+      "short_name": "Age Group State",
+      "dates": "2026-07-23 through 2026-07-26",
+      "start_date": "2026-07-23",
+      "end_date": "2026-07-26",
+      "expires_at": "2026-07-27",
+      "state": "AZ",
+      "status": "ready",
+      "featured": true,
+      "featured_until": "2026-07-27",
+      "featured_label": "Featured current meet",
+      "featured_note": "Hosted meet flyer, psych sheet, and final timeline are ready to search.",
+      "files": {
+        "flyer": "meets/2026-az-lc-age-group-state/input/age-group-state-meet-flyer.pdf",
+        "psych": "meets/2026-az-lc-age-group-state/input/age-group-state-psych-sheet.pdf",
+        "timeline": "meets/2026-az-lc-age-group-state/input/age-group-state-timeline.pdf",
+        "relay": null
+      },
+      "documents": [
+        "Meet flyer",
+        "Psych/heat sheet",
+        "Final timeline"
+      ]
+    },
+    {
       "id": "2026-para-nationals",
       "name": "2026 U.S. Paralympics Swimming National Championships",
       "short_name": "Para Nationals",

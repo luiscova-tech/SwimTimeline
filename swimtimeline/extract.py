@@ -52,6 +52,7 @@ class TimelineEvent:
     end: datetime
     entries: int | None
     heats: int | None
+    facility: str | None = None
 
 
 @dataclass
@@ -651,19 +652,52 @@ def parse_flyer_sessions(text: str, start_date: date) -> dict[int, dict[str, str
         r"Session\s+#?(?P<num>\d+),?\s+(?P<day>[A-Za-z]+),?\s+(?P<month>[A-Za-z]+)\s+(?P<dom>\d+)\s+(?P<name>.+?)\s+at\s+(?P<facility>[^:]+):\s*Warm[- ]?up:?\s*(?P<warm>\d{1,2}:\d{2})\s*(?P<warm_ampm>[ap]\.?m\.?)\s*,?\s*Meet\s+Start:?\s*(?P<start>\d{1,2}:\d{2})\s*(?P<start_ampm>[ap]\.?m\.?)",
         flags=re.IGNORECASE,
     )
+    grouped_line_pattern = re.compile(
+        r"Sessions?\s+(?P<sessions>[IVX,\s]+)\s+.+?:\s*Warm[- ]?up:?\s*(?P<warm>\d{1,2}:\d{2})\s*(?P<warm_ampm>[ap]\.?m\.?)\s*Meet\s+Start:?\s*(?P<start>\d{1,2}:\d{2})\s*(?P<start_ampm>[ap]\.?m\.?)",
+        flags=re.IGNORECASE,
+    )
     for line in text.splitlines():
         clean = normalize_space(line).replace("a m", "am").replace("p m", "pm")
         match = line_pattern.search(clean)
-        if not match:
+        if match:
+            num = int(match.group("num"))
+            facility = normalize_space(match.group("facility")).upper().replace("SKYLINE", "Skyline")
+            sessions[num] = {
+                "warmup_time": normalize_pdf_time(match.group("warm"), match.group("warm_ampm")),
+                "start_time": normalize_pdf_time(match.group("start"), match.group("start_ampm")),
+                "facility": facility.title(),
+            }
             continue
-        num = int(match.group("num"))
-        facility = normalize_space(match.group("facility")).upper().replace("SKYLINE", "Skyline")
-        sessions[num] = {
-            "warmup_time": normalize_pdf_time(match.group("warm"), match.group("warm_ampm")),
-            "start_time": normalize_pdf_time(match.group("start"), match.group("start_ampm")),
-            "facility": facility.title(),
-        }
+        grouped_match = grouped_line_pattern.search(clean)
+        if grouped_match:
+            for num in parse_roman_session_numbers(grouped_match.group("sessions")):
+                session = sessions.setdefault(num, {})
+                session["warmup_time"] = normalize_pdf_time(grouped_match.group("warm"), grouped_match.group("warm_ampm"))
+                session["start_time"] = normalize_pdf_time(grouped_match.group("start"), grouped_match.group("start_ampm"))
     return sessions
+
+
+def parse_flyer_location(text: str) -> str | None:
+    for line in text.splitlines():
+        clean = normalize_space(line)
+        match = re.search(r"\bMeet Location:\s*(.+)", clean, flags=re.IGNORECASE)
+        if match:
+            return normalize_space(match.group(1)).rstrip(".")
+    return None
+
+
+def parse_roman_session_numbers(value: str) -> list[int]:
+    roman_map = {
+        "I": 1,
+        "II": 2,
+        "III": 3,
+        "IV": 4,
+        "V": 5,
+        "VI": 6,
+        "VII": 7,
+        "VIII": 8,
+    }
+    return [roman_map[token.upper()] for token in re.findall(r"\b[IVX]+\b", value) if token.upper() in roman_map]
 
 
 def normalize_pdf_time(value: str, meridiem: str) -> str:
@@ -707,6 +741,7 @@ def cached_timeline(
         raise ValueError("Could not find meet date range in the timeline or flyer.")
     start_date, _end_date = date_range
     flyer_sessions = parse_flyer_sessions(flyer_text, start_date) if flyer_text else {}
+    flyer_location = parse_flyer_location(flyer_text) if flyer_text else None
     meet_name = parse_meet_name(text)
     flyer_meet_name = parse_meet_name(flyer_text) if flyer_text else "Swim Meet"
     if "sarastoa" in meet_name.lower() and flyer_meet_name != "Swim Meet":
@@ -718,7 +753,7 @@ def cached_timeline(
     session_header = re.compile(r"Session:\s*(\d+)\s+(.+)")
     day_header = re.compile(r"Day of Meet:\s*(\d+)\s+Starts at\s+(\d{1,2}:\d{2}\s*[AP]M)", re.IGNORECASE)
     event_line = re.compile(
-        r"^(Prelims|Finals)\s+(\d+)\s+(.+?)\s+(\d+)\s+(\d+)\s+_+\s*(\d{1,2}:\d{2})\s*([AP]M)u?$",
+        r"^(Prelims|Finals(?:-[A-Za-z0-9]+)?)\s+(\d+)\s+(.+?)\s+(\d+)\s+(\d+)\s+_+\s*(\d{1,2}:\d{2})\s*([AP]M)u?$",
         re.IGNORECASE,
     )
     finish_line = re.compile(r"Finish Time\s+_+(\d{1,2}:\d{2}\s*[AP]M)", re.IGNORECASE)
@@ -743,7 +778,7 @@ def cached_timeline(
                 start_time = normalize_time_string(day_match.group(2))
                 flyer_session = flyer_sessions.get(number, {})
                 warmup = flyer_session.get("warmup_time") or time_minus_minutes(start_time, 60)
-                facility = flyer_session.get("facility") or infer_facility(name)
+                facility = flyer_session.get("facility") or flyer_location or infer_facility(name)
                 current_session = SessionInfo(
                     number=number,
                     name=name,
@@ -775,6 +810,7 @@ def cached_timeline(
                         end=start_dt,
                         entries=int(entries),
                         heats=int(heats),
+                        facility=current_session.facility,
                     )
                 )
         for index, item in enumerate(page_events):
@@ -883,6 +919,7 @@ def parse_meet_packet_schedule(text: str, meet_name: str) -> tuple[dict[int, Ses
                     end=end,
                     entries=None,
                     heats=None,
+                    facility=session.facility,
                 )
             )
             cursor = end
@@ -918,7 +955,7 @@ def estimated_schedule_event_minutes(event_name: str) -> int:
 
 def normalize_timeline_line(value: str) -> str:
     line = normalize_space(value)
-    line = re.sub(r"^(Prelims|Finals)\s+(\d+)(?=[A-Za-z])", r"\1 \2 ", line, flags=re.IGNORECASE)
+    line = re.sub(r"^(Prelims|Finals(?:-[A-Za-z0-9]+)?)\s+(\d+)(?=[A-Za-z])", r"\1 \2 ", line, flags=re.IGNORECASE)
     line = re.sub(r"(?<=\d)(Girls|Boys|Women|Men)\b", r" \1", line, flags=re.IGNORECASE)
     return line
 
@@ -1115,7 +1152,7 @@ def event_format_label(swim: SwimEvent) -> str:
         return "Timed final"
     if swim.final_timeline and swim.final_timeline.session_number != swim.timeline.session_number:
         return "Prelim/final"
-    if swim.timeline.round_name.lower() == "finals":
+    if swim.timeline.round_name.lower().startswith("finals"):
         return "Timed final"
     lower_session = swim.timeline.session_name.lower()
     if "distance" in lower_session or "afternoon" in lower_session:
@@ -1140,7 +1177,12 @@ def location_for_session(session: SessionInfo | TimelineEvent) -> str:
     return "Meet facility"
 
 
-def build_swim_events(entries: list[PsychEntry], timeline_events: list[TimelineEvent], state: str) -> list[SwimEvent]:
+def build_swim_events(
+    entries: list[PsychEntry],
+    timeline_events: list[TimelineEvent],
+    state: str,
+    flyer_text: str = "",
+) -> list[SwimEvent]:
     primary = primary_timeline_by_event(timeline_events)
     finals = final_timeline_by_event(timeline_events)
     swim_events: list[SwimEvent] = []
@@ -1151,7 +1193,7 @@ def build_swim_events(entries: list[PsychEntry], timeline_events: list[TimelineE
         final_timeline = finals.get(entry.event_number)
         standard = lookup(entry.event_name, entry.seed_time, state=state)
         final_note = finals_note(timeline, final_timeline)
-        checkin = checkin_note(entry.event_number)
+        checkin = checkin_note(entry.event_number, flyer_text)
         swim_events.append(
             SwimEvent(
                 psych=entry,
@@ -1190,9 +1232,9 @@ def finals_note(timeline: TimelineEvent, final_timeline: TimelineEvent | None) -
     if event_name_is_timed_final(timeline.event_name):
         return "Timed final; no separate finals swim."
     if final_timeline and final_timeline.session_number != timeline.session_number:
-        return f"Possible if qualifies; finals event starts at {display_time(final_timeline.start)} at {location_for_session_name(final_timeline.session_name)}."
+        return f"Possible if qualifies; finals event starts at {display_time(final_timeline.start)} at {location_for_session(final_timeline)}."
     lower_session = timeline.session_name.lower()
-    if timeline.round_name.lower() == "finals" or "distance" in lower_session:
+    if timeline.round_name.lower().startswith("finals") or "distance" in lower_session:
         return "Timed final; no separate finals swim."
     return "No separate finals event found in the timeline."
 
@@ -1201,8 +1243,18 @@ def location_for_session_name(session_name: str) -> str:
     return "Skyline" if "final" in session_name.lower() or "sr" in session_name.lower() else "Kino"
 
 
-def checkin_note(event_number: int) -> str | None:
-    if 53 <= event_number <= 72:
+def checkin_note(event_number: int, flyer_text: str = "") -> str | None:
+    lower = flyer_text.lower()
+    if "long course age group state" in lower and event_number in {
+        *range(1, 7),
+        *range(35, 39),
+        *range(69, 73),
+        *range(111, 115),
+    }:
+        if event_number in range(1, 7):
+            return "Positive check-in required; meet flyer says check-in closes 30 minutes after Session I warm-up begins."
+        return "Positive check-in required; meet flyer says check-in closes one hour after the start of competition for the applicable preliminary session."
+    if 53 <= event_number <= 72 and "events 53-72" in lower and "session #7" in lower:
         return "Event is in Events 53-72; meet flyer says check in before Session #7 warm-up."
     return None
 
@@ -1407,7 +1459,7 @@ def build_daily_payload(
                     f"#{item.psych.event_number} {event_short_name(item.psych.event_name)} | {event_format_label(item)} | {entry_seed_summary(item.psych)} | {display_window(item.timeline.start, item.timeline.end)}"
                 )
         possible_finals = [
-            f"#{item.psych.event_number} {event_short_name(item.psych.event_name)} at {display_time(item.final_timeline.start)} at {location_for_session_name(item.final_timeline.session_name)} if qualifies"
+            f"#{item.psych.event_number} {event_short_name(item.psych.event_name)} at {display_time(item.final_timeline.start)} at {location_for_session(item.final_timeline)} if qualifies"
             for item in day_items
             if isinstance(item, SwimEvent)
             and item.final_timeline
@@ -1594,7 +1646,7 @@ def analyze_uploads(
     relay_entries, relay_warnings = extract_relay_entries(relay_pdf, swimmer_name)
     assign_days(entries, timeline_events)
     estimate_warnings = estimate_heat_lanes_for_entries(entries, timeline_events, flyer_text) if estimate_heat_lanes else []
-    swims = build_swim_events(entries, timeline_events, state=state)
+    swims = build_swim_events(entries, timeline_events, state=state, flyer_text=flyer_text)
     relays = build_relay_events(relay_entries, timeline_events)
     short_name = short_meet_name(meet_name)
     meet_id = slugify(meet_name)
