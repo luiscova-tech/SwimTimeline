@@ -290,9 +290,10 @@ def page_column_for_line(page: int, line: str, fragments: list[Fragment]) -> str
 
 def parse_psych_line(line: str) -> PsychLine | None:
     line, heat, round_name = normalize_entry_line(line)
+    
     match = re.search(
-        r"(?P<team>[A-Z0-9-]+)\s+"
-        r"(?P<seed>(?:NT|(?:\d+:)?\d{1,2}\.\d{2}[A-Z]?))\s+"
+        r"(?P<team>[A-Z0-9-]+?)\s*"
+        r"(?P<seed>(?:NT|(?:\d+:)?\d{1,2}\.\d{2}[A-Z]?))\s*"
         r"(?P<age>\d{1,2})\s*"
         r"(?P<name>.+?)\s*"
         r"(?P<place>\d+)\s*$",
