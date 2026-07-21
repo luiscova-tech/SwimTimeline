@@ -1,0 +1,328 @@
+{
+  "id": "mac-2026-age-group-state-relays",
+  "label": "Include MAC relay lineup",
+  "club": "MAC",
+  "meet_ids": [
+    "2026-az-lc-age-group-state"
+  ],
+  "source_label": "MAC relay lineup add-on",
+  "salt": "swimtimeline-mac-age-group-state-2026-relays-v1",
+  "notes": [
+    "Roster names are stored as salted hashes only; the website should not display relay swimmer names.",
+    "Relay lineups can change; families should confirm assignments with their coach."
+  ],
+  "entries": [
+    {
+      "event_number": 7,
+      "event_name": "Mixed 13-14 200 Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:05.74L",
+      "page": 1,
+      "swimmers": [
+        {"hashes": ["115a6f91e2b7031c4c61d115cbee5d9f9d46aba2ee9e4958bb1ae360a312e4e3"], "leg": 1},
+        {"hashes": ["464af696691bdf38123e20b673f321b872f425a91357c545953c8923c0a5d364"], "leg": 2},
+        {"hashes": ["8f90a039cf551e8deae0c564fc059d41ed2364d1fec14618ef5debd8771e313f"], "leg": 3},
+        {"hashes": ["ca5dd98a713db29a908cad01d4d71dc5079c3d2961ab40b661a44ac0d554a7dc"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 7,
+      "event_name": "Mixed 13-14 200 Medley Relay",
+      "relay_label": "Relay B",
+      "entry_time": "2:13.29L",
+      "page": 1,
+      "swimmers": [
+        {"hashes": ["c7bfcebd8b969817d1d683b8ac1b7e3346c6e338aa5ecb846c5324ec519d8135"], "leg": 1},
+        {"hashes": ["de0e874d9c686a9b3d3c532a9e7b0697278dac085e553d61db6d4ccb10c081e6"], "leg": 2},
+        {"hashes": ["ebf1829bd46551042cf8f576eece62aa699bf5c90764b86e443766addf83c8f4"], "leg": 3},
+        {"hashes": ["fb51652e28b72ddc1261d572ba76f3bb7e45db639e350bb3d90cda3412ee91d4"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 31,
+      "event_name": "Girls 12 & Under 400 Free Relay",
+      "relay_label": "Relay A",
+      "entry_time": "4:34.38L",
+      "page": 1,
+      "swimmers": [
+        {"hashes": ["5b6c871885e794f829409dc35fe83d3cc7c9d08939b8871bd1f7cdbb987c84e0"], "leg": 1},
+        {"hashes": ["a57074f9df159b1df1fcd22389c779ff5a9373ea1cbfaf77a240c77218ea608e"], "leg": 2},
+        {"hashes": ["9173ce58a8b03a2ae8bd3d35f3ce7c62b1d53cda4b1dc4f4a7b07df47965a416"], "leg": 3},
+        {"hashes": ["fa28a11beb62a559268cce468a4182f02f0763dd7763593b570e61bdab7ae2b9"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 31,
+      "event_name": "Girls 12 & Under 400 Free Relay",
+      "relay_label": "Relay B",
+      "entry_time": "5:24.84L",
+      "page": 1,
+      "swimmers": [
+        {"hashes": ["bef2bcb75b909356125271cb5852bd02f097ceb739fee1a9431aaea2821e59c1"], "leg": 1},
+        {"hashes": ["98152f52f264713d65d4b33aa57d0916f26050bfb70a334254f9990404dda11b"], "leg": 2},
+        {"hashes": ["53fa0814106f9ca73dc89767683be51d0405d732a62328d9138a1ef84790eb6b"], "leg": 3},
+        {"hashes": ["09ef71917c7afafc6abd4e9c64ebc5a1cd3e50e9fe2efe34aa10ee2e4e1df44b"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 32,
+      "event_name": "Boys 12 & Under 400 Free Relay",
+      "relay_label": "Relay A",
+      "entry_time": "5:08.11L",
+      "page": 1,
+      "swimmers": [
+        {"hashes": ["8af552cfd0b42a7d94d5ab9c122dfbfddab1e9d0de307da0ac581e539956ae31"], "leg": 1},
+        {"hashes": ["b67cd7abb903e18ca6446ea11a7de669abb5dacdb4863ed6ea1b18b007755e21"], "leg": 2},
+        {"hashes": ["c1e6539f2187b78451b558755be1a9f3467f472eb74f2ee163074b2bbf7d1772"], "leg": 3},
+        {"hashes": ["66203ce7c0196002d65b04e3f86d187f9d45f81da4f257a11e0439609f58c520"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 33,
+      "event_name": "Girls 13-14 800 Free Relay",
+      "relay_label": "Relay A",
+      "entry_time": "9:23.77L",
+      "page": 1,
+      "swimmers": [
+        {"hashes": ["ebf1829bd46551042cf8f576eece62aa699bf5c90764b86e443766addf83c8f4"], "leg": 1},
+        {"hashes": ["8f90a039cf551e8deae0c564fc059d41ed2364d1fec14618ef5debd8771e313f"], "leg": 2},
+        {"hashes": ["4aec6190a382f7ad21913a5ebcd40fd268d05a09a88c3d9c8c9458a1eb14d7c3"], "leg": 3},
+        {"hashes": ["464af696691bdf38123e20b673f321b872f425a91357c545953c8923c0a5d364"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 34,
+      "event_name": "Boys 13-14 800 Free Relay",
+      "relay_label": "Relay A",
+      "entry_time": "9:26.28L",
+      "page": 1,
+      "swimmers": [
+        {"hashes": ["ca5dd98a713db29a908cad01d4d71dc5079c3d2961ab40b661a44ac0d554a7dc"], "leg": 1},
+        {"hashes": ["115a6f91e2b7031c4c61d115cbee5d9f9d46aba2ee9e4958bb1ae360a312e4e3"], "leg": 2},
+        {"hashes": ["de0e874d9c686a9b3d3c532a9e7b0697278dac085e553d61db6d4ccb10c081e6"], "leg": 3},
+        {"hashes": ["fb51652e28b72ddc1261d572ba76f3bb7e45db639e350bb3d90cda3412ee91d4"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 39,
+      "event_name": "Girls 13-14 200 Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:09.72L",
+      "page": 1,
+      "swimmers": [
+        {"hashes": ["4aec6190a382f7ad21913a5ebcd40fd268d05a09a88c3d9c8c9458a1eb14d7c3"], "leg": 1},
+        {"hashes": ["464af696691bdf38123e20b673f321b872f425a91357c545953c8923c0a5d364"], "leg": 2},
+        {"hashes": ["8f90a039cf551e8deae0c564fc059d41ed2364d1fec14618ef5debd8771e313f"], "leg": 3},
+        {"hashes": ["c7bfcebd8b969817d1d683b8ac1b7e3346c6e338aa5ecb846c5324ec519d8135"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 40,
+      "event_name": "Boys 13-14 200 Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:07.83L",
+      "page": 1,
+      "swimmers": [
+        {"hashes": ["115a6f91e2b7031c4c61d115cbee5d9f9d46aba2ee9e4958bb1ae360a312e4e3"], "leg": 1},
+        {"hashes": ["fb51652e28b72ddc1261d572ba76f3bb7e45db639e350bb3d90cda3412ee91d4"], "leg": 2},
+        {"hashes": ["de0e874d9c686a9b3d3c532a9e7b0697278dac085e553d61db6d4ccb10c081e6"], "leg": 3},
+        {"hashes": ["ca5dd98a713db29a908cad01d4d71dc5079c3d2961ab40b661a44ac0d554a7dc"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 41,
+      "event_name": "Girls 12 & Under 200 Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:22.69L",
+      "page": 1,
+      "swimmers": [
+        {"hashes": ["9173ce58a8b03a2ae8bd3d35f3ce7c62b1d53cda4b1dc4f4a7b07df47965a416"], "leg": 1},
+        {"hashes": ["a57074f9df159b1df1fcd22389c779ff5a9373ea1cbfaf77a240c77218ea608e"], "leg": 2},
+        {"hashes": ["5b6c871885e794f829409dc35fe83d3cc7c9d08939b8871bd1f7cdbb987c84e0"], "leg": 3},
+        {"hashes": ["fa28a11beb62a559268cce468a4182f02f0763dd7763593b570e61bdab7ae2b9"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 41,
+      "event_name": "Girls 12 & Under 200 Medley Relay",
+      "relay_label": "Relay B",
+      "entry_time": "2:35.56L",
+      "page": 1,
+      "swimmers": [
+        {"hashes": ["8a02606742846013df7605d29f5da5f998622153d2d27e24f6836d67f3ba7c50"], "leg": 1},
+        {"hashes": ["bef2bcb75b909356125271cb5852bd02f097ceb739fee1a9431aaea2821e59c1"], "leg": 2},
+        {"hashes": ["09ef71917c7afafc6abd4e9c64ebc5a1cd3e50e9fe2efe34aa10ee2e4e1df44b"], "leg": 3},
+        {"hashes": ["98152f52f264713d65d4b33aa57d0916f26050bfb70a334254f9990404dda11b"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 42,
+      "event_name": "Boys 12 & Under 200 Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:35.59L",
+      "page": 1,
+      "swimmers": [
+        {"hashes": ["b67cd7abb903e18ca6446ea11a7de669abb5dacdb4863ed6ea1b18b007755e21"], "leg": 1},
+        {"hashes": ["8af552cfd0b42a7d94d5ab9c122dfbfddab1e9d0de307da0ac581e539956ae31"], "leg": 2},
+        {"hashes": ["66203ce7c0196002d65b04e3f86d187f9d45f81da4f257a11e0439609f58c520"], "leg": 3},
+        {"hashes": ["c1e6539f2187b78451b558755be1a9f3467f472eb74f2ee163074b2bbf7d1772"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 67,
+      "event_name": "Girls 13-14 400 Free Relay",
+      "relay_label": "Relay A",
+      "entry_time": "4:17.31L",
+      "page": 2,
+      "swimmers": [
+        {"hashes": ["ebf1829bd46551042cf8f576eece62aa699bf5c90764b86e443766addf83c8f4"], "leg": 1},
+        {"hashes": ["c7bfcebd8b969817d1d683b8ac1b7e3346c6e338aa5ecb846c5324ec519d8135"], "leg": 2},
+        {"hashes": ["8f90a039cf551e8deae0c564fc059d41ed2364d1fec14618ef5debd8771e313f"], "leg": 3},
+        {"hashes": ["464af696691bdf38123e20b673f321b872f425a91357c545953c8923c0a5d364"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 68,
+      "event_name": "Boys 13-14 400 Free Relay",
+      "relay_label": "Relay A",
+      "entry_time": "4:10.39L",
+      "page": 2,
+      "swimmers": [
+        {"hashes": ["115a6f91e2b7031c4c61d115cbee5d9f9d46aba2ee9e4958bb1ae360a312e4e3"], "leg": 1},
+        {"hashes": ["fb51652e28b72ddc1261d572ba76f3bb7e45db639e350bb3d90cda3412ee91d4"], "leg": 2},
+        {"hashes": ["de0e874d9c686a9b3d3c532a9e7b0697278dac085e553d61db6d4ccb10c081e6"], "leg": 3},
+        {"hashes": ["ca5dd98a713db29a908cad01d4d71dc5079c3d2961ab40b661a44ac0d554a7dc"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 73,
+      "event_name": "Girls 13-14 200 Free Relay",
+      "relay_label": "Relay A",
+      "entry_time": "1:58.44L",
+      "page": 2,
+      "swimmers": [
+        {"hashes": ["c7bfcebd8b969817d1d683b8ac1b7e3346c6e338aa5ecb846c5324ec519d8135"], "leg": 1},
+        {"hashes": ["8f90a039cf551e8deae0c564fc059d41ed2364d1fec14618ef5debd8771e313f"], "leg": 2},
+        {"hashes": ["ebf1829bd46551042cf8f576eece62aa699bf5c90764b86e443766addf83c8f4"], "leg": 3},
+        {"hashes": ["464af696691bdf38123e20b673f321b872f425a91357c545953c8923c0a5d364"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 74,
+      "event_name": "Boys 13-14 200 Free Relay",
+      "relay_label": "Relay A",
+      "entry_time": "1:52.61L",
+      "page": 2,
+      "swimmers": [
+        {"hashes": ["115a6f91e2b7031c4c61d115cbee5d9f9d46aba2ee9e4958bb1ae360a312e4e3"], "leg": 1},
+        {"hashes": ["fb51652e28b72ddc1261d572ba76f3bb7e45db639e350bb3d90cda3412ee91d4"], "leg": 2},
+        {"hashes": ["cf1b5b55dea9ce80c44e1d56acb64b6e573899a5b6b5057552fcc2b26c4ea226"], "leg": 3},
+        {"hashes": ["ca5dd98a713db29a908cad01d4d71dc5079c3d2961ab40b661a44ac0d554a7dc"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 75,
+      "event_name": "Girls 12 & Under 200 Free Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:05.66L",
+      "page": 2,
+      "swimmers": [
+        {"hashes": ["9173ce58a8b03a2ae8bd3d35f3ce7c62b1d53cda4b1dc4f4a7b07df47965a416"], "leg": 1},
+        {"hashes": ["5b6c871885e794f829409dc35fe83d3cc7c9d08939b8871bd1f7cdbb987c84e0"], "leg": 2},
+        {"hashes": ["a57074f9df159b1df1fcd22389c779ff5a9373ea1cbfaf77a240c77218ea608e"], "leg": 3},
+        {"hashes": ["fa28a11beb62a559268cce468a4182f02f0763dd7763593b570e61bdab7ae2b9"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 75,
+      "event_name": "Girls 12 & Under 200 Free Relay",
+      "relay_label": "Relay B",
+      "entry_time": "2:15.64L",
+      "page": 2,
+      "swimmers": [
+        {"hashes": ["09ef71917c7afafc6abd4e9c64ebc5a1cd3e50e9fe2efe34aa10ee2e4e1df44b"], "leg": 1},
+        {"hashes": ["bef2bcb75b909356125271cb5852bd02f097ceb739fee1a9431aaea2821e59c1"], "leg": 2},
+        {"hashes": ["98152f52f264713d65d4b33aa57d0916f26050bfb70a334254f9990404dda11b"], "leg": 3},
+        {"hashes": ["8a02606742846013df7605d29f5da5f998622153d2d27e24f6836d67f3ba7c50"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 76,
+      "event_name": "Boys 12 & Under 200 Free Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:17.59L",
+      "page": 2,
+      "swimmers": [
+        {"hashes": ["66203ce7c0196002d65b04e3f86d187f9d45f81da4f257a11e0439609f58c520"], "leg": 1},
+        {"hashes": ["b67cd7abb903e18ca6446ea11a7de669abb5dacdb4863ed6ea1b18b007755e21"], "leg": 2},
+        {"hashes": ["c1e6539f2187b78451b558755be1a9f3467f472eb74f2ee163074b2bbf7d1772"], "leg": 3},
+        {"hashes": ["8af552cfd0b42a7d94d5ab9c122dfbfddab1e9d0de307da0ac581e539956ae31"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 107,
+      "event_name": "Girls 12 & Under 400 Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "5:14.66L",
+      "page": 2,
+      "swimmers": [
+        {"hashes": ["9173ce58a8b03a2ae8bd3d35f3ce7c62b1d53cda4b1dc4f4a7b07df47965a416"], "leg": 1},
+        {"hashes": ["a57074f9df159b1df1fcd22389c779ff5a9373ea1cbfaf77a240c77218ea608e"], "leg": 2},
+        {"hashes": ["5b6c871885e794f829409dc35fe83d3cc7c9d08939b8871bd1f7cdbb987c84e0"], "leg": 3},
+        {"hashes": ["fa28a11beb62a559268cce468a4182f02f0763dd7763593b570e61bdab7ae2b9"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 107,
+      "event_name": "Girls 12 & Under 400 Medley Relay",
+      "relay_label": "Relay B",
+      "entry_time": "5:47.07L",
+      "page": 2,
+      "swimmers": [
+        {"hashes": ["8a02606742846013df7605d29f5da5f998622153d2d27e24f6836d67f3ba7c50"], "leg": 1},
+        {"hashes": ["bef2bcb75b909356125271cb5852bd02f097ceb739fee1a9431aaea2821e59c1"], "leg": 2},
+        {"hashes": ["09ef71917c7afafc6abd4e9c64ebc5a1cd3e50e9fe2efe34aa10ee2e4e1df44b"], "leg": 3},
+        {"hashes": ["98152f52f264713d65d4b33aa57d0916f26050bfb70a334254f9990404dda11b"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 108,
+      "event_name": "Boys 12 & Under 400 Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "5:40.37L",
+      "page": 2,
+      "swimmers": [
+        {"hashes": ["b67cd7abb903e18ca6446ea11a7de669abb5dacdb4863ed6ea1b18b007755e21"], "leg": 1},
+        {"hashes": ["8af552cfd0b42a7d94d5ab9c122dfbfddab1e9d0de307da0ac581e539956ae31"], "leg": 2},
+        {"hashes": ["66203ce7c0196002d65b04e3f86d187f9d45f81da4f257a11e0439609f58c520"], "leg": 3},
+        {"hashes": ["c1e6539f2187b78451b558755be1a9f3467f472eb74f2ee163074b2bbf7d1772"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 109,
+      "event_name": "Girls 13-14 400 Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "4:42.87L",
+      "page": 2,
+      "swimmers": [
+        {"hashes": ["4aec6190a382f7ad21913a5ebcd40fd268d05a09a88c3d9c8c9458a1eb14d7c3"], "leg": 1},
+        {"hashes": ["464af696691bdf38123e20b673f321b872f425a91357c545953c8923c0a5d364"], "leg": 2},
+        {"hashes": ["8f90a039cf551e8deae0c564fc059d41ed2364d1fec14618ef5debd8771e313f"], "leg": 3},
+        {"hashes": ["c7bfcebd8b969817d1d683b8ac1b7e3346c6e338aa5ecb846c5324ec519d8135"], "leg": 4}
+      ]
+    },
+    {
+      "event_number": 110,
+      "event_name": "Boys 13-14 400 Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "4:44.87L",
+      "page": 2,
+      "swimmers": [
+        {"hashes": ["115a6f91e2b7031c4c61d115cbee5d9f9d46aba2ee9e4958bb1ae360a312e4e3"], "leg": 1},
+        {"hashes": ["fb51652e28b72ddc1261d572ba76f3bb7e45db639e350bb3d90cda3412ee91d4"], "leg": 2},
+        {"hashes": ["cf1b5b55dea9ce80c44e1d56acb64b6e573899a5b6b5057552fcc2b26c4ea226"], "leg": 3},
+        {"hashes": ["ca5dd98a713db29a908cad01d4d71dc5079c3d2961ab40b661a44ac0d554a7dc"], "leg": 4}
+      ]
+    }
+  ]
+}

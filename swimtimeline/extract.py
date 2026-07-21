@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
 from functools import lru_cache
+import hashlib
+import json
 from math import ceil
 from pathlib import Path
 import re
@@ -109,6 +111,8 @@ class RelayEntry:
     leg: int
     page: int
     source_line: str
+    source_label: str = "Relay document"
+    is_private_source: bool = False
 
 
 @dataclass
@@ -490,11 +494,16 @@ def extract_relay_entries(relay_pdf: Path | None, swimmer_name: str) -> tuple[li
 
     relay_header = re.compile(
         r"^(?P<event>\d+)[A-Z]?\s+\d+\s+(?P<session>\d+)\s+(?P<course>[A-Z]+)\s+(?P<group>[A-Z])\s+"
-        r"(?P<event_name>.+?Relay)\s+Relay\s+(?P<label>[A-Z])\s+\(Entry:\s*(?P<entry>[^)]+)\)",
+        r"(?P<event_name>.+?Relay)(?:\s+<=\S+)*\s+Relay\s+(?P<label>[A-Z])\s+\(Entry:\s*(?P<entry>[^)]+)\)",
+        re.IGNORECASE,
+    )
+    relay_event_header = re.compile(
+        r"^(?P<event>\d+)[A-Z]?\s+\d+\s+(?P<session>\d+)\s+(?P<course>[A-Z]+)\s+(?P<group>[A-Z])\s+"
+        r"(?P<event_name>.+?Relay)(?:\s+<=\S+)?$",
         re.IGNORECASE,
     )
     relay_continuation = re.compile(r"^Relay\s+(?P<label>[A-Z])\s+\(Entry:\s*(?P<entry>[^)]+)\)", re.IGNORECASE)
-    swimmer_line = re.compile(r"^(?P<leg>[1-8])\.\s+(?P<name>.+)$")
+    swimmer_line = re.compile(r"^(?:<=\S+\s+)*(?P<leg>[1-8])\.\s+(?P<name>.+)$")
 
     for page_number, text in enumerate(pages, start=1):
         for raw_line in text.splitlines():
@@ -511,6 +520,18 @@ def extract_relay_entries(relay_pdf: Path | None, swimmer_name: str) -> tuple[li
                     "event_name": relay_event_name(header.group("group"), header.group("event_name")),
                     "relay_label": f"Relay {header.group('label').upper()}",
                     "entry_time": header.group("entry"),
+                }
+                continue
+
+            event_header = relay_event_header.match(line)
+            if event_header:
+                current = {
+                    "event_number": int(event_header.group("event")),
+                    "session_number": int(event_header.group("session")),
+                    "course": event_header.group("course").upper(),
+                    "event_name": relay_event_name(event_header.group("group"), event_header.group("event_name")),
+                    "relay_label": "",
+                    "entry_time": "",
                 }
                 continue
 
@@ -555,8 +576,72 @@ def extract_relay_entries(relay_pdf: Path | None, swimmer_name: str) -> tuple[li
     return relays, warnings
 
 
+def extract_internal_relay_entries(relay_sources: Iterable[Path] | None, swimmer_name: str) -> tuple[list[RelayEntry], list[str]]:
+    if not relay_sources:
+        return [], []
+
+    relays: list[RelayEntry] = []
+    warnings: list[str] = []
+    for source in relay_sources:
+        data = json.loads(source.read_text(encoding="utf-8"))
+        label = str(data.get("source_label") or data.get("label") or "Relay add-on")
+        salt = str(data.get("salt") or "")
+        query_hashes = relay_hashes_for_swimmer(salt, swimmer_name)
+        matched_count = 0
+        for row in data.get("entries", []):
+            matched_leg = matching_relay_leg(row.get("swimmers", []), query_hashes)
+            if matched_leg is None:
+                continue
+            matched_count += 1
+            relays.append(
+                RelayEntry(
+                    event_number=int(row["event_number"]),
+                    event_name=str(row["event_name"]),
+                    relay_label=str(row["relay_label"]),
+                    entry_time=str(row["entry_time"]),
+                    leg=matched_leg,
+                    page=int(row.get("page") or 0),
+                    source_line=f"{label}: swimmer match verified without displaying roster names.",
+                    source_label=label,
+                    is_private_source=True,
+                )
+            )
+        if matched_count:
+            warnings.append(f"{label} selected. Relay lineups may change; confirm final assignments with coach or official postings.")
+        else:
+            warnings.append(f"{label} selected, but no relay rows matched the swimmer name.")
+    return dedupe_relay_entries(relays), warnings
+
+
+def matching_relay_leg(swimmers: object, query_hashes: set[str]) -> int | None:
+    if not isinstance(swimmers, list):
+        return None
+    for swimmer in swimmers:
+        if not isinstance(swimmer, dict):
+            continue
+        stored_hashes = {str(value) for value in swimmer.get("hashes", [])}
+        if stored_hashes & query_hashes:
+            return int(swimmer.get("leg") or 0)
+    return None
+
+
+def relay_hashes_for_swimmer(salt: str, swimmer_name: str) -> set[str]:
+    return {relay_name_hash(salt, first, last) for first, last in name_pairs(swimmer_name)}
+
+
+def relay_name_hash(salt: str, first: str, last: str) -> str:
+    return hashlib.sha256(f"{salt}|{first} {last}".encode("utf-8")).hexdigest()
+
+
+def dedupe_relay_entries(relays: list[RelayEntry]) -> list[RelayEntry]:
+    by_key: dict[tuple[int, str, int], RelayEntry] = {}
+    for relay in relays:
+        by_key.setdefault((relay.event_number, relay.relay_label, relay.leg), relay)
+    return sorted(by_key.values(), key=lambda relay: (relay.event_number, relay.relay_label, relay.leg))
+
+
 def relay_event_name(group_code: str, event_name: str) -> str:
-    group_map = {"G": "Girls", "B": "Boys", "W": "Women", "M": "Men"}
+    group_map = {"G": "Girls", "B": "Boys", "W": "Women", "M": "Men", "X": "Mixed"}
     prefix = group_map.get(group_code.upper(), group_code.upper())
     return normalize_space(f"{prefix} {event_name}")
 
@@ -958,6 +1043,7 @@ def normalize_timeline_line(value: str) -> str:
     line = normalize_space(value)
     line = re.sub(r"^(Prelims|Finals(?:-[A-Za-z0-9]+)?)\s+(\d+)(?=[A-Za-z])", r"\1 \2 ", line, flags=re.IGNORECASE)
     line = re.sub(r"(?<=\d)(Girls|Boys|Women|Men)\b", r" \1", line, flags=re.IGNORECASE)
+    line = re.sub(r"([A-Za-z)])(?=\d+\s+\d+\s+_+\s*\d{1,2}:\d{2})", r"\1 ", line)
     return line
 
 
@@ -1212,7 +1298,11 @@ def build_swim_events(
     return sorted(swim_events, key=lambda item: item.timeline.start)
 
 
-def build_relay_events(relay_entries: list[RelayEntry], timeline_events: list[TimelineEvent]) -> list[RelayEvent]:
+def build_relay_events(
+    relay_entries: list[RelayEntry],
+    timeline_events: list[TimelineEvent],
+    flyer_text: str = "",
+) -> list[RelayEvent]:
     primary = primary_timeline_by_event(timeline_events)
     relay_events: list[RelayEvent] = []
     for relay in relay_entries:
@@ -1223,10 +1313,19 @@ def build_relay_events(relay_entries: list[RelayEntry], timeline_events: list[Ti
             RelayEvent(
                 relay=relay,
                 timeline=timeline,
-                finals_note="Relay is timed final unless the meet document says otherwise.",
+                finals_note=relay_finals_note(timeline, flyer_text),
             )
         )
     return sorted(relay_events, key=lambda item: item.timeline.start)
+
+
+def relay_finals_note(timeline: TimelineEvent, flyer_text: str = "") -> str:
+    lower = flyer_text.lower()
+    if "all relay events are timed final events" in lower and "preliminary sessions" in lower:
+        return "Timed final relay; meet flyer says all relays are swum during preliminary sessions. Timeline window is estimated."
+    if timeline.round_name.lower().startswith("finals"):
+        return "Timed final relay based on the timeline. Confirm final relay timing with official postings."
+    return "Relay timing is estimated from the timeline. Confirm final relay assignment and timing with coach or official postings."
 
 
 def finals_note(timeline: TimelineEvent, final_timeline: TimelineEvent | None) -> str:
@@ -1364,12 +1463,16 @@ def build_detailed_payload(
             f"Leg: {relay.leg}",
             f"Timeline event window: {display_window(timeline.start, timeline.end)}",
             "",
+            "Important:",
+            "- Relay lineup and timing may change; confirm with coach or official postings.",
+            "- Timeline-derived relay windows are estimates.",
+            "",
             f"Finals: {relay_event.finals_note}",
             "",
             "Benchmarks: n/a for relay calendar event.",
             "",
             "Source verification:",
-            f"Relay document: page {relay.page}; swimmer listed as {relay.source_line.split('.', 1)[-1].strip()}",
+            f"{relay.source_label}: page {relay.page}; swimmer match verified without displaying roster names.",
             f"Timeline: event #{relay.event_number}",
             "Psych sheet source: n/a for relay assignment",
         ]
@@ -1453,7 +1556,7 @@ def build_daily_payload(
             if isinstance(item, RelayEvent):
                 relay = item.relay
                 lines.append(
-                    f"#{relay.event_number} Relay - {event_short_name(relay.event_name)} | timed final relay | {relay.relay_label}, leg {relay.leg} | {display_window(item.timeline.start, item.timeline.end)}"
+                    f"#{relay.event_number} Relay - {event_short_name(relay.event_name)} | timed final relay | {relay.relay_label}, leg {relay.leg} | {display_window(item.timeline.start, item.timeline.end)} estimated"
                 )
             else:
                 lines.append(
@@ -1480,7 +1583,14 @@ def build_daily_payload(
             if item.benchmarks.get("advanced"):
                 lines.append(f"#{item.psych.event_number} {item.benchmarks['advanced']}")
         if any(isinstance(item, RelayEvent) for item in day_items):
-            lines.append("Relays: benchmarks n/a.")
+            lines.extend(
+                [
+                    "Relays: benchmarks n/a.",
+                    "",
+                    "Relay notes:",
+                    "Relay lineup and timing may change; confirm with coach or official postings. Relay windows are estimated from the meet timeline.",
+                ]
+            )
         lines.extend(["", "Source verification: entry sheet and timeline verified; review the audit report before import."])
         events.append(
             {
@@ -1624,7 +1734,7 @@ def build_audit(
             "",
             f"Total verified relays found: {len(relays)}",
             "",
-            "No relay events are included unless a relay document explicitly names the swimmer.",
+            "No relay events are included unless a relay document explicitly names the swimmer or a selected private relay add-on matches the swimmer.",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -1637,6 +1747,7 @@ def analyze_uploads(
     swimmer_name: str,
     output_dir: Path,
     relay_pdf: Path | None = None,
+    internal_relay_sources: Iterable[Path] | None = None,
     state: str = DEFAULT_STATE,
     modes: Iterable[str] = ("daily",),
     estimate_heat_lanes: bool = False,
@@ -1645,10 +1756,13 @@ def analyze_uploads(
     meet_name, sessions, timeline_events = parse_timeline(timeline_pdf, flyer_text=flyer_text)
     entries, page_counts, name_warnings = extract_psych_entries(psych_pdf, swimmer_name)
     relay_entries, relay_warnings = extract_relay_entries(relay_pdf, swimmer_name)
+    internal_relay_entries, internal_relay_warnings = extract_internal_relay_entries(internal_relay_sources, swimmer_name)
+    relay_entries = dedupe_relay_entries([*relay_entries, *internal_relay_entries])
+    relay_warnings.extend(internal_relay_warnings)
     assign_days(entries, timeline_events)
     estimate_warnings = estimate_heat_lanes_for_entries(entries, timeline_events, flyer_text) if estimate_heat_lanes else []
     swims = build_swim_events(entries, timeline_events, state=state, flyer_text=flyer_text)
-    relays = build_relay_events(relay_entries, timeline_events)
+    relays = build_relay_events(relay_entries, timeline_events, flyer_text=flyer_text)
     short_name = short_meet_name(meet_name)
     meet_id = slugify(meet_name)
     output_swimmer_name = resolved_swimmer_name(swimmer_name, entries)
@@ -1762,7 +1876,8 @@ def summarize_relay(relay_event: RelayEvent) -> dict:
         "day": relay_event.timeline.date.strftime("%A"),
         "window": display_window(relay_event.timeline.start, relay_event.timeline.end),
         "page": relay.page,
-        "column": "Relay document",
+        "column": relay.source_label,
+        "source_document": relay.source_label,
         "benchmarks": {"usa": "n/a for relay", "lsc": "n/a for relay", "advanced": None},
         "finals_note": relay_event.finals_note,
         "event_format": "Timed final relay",

@@ -29,20 +29,24 @@ The app is deployable as a small Python web service. `requirements.txt` and `ren
 4. Open `More options` for family options:
    - combine swimmers into one family calendar, on by default
    - estimate heat/lane from a psych sheet, off by default because estimates are not final
-5. Open `More options` for extra calendar outputs:
+5. Open `More options` for hosted relay add-ons when available:
+   - private team relay lineups are opt-in
+   - roster names are not shown in the UI or generated calendar text
+   - relay lineups and timing should still be confirmed with the coach or official postings
+6. Open `More options` for extra calendar outputs:
    - daily, on by default
    - whole meet, optional
    - swim by swim, optional
-6. If the meet is not listed, open `Meet not listed?` and upload a meet flyer, psych sheet or heat sheet, timeline PDF, and optional relay PDF.
-7. Review the extracted swims and warnings.
-8. Download family `.ics` files, individual swimmer `.ics` files, and swimmer audits.
-9. For uploaded meets, use `Save To Current Meets` after a successful parse to make those documents reusable for other swimmers in the same meet.
+7. If the meet is not listed, open `Meet not listed?` and upload a meet flyer, psych sheet or heat sheet, timeline PDF, and optional relay PDF.
+8. Review the extracted swims and warnings.
+9. Download family `.ics` files, individual swimmer `.ics` files, and swimmer audits.
+10. For uploaded meets, use `Save To Current Meets` after a successful parse to make those documents reusable for other swimmers in the same meet.
 
 ## Current Meets
 
 Hosted meets are tracked in `data/current_meets.json`. The app lists those entries under `Current Meets` and sends the selected swimmer names to the backend without requiring another upload.
 
-Age Group State is marked as a featured current meet through Monday, July 27, 2026. Featured metadata is temporary and date-gated; once the active window passes, the meet can still appear under Past Meets.
+Age Group State is marked as a featured current meet through Monday, July 27, 2026. Featured metadata is temporary and date-gated; once the active window passes, the meet can still appear under Past Meets. It also has an opt-in private MAC relay add-on; the raw relay PDF is not hosted as a public document.
 
 Age Group State, Narwhal Invite, and Shark Open are preloaded with final timeline-style documents. Para Nationals is preloaded from a meet packet and psych sheet, so it is marked schedule-only and produces estimated event windows from session order.
 
@@ -63,7 +67,8 @@ Current Meets entries store `start_date`, `end_date`, and `expires_at`. The publ
 - Event rows include a format label such as `Prelim/final`, `Timed final`, or `Prelim only` based on the timeline sessions available for that event.
 - Daily events start at the parsed session warm-up time. Distance check-in events can pull the daily calendar event earlier when the flyer requires check-in before another session's warm-up.
 - Possible finals are included in descriptions as `if qualifies`; separate finals events are not generated until qualification is known.
-- Relay uploads are parsed conservatively. Relays are included only when the relay document explicitly names the swimmer under a relay team.
+- Relay uploads are parsed conservatively. Relays are included only when the relay document explicitly names the swimmer under a relay team or when a selected private relay add-on matches the swimmer by hashed name.
+- Relay timing is flyer-aware. For Age Group State, the flyer says relay events are timed finals swum during preliminary sessions, so relay calendar windows use the preliminary-session timeline and are labeled as estimates.
 
 ## Usage Stats
 

@@ -16,7 +16,7 @@ Then open:
 http://127.0.0.1:8765
 ```
 
-The app accepts a meet flyer, psych sheet or heat sheet, timeline, optional relay document, one or more swimmer names, and optional state/LSC. It generates reviewable calendar files for daily, whole-meet, and swim-by-swim imports, with optional combined family calendars. Daily calendar output is selected by default; the other calendar formats are opt-in. Relays are included only when the relay document explicitly names the swimmer. Uploaded files and generated outputs are stored under `.swimtimeline-runs/`, which is ignored by git.
+The app accepts a meet flyer, psych sheet or heat sheet, timeline, optional relay document, one or more swimmer names, and optional state/LSC. It generates reviewable calendar files for daily, whole-meet, and swim-by-swim imports, with optional combined family calendars. Daily calendar output is selected by default; the other calendar formats are opt-in. Relays are included only when an uploaded relay document explicitly names the swimmer or a selected private relay add-on matches the swimmer. Uploaded files and generated outputs are stored under `.swimtimeline-runs/`, which is ignored by git.
 
 Advanced cuts beyond AAAA are loaded from `data/advanced_standards.json`; see `docs/standards-data.md`.
 
@@ -46,7 +46,7 @@ meets/
 
 - Meet: AZ 2026 Long Course Age Group State Championship
 - Dates: 2026-07-23 through 2026-07-26
-- Status: meet flyer, psych sheet, and final timeline received; hosted current meet is ready for swimmer lookup. No relay document is included.
+- Status: meet flyer, psych sheet, and final timeline received; hosted current meet is ready for swimmer lookup. No public relay document is included. A private MAC relay add-on is available from More options.
 
 See `docs/extraction-rules.md` for the extraction rules to use for each meet.
 

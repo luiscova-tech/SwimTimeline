@@ -118,6 +118,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             psych_path=psych_path,
             timeline_path=timeline_path,
             relay_path=relay_path,
+            internal_relay_sources=None,
             swimmer_names=swimmer_names,
             output_dir=output_dir,
             state=state,
@@ -159,6 +160,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         modes = normalize_modes(payload.get("modes"))
         combine_family = payload_bool(payload, "combine_family", default=True)
         estimate_heat_lanes = payload_bool(payload, "estimate_heat_lanes", default=False)
+        relay_option_ids = payload_relay_options(payload)
         if not meet_id:
             raise ValueError("Current meet id is required.")
         if not swimmer_names:
@@ -171,6 +173,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         psych_path = resolve_repo_file(files.get("psych"), required=True)
         timeline_path = resolve_repo_file(files.get("timeline"), required=True)
         relay_path = resolve_repo_file(files.get("relay"), required=False)
+        internal_relay_sources = resolve_current_meet_relay_sources(meet, relay_option_ids)
 
         run_id = f"{int(time.time())}-{uuid4().hex[:8]}"
         output_dir = RUNS_DIR / run_id / "outputs"
@@ -179,6 +182,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             psych_path=psych_path,
             timeline_path=timeline_path,
             relay_path=relay_path,
+            internal_relay_sources=internal_relay_sources,
             swimmer_names=swimmer_names,
             output_dir=output_dir,
             state=state,
@@ -188,7 +192,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         )
         result["run_id"] = run_id
         result["current_meet_id"] = meet_id
-        result["relay_status"] = "hosted_and_parsed" if relay_path else "not_uploaded"
+        result["relay_status"] = relay_status(relay_path, internal_relay_sources)
         result["can_publish_current"] = False
         result["downloads"] = download_urls(run_id, result["files"])
         add_individual_download_urls(run_id, result)
@@ -341,6 +345,22 @@ def payload_bool(payload: dict, name: str, default: bool = False) -> bool:
     return str(value).strip().lower() not in {"", "0", "false", "off", "no"}
 
 
+def payload_relay_options(payload: dict) -> list[str]:
+    raw_options = payload.get("relay_options")
+    if isinstance(raw_options, str):
+        candidates = [raw_options]
+    elif isinstance(raw_options, list):
+        candidates = [str(option) for option in raw_options]
+    else:
+        candidates = []
+    options: list[str] = []
+    for option in candidates:
+        cleaned = option.strip()
+        if cleaned and cleaned not in options:
+            options.append(cleaned)
+    return options
+
+
 def normalize_modes(raw_modes: object) -> list[str]:
     if isinstance(raw_modes, str):
         candidates = [raw_modes]
@@ -424,6 +444,7 @@ def analyze_swimmer_set(
     psych_path: Path,
     timeline_path: Path,
     relay_path: Path | None,
+    internal_relay_sources: list[Path] | None,
     swimmer_names: list[str],
     output_dir: Path,
     state: str,
@@ -439,6 +460,7 @@ def analyze_swimmer_set(
             swimmer_name=swimmer_names[0],
             output_dir=output_dir,
             relay_pdf=relay_path,
+            internal_relay_sources=internal_relay_sources,
             state=state,
             modes=modes,
             estimate_heat_lanes=estimate_heat_lanes,
@@ -460,6 +482,7 @@ def analyze_swimmer_set(
             swimmer_name=swimmer_name,
             output_dir=swimmer_output_dir,
             relay_pdf=relay_path,
+            internal_relay_sources=internal_relay_sources,
             state=state,
             modes=modes,
             estimate_heat_lanes=estimate_heat_lanes,
@@ -750,6 +773,7 @@ def public_current_meet(meet: dict) -> dict:
     files = meet.get("files", {})
     featured_until = parse_iso_date(str(meet.get("featured_until") or ""))
     is_featured = current_meet_is_featured(meet)
+    relay_options = public_relay_options(meet)
     return {
         "id": meet.get("id"),
         "name": meet.get("name"),
@@ -762,12 +786,30 @@ def public_current_meet(meet: dict) -> dict:
         "status": meet.get("status"),
         "documents": meet.get("documents", []),
         "has_relay": bool(files.get("relay")),
+        "has_private_relay": bool(relay_options),
+        "relay_options": relay_options,
         "is_featured": is_featured,
         "featured_until": meet.get("featured_until"),
         "featured_until_label": short_date_label(featured_until) if featured_until else "",
         "featured_label": meet.get("featured_label") or "Featured current meet",
         "featured_note": meet.get("featured_note") or "",
     }
+
+
+def public_relay_options(meet: dict) -> list[dict]:
+    options: list[dict] = []
+    for option in meet.get("relay_options", []):
+        if not isinstance(option, dict) or not option.get("id"):
+            continue
+        options.append(
+            {
+                "id": option.get("id"),
+                "label": option.get("label") or "Include relay lineup",
+                "club": option.get("club") or "",
+                "description": option.get("description") or "",
+            }
+        )
+    return options
 
 
 def current_meet_is_active(meet: dict) -> bool:
@@ -805,6 +847,31 @@ def resolve_current_meet(meet_id: str) -> dict:
         if meet.get("id") == meet_id:
             return meet
     raise ValueError(f"Unknown current meet: {meet_id}")
+
+
+def resolve_current_meet_relay_sources(meet: dict, relay_option_ids: list[str]) -> list[Path]:
+    if not relay_option_ids:
+        return []
+    options = {str(option.get("id")): option for option in meet.get("relay_options", []) if isinstance(option, dict)}
+    sources: list[Path] = []
+    for option_id in relay_option_ids:
+        option = options.get(option_id)
+        if not option:
+            raise ValueError("Selected relay option is not available for this meet.")
+        source = resolve_repo_file(option.get("source"), required=True)
+        assert source is not None
+        sources.append(source)
+    return sources
+
+
+def relay_status(relay_path: Path | None, internal_relay_sources: list[Path]) -> str:
+    if relay_path and internal_relay_sources:
+        return "uploaded_and_private_relay_parsed"
+    if internal_relay_sources:
+        return "private_relay_parsed"
+    if relay_path:
+        return "hosted_and_parsed"
+    return "not_uploaded"
 
 
 def resolve_repo_file(path_value: str | None, required: bool) -> Path | None:

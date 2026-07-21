@@ -104,6 +104,8 @@ Notes:
 {calendar_notes}
 ```
 
+For private relay add-ons, do not display relay roster names. The source note should say the swimmer match was verified without listing names, and the calendar notes should say relay lineups and timing may change.
+
 ## Suggested Description Style
 
 Keep the first screen dense and parent-friendly. The most important information should be visible without scrolling.

@@ -24,6 +24,15 @@
         "Meet flyer",
         "Psych/heat sheet",
         "Final timeline"
+      ],
+      "relay_options": [
+        {
+          "id": "mac-2026-age-group-state-relays",
+          "label": "Include MAC relay lineup",
+          "club": "MAC",
+          "description": "Use only for MAC swimmers. Swimmer names are matched privately and relay lineups may change.",
+          "source": "data/internal_relay_sources/mac-2026-age-group-state-relays.json"
+        }
       ]
     },
     {

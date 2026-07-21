@@ -38,9 +38,11 @@ Extract swim meet schedules for the swimmer names provided by the user from the 
 
 ## Relay Rules
 
-* Use the relay document only.
-* Include relays only when the swimmer is explicitly listed by name.
-* Relays are morning-session only unless the relay document says otherwise.
+* Use only the relay document or selected private relay add-on for relay assignments.
+* Include relays only when the swimmer is explicitly listed by name in a relay document or matched by a private relay add-on.
+* Read the meet flyer before assigning relay timing or finals behavior.
+* If the flyer says relays are timed finals swum during preliminary sessions, place those relay windows in the preliminary session and clearly label the time as estimated.
+* Do not display full relay roster names from private relay add-ons in the UI, calendar descriptions, or audit files.
 
 ## Timeline Rules
 

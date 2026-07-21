@@ -12,7 +12,7 @@
         <div>
           <div class="header-meta">
             <p class="eyebrow">Meet calendar builder</p>
-            <span class="version-pill">v0.4.6</span>
+            <span class="version-pill">v0.4.7</span>
           </div>
           <h1>SwimTimeline</h1>
           <p class="header-copy">Find a swimmer in hosted meet documents or upload meet PDFs to create Google Calendar files.</p>
@@ -76,7 +76,7 @@
           <details class="advanced-options">
             <summary>
               <span>More options</span>
-              <small>Family calendars, heat/lane estimates, and extra calendar files</small>
+              <small>Family calendars, relays, heat/lane estimates, and extra calendar files</small>
             </summary>
             <div class="advanced-grid">
               <fieldset class="family-options">
@@ -95,6 +95,11 @@
                     <small>Estimated only. Actual heat/lane may change after scratches, check-in, deck entries, circle seeding, or meet-management updates.</small>
                   </span>
                 </label>
+              </fieldset>
+
+              <fieldset id="hostedRelayOptions" class="relay-options hidden">
+                <legend>Relay add-ons</legend>
+                <div id="relayOptionList" class="relay-option-list"></div>
               </fieldset>
 
               <fieldset class="calendar-options">

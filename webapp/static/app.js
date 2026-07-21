@@ -19,6 +19,8 @@ const downloadDockTitle = downloadDock.querySelector("strong");
 const downloadDockMessage = document.querySelector("#downloadDockMessage");
 const downloadDockPrimary = document.querySelector("#downloadDockPrimary");
 const jumpDownloadsBtn = document.querySelector("#jumpDownloads");
+const hostedRelayOptions = document.querySelector("#hostedRelayOptions");
+const relayOptionList = document.querySelector("#relayOptionList");
 let lastPayload = null;
 let activeMeetCard = null;
 
@@ -99,6 +101,7 @@ function renderCurrentMeets(meets, pastMeets = []) {
   featuredMeetEl.innerHTML = "";
   currentMeetList.innerHTML = "";
   pastMeetList.innerHTML = "";
+  renderRelayOptions(meets);
   const featuredMeet = meets.find((meet) => meet.is_featured);
   const regularMeets = meets.filter((meet) => meet !== featuredMeet);
   if (featuredMeet) {
@@ -119,6 +122,35 @@ function renderCurrentMeets(meets, pastMeets = []) {
   for (const meet of pastMeets) {
     pastMeetList.appendChild(buildMeetCard(meet, { past: true }));
   }
+}
+
+function renderRelayOptions(meets) {
+  relayOptionList.innerHTML = "";
+  const options = [];
+  for (const meet of meets || []) {
+    for (const option of meet.relay_options || []) {
+      options.push({ ...option, meet_id: meet.id, meet_name: meet.short_name || meet.name });
+    }
+  }
+  hostedRelayOptions.classList.toggle("hidden", !options.length);
+  for (const option of options) {
+    const label = document.createElement("label");
+    label.className = "check-option relay-check-option";
+    label.innerHTML = `
+      <input type="checkbox" name="relay_options" value="${escapeHtml(option.id)}" data-meet-id="${escapeHtml(option.meet_id)}">
+      <span>
+        <strong>${escapeHtml(option.label)}</strong>
+        <small>${escapeHtml(option.description || `For ${option.club || "team"} swimmers at ${option.meet_name}. Confirm relay lineups with coach.`)}</small>
+      </span>
+    `;
+    relayOptionList.appendChild(label);
+  }
+}
+
+function selectedRelayOptions(meetId) {
+  return Array.from(form.querySelectorAll('input[name="relay_options"]:checked'))
+    .filter((input) => input.dataset.meetId === meetId)
+    .map((input) => input.value);
 }
 
 function buildMeetCard(meet, options = {}) {
@@ -147,6 +179,7 @@ function buildMeetCard(meet, options = {}) {
       <div class="meet-facts">
         ${meet.state ? `<span>${escapeHtml(meet.state)}</span>` : ""}
         ${meet.has_relay ? "<span>Relay doc</span>" : ""}
+        ${meet.has_private_relay ? "<span>Relay add-on</span>" : ""}
       </div>
       <div class="doc-tags">${docs}</div>
       <div class="meet-progress hidden" aria-live="polite"></div>
@@ -198,6 +231,7 @@ async function analyzeCurrentMeet(meet, card) {
         modes,
         combine_family: form.elements.combine_family.checked,
         estimate_heat_lanes: form.elements.estimate_heat_lanes.checked,
+        relay_options: selectedRelayOptions(meet.id),
       }),
     });
     const payload = await response.json();
@@ -352,7 +386,7 @@ function renderResult(payload) {
       ? `${escapeHtml(swim.seed_time)}<br>${escapeHtml(swim.relay_label || "Relay")}, leg ${escapeHtml(swim.leg || "")}`
       : seedDetails(swim);
     const sourceCell = swim.type === "relay"
-      ? `page ${swim.page}<br>relay document`
+      ? `page ${swim.page}<br>${escapeHtml(swim.source_document || "relay document")}`
       : `page ${swim.page}<br>${escapeHtml(swim.source_document || "entry sheet")}<br>${escapeHtml(swim.column)} column`;
     row.innerHTML = `
       <td>${escapeHtml(swim.day)}</td>

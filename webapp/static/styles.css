@@ -705,11 +705,21 @@ input[name="state"] {
   line-height: 1;
 }
 
-.family-options {
+.family-options,
+.relay-options {
   display: grid;
   gap: 8px;
   margin: 14px 0 0;
   padding: 12px;
+}
+
+.relay-options {
+  grid-column: 1 / -1;
+}
+
+.relay-option-list {
+  display: grid;
+  gap: 8px;
 }
 
 .check-option {
