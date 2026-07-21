@@ -44,16 +44,19 @@ Mila Cova - Relay 37: 13&O 400 Free Relay
 
 For daily-summary events:
 
-- Start: first relevant warm-up time for that day.
-- End: end of the last verified morning/timed-final swim window for that day.
-- Include possible finals in the description, but do not create finals events until qualification is known.
+* Start: first relevant warm-up time for that day.
+* End: end of the last verified morning/timed-final swim window for that day.
+* Include possible finals in the description, but do not create separate finals calendar events until qualification is known.
+* Include timed-final events in the daily summary exactly as scheduled by the meet.
 
 For detailed event-level output, prefer the timeline-estimated swim window, not the full session window.
 
-- Start: estimated swim time minus 15 minutes.
-- End: estimated swim time plus 15 minutes.
-- If timeline precision is weak, widen the window to 20-30 minutes.
-- If no timeline is available, do not guess; create no swimmer event or mark the event as pending in a review file.
+* Start: estimated swim time minus 15 minutes.
+* End: estimated swim time plus 15 minutes.
+* If timeline precision is weak, widen the window to 20–30 minutes.
+* If no timeline is available, do not guess; create no swimmer event or mark the event as pending in a review file.
+* Treat all timeline-derived swim times as estimates unless an official heat sheet provides an exact time.
+* If the meet requires positive check-in, include that requirement prominently in the calendar description.
 
 ## Location
 
@@ -80,6 +83,10 @@ Seed time: {seed_time}
 Seed place: {seed_place}
 Estimated swim time: {estimated_swim_time}
 Estimated window: {window_start} - {window_end}
+
+Important:
+- Estimated timeline only; official heat sheets control actual swim time.
+- Positive check-in required. (Only include when required by the meet.)
 
 Finals:
 {finals_note}
@@ -168,15 +175,25 @@ The benchmark line should include only the nearest useful standards, not the ent
 
 ## Finals Notes
 
-Use plain language based only on meet rules and timeline data:
+Use plain language based only on meet rules and timeline data.
+
+### Timed Finals
 
 ```text
-Timed final in prelims; no separate finals swim.
+Timed final event. No separate finals session.
+
+Estimated swim time is based on the published timeline and may change during the session.
+
+Positive check-in is required if specified by the meet information.
 ```
+
+### Qualifying Finals (Top 16)
 
 ```text
 Finals possible if top 16 in age group. Finals session starts 5:30 PM; exact swim time depends on qualification.
 ```
+
+### Qualifying Finals (Top 8)
 
 ```text
 Finals possible if top 8. Finals session starts 5:30 PM; exact swim time depends on qualification.
