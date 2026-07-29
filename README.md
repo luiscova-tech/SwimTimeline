@@ -27,7 +27,7 @@ The app can run as a public Python web service. This repo includes:
 - `requirements.txt` for the Python dependency.
 - `render.yaml` for a free Render web-service deployment.
 
-The hosted Current Meets registry keeps reusable meets available without re-uploading their PDFs. Featured current meets can be date-gated so a meet such as Age Group State appears prominently only while families are actively using it.
+The hosted Current Meets registry keeps reusable meets available without re-uploading their PDFs. Featured current meets can be date-gated so a meet such as WZAG Boise appears prominently only while families are actively using it.
 
 ## Meet Layout
 
@@ -44,9 +44,9 @@ meets/
 
 ## Current Meet
 
-- Meet: AZ 2026 Long Course Age Group State Championship
-- Dates: 2026-07-23 through 2026-07-26
-- Status: meet flyer, psych sheet, and final timeline received; hosted current meet is ready for swimmer lookup. No public relay document is included. A private MAC relay add-on is available from More options.
+- Meet: 2026 Western Zone Age Group Championships
+- Dates: 2026-08-05 through 2026-08-08
+- Status: meet flyer and event order received; psych sheet and projected/final timeline are pending before swimmer lookup can run.
 
 See `docs/extraction-rules.md` for the extraction rules to use for each meet.
 

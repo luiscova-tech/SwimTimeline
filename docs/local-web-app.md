@@ -24,29 +24,32 @@ The app is deployable as a small Python web service. `requirements.txt` and `ren
 ## Current Flow
 
 1. Enter one or more swimmer names. State/LSC is optional; hosted meets can supply their saved state, and blank uploads still generate calendars without local standards.
-2. Choose a hosted item from `Current Meets` when the meet documents are already listed. Featured meets appear first while their `featured_until` date is active.
-3. Download the daily calendar, which is selected by default.
-4. Open `More options` for family options:
+2. Open `More options` before choosing a meet when family, relay, heat/lane, or extra calendar settings are needed.
+3. Choose a hosted item from `Current Meets` when the meet documents are already listed. Featured meets appear first while their `featured_until` date is active.
+4. Download the daily calendar, which is selected by default.
+5. `More options` includes family options:
    - combine swimmers into one family calendar, on by default
    - estimate heat/lane from a psych sheet, off by default because estimates are not final
-5. Open `More options` for hosted relay add-ons when available:
+6. `More options` includes hosted relay add-ons when available:
    - private team relay lineups are opt-in
    - roster names are not shown in the UI or generated calendar text
    - relay lineups and timing should still be confirmed with the coach or official postings
-6. Open `More options` for extra calendar outputs:
+7. `More options` includes extra calendar outputs:
    - daily, on by default
    - whole meet, optional
    - swim by swim, optional
-7. If the meet is not listed, open `Meet not listed?` and upload a meet flyer, psych sheet or heat sheet, timeline PDF, and optional relay PDF.
-8. Review the extracted swims and warnings.
-9. Download family `.ics` files, individual swimmer `.ics` files, and swimmer audits.
-10. For uploaded meets, use `Save To Current Meets` after a successful parse to make those documents reusable for other swimmers in the same meet.
+8. If the meet is not listed, open `Meet not listed?` and upload a meet flyer, psych sheet or heat sheet, timeline PDF, and optional relay PDF.
+9. Review the extracted swims and warnings.
+10. Download family `.ics` files, individual swimmer `.ics` files, and swimmer audits.
+11. For uploaded meets, use `Save To Current Meets` after a successful parse to make those documents reusable for other swimmers in the same meet.
 
 ## Current Meets
 
 Hosted meets are tracked in `data/current_meets.json`. The app lists those entries under `Current Meets` and sends the selected swimmer names to the backend without requiring another upload.
 
-Age Group State is marked as a featured current meet through Monday, July 27, 2026. Featured metadata is temporary and date-gated; once the active window passes, the meet can still appear under Past Meets. It also has an opt-in private MAC relay add-on; the raw relay PDF is not hosted as a public document.
+WZAG Boise is marked as the featured current meet through Monday, August 10, 2026. It currently has the meet flyer and event order only, so it appears as a pending featured meet until a psych sheet or heat sheet and projected/final timeline are added. Pending meets are visible but their calendar-generation button is disabled.
+
+Age Group State has an opt-in private MAC relay add-on; the raw relay PDF is not hosted as a public document. Once its active window passes, the meet moves to Past Meets.
 
 Age Group State, Narwhal Invite, and Shark Open are preloaded with final timeline-style documents. Para Nationals is preloaded from a meet packet and psych sheet, so it is marked schedule-only and produces estimated event windows from session order.
 

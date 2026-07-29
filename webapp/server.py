@@ -774,6 +774,8 @@ def public_current_meet(meet: dict) -> dict:
     featured_until = parse_iso_date(str(meet.get("featured_until") or ""))
     is_featured = current_meet_is_featured(meet)
     relay_options = public_relay_options(meet)
+    missing_documents = missing_current_meet_documents(files)
+    is_ready_for_lookup = not missing_documents and str(meet.get("status") or "") != "documents-pending"
     return {
         "id": meet.get("id"),
         "name": meet.get("name"),
@@ -785,6 +787,8 @@ def public_current_meet(meet: dict) -> dict:
         "state": meet.get("state"),
         "status": meet.get("status"),
         "documents": meet.get("documents", []),
+        "missing_documents": missing_documents,
+        "is_ready_for_lookup": is_ready_for_lookup,
         "has_relay": bool(files.get("relay")),
         "has_private_relay": bool(relay_options),
         "relay_options": relay_options,
@@ -794,6 +798,15 @@ def public_current_meet(meet: dict) -> dict:
         "featured_label": meet.get("featured_label") or "Featured current meet",
         "featured_note": meet.get("featured_note") or "",
     }
+
+
+def missing_current_meet_documents(files: dict) -> list[str]:
+    missing: list[str] = []
+    if not files.get("psych"):
+        missing.append("Psych/heat sheet")
+    if not files.get("timeline"):
+        missing.append("Timeline")
+    return missing
 
 
 def public_relay_options(meet: dict) -> list[dict]:

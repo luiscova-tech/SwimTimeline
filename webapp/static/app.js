@@ -159,7 +159,11 @@ function buildMeetCard(meet, options = {}) {
   if (options.past) {
     card.classList.add("past-meet-card");
   }
+  if (!meet.is_ready_for_lookup) {
+    card.classList.add("meet-card-pending");
+  }
   const docs = (meet.documents || []).map((doc) => `<span>${escapeHtml(doc)}</span>`).join("");
+  const missingDocs = (meet.missing_documents || []).map((doc) => `<span>${escapeHtml(doc)} needed</span>`).join("");
   const featuredMeta = options.featured
     ? `<div class="featured-meta">
         <span>${escapeHtml(meet.featured_label || "Featured current meet")}</span>
@@ -167,6 +171,9 @@ function buildMeetCard(meet, options = {}) {
       </div>`
     : "";
   const note = options.featured && meet.featured_note ? `<p class="meet-note">${escapeHtml(meet.featured_note)}</p>` : "";
+  const pendingNote = !meet.is_ready_for_lookup
+    ? `<p class="meet-note meet-pending-note">Calendar generation will unlock after the psych/heat sheet and timeline are added.</p>`
+    : "";
   card.innerHTML = `
     <div class="meet-card-main">
       ${featuredMeta}
@@ -180,15 +187,22 @@ function buildMeetCard(meet, options = {}) {
         ${meet.state ? `<span>${escapeHtml(meet.state)}</span>` : ""}
         ${meet.has_relay ? "<span>Relay doc</span>" : ""}
         ${meet.has_private_relay ? "<span>Relay add-on</span>" : ""}
+        ${missingDocs}
       </div>
       <div class="doc-tags">${docs}</div>
+      ${pendingNote}
       <div class="meet-progress hidden" aria-live="polite"></div>
     </div>
     <button class="primary meet-action-button" type="button">${options.featured ? "Use featured meet" : "Use this meet"}</button>
   `;
   const button = card.querySelector(".meet-action-button");
-  button.dataset.idleLabel = button.textContent;
-  button.addEventListener("click", () => analyzeCurrentMeet(meet, card));
+  if (!meet.is_ready_for_lookup) {
+    button.textContent = "Awaiting documents";
+    button.disabled = true;
+  } else {
+    button.dataset.idleLabel = button.textContent;
+    button.addEventListener("click", () => analyzeCurrentMeet(meet, card));
+  }
   return card;
 }
 
