@@ -74,6 +74,7 @@ Current Meets entries store `start_date`, `end_date`, and `expires_at`. The publ
 - PDF text and layout extraction are cached per server process by file path, size, and modification time. This makes repeat Current Meet lookups and multi-swimmer searches faster after the first parse.
 - Meet packet schedules can be used when no final timeline is available. Those event windows are estimated from session order and are less precise because the packet does not include heat counts or projected event times.
 - Event rows include a format label such as `Prelim/final`, `Timed final`, or `Prelim only` based on the timeline sessions available for that event.
+- Individual distance timing is flyer-aware. If a flyer says an event is a timed final with the fastest seeded heat swimming in finals, the app labels it as a timed final and uses the finals-session window only for swimmers seeded into that top group.
 - Daily events start at the parsed session warm-up time. Distance check-in events can pull the daily calendar event earlier when the flyer requires check-in before another session's warm-up.
 - Possible finals are included in descriptions as `if qualifies`; separate finals events are not generated until qualification is known.
 - Relay uploads are parsed conservatively. Relays are included only when the relay document explicitly names the swimmer under a relay team or when a selected private relay add-on matches the swimmer by hashed name.

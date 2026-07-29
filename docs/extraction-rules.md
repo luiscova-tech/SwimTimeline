@@ -50,6 +50,10 @@ Extract swim meet schedules for the swimmer names provided by the user from the 
 * Match timeline entries by event number.
 * Treat all timeline-derived swim times and event windows as estimates unless an official heat sheet provides an exact time.
 * Timed-final events must still be included in the calendar output even though there is no separate finals session.
+* If the flyer says an individual event is a timed final with the fastest seeded heat, top heat, or top swimmers competing during finals, do not label it as a prelim/final event.
+  * Use the finals-session timeline when the swimmer's seed place is within the flyer-defined top seeded group.
+  * Use the preliminary-session timeline for other seeded heats.
+  * Clearly state that the event is a timed final and that the official heat sheet controls the final assignment.
 * If the meet documentation states that an event or session requires positive check-in (positive checking), include that requirement in the extracted event notes and calendar output.
 * Calendar entries for timed-final events or events requiring positive check-in must clearly state that:
 

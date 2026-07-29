@@ -100,6 +100,7 @@ class SwimEvent:
     benchmarks: dict[str, str | None]
     finals_note: str
     checkin_note: str | None
+    timing_rule: "EventTimingRule | None" = None
 
 
 @dataclass
@@ -120,6 +121,15 @@ class RelayEvent:
     relay: RelayEntry
     timeline: TimelineEvent
     finals_note: str
+
+
+@dataclass(frozen=True)
+class EventTimingRule:
+    event_numbers: frozenset[int]
+    kind: str
+    top_seed_count: int | None
+    note: str
+    source: str
 
 
 def extract_text_pages(path: Path) -> list[str]:
@@ -772,6 +782,112 @@ def parse_flyer_location(text: str) -> str | None:
     return None
 
 
+def parse_meet_timing_rules(flyer_text: str) -> dict[int, EventTimingRule]:
+    text = normalize_space(flyer_text)
+    rules: dict[int, EventTimingRule] = {}
+    for rule in explicit_timed_final_rules(text):
+        for event_number in rule.event_numbers:
+            rules[event_number] = rule
+    for rule in footnoted_timed_final_rules(text):
+        for event_number in rule.event_numbers:
+            rules.setdefault(event_number, rule)
+    return rules
+
+
+def explicit_timed_final_rules(text: str) -> list[EventTimingRule]:
+    rules: list[EventTimingRule] = []
+    pattern = re.compile(
+        r"\bEvents?\s+(\d{1,3})(?:\s*(?:-|–|—|to|through)\s*(\d{1,3}))?"
+        r"(?P<body>.{0,360}?timed final events?.{0,360}?)(?=\s+[a-z]\.\s+Events?\s+\d|\s+\d+\.\s|$)",
+        flags=re.IGNORECASE,
+    )
+    for match in pattern.finditer(text):
+        body = normalize_space(match.group("body"))
+        if "timed final" not in body.lower():
+            continue
+        event_numbers = range_from_match(match)
+        top_seed_count = top_seed_count_from_text(body)
+        kind = "timed_final_fastest_heat_finals" if top_seed_count else "timed_final"
+        note = (
+            f"Meet flyer rule detected: timed final; top {top_seed_count} seeded swimmer(s) in each applicable age/gender group swim during finals."
+            if top_seed_count
+            else "Meet flyer rule detected: timed final event."
+        )
+        rules.append(EventTimingRule(frozenset(event_numbers), kind, top_seed_count, note, "meet flyer"))
+    return rules
+
+
+def footnoted_timed_final_rules(text: str) -> list[EventTimingRule]:
+    if "fastest seeded heat" not in text.lower() or "(A)" not in text and "(B)" not in text:
+        return []
+    footnote_kinds: dict[str, tuple[str, int | None, str]] = {}
+    if re.search(r"\(A\).*?timed finals?.*?fastest seeded heat.*?finals", text, flags=re.IGNORECASE):
+        footnote_kinds["A"] = (
+            "timed_final_fastest_heat_finals",
+            8,
+            "Meet flyer footnote A detected: timed final; fastest seeded heat swims in finals.",
+        )
+    if re.search(r"\(B\).*?800M/1500M.*?timed finals?.*?fastest seeded heat.*?finals", text, flags=re.IGNORECASE):
+        footnote_kinds["B"] = (
+            "timed_final_fastest_heat_finals",
+            8,
+            "Meet flyer footnote B detected: timed final distance event; fastest seeded heat swims in finals and other heats swim after prelims.",
+        )
+    rules: list[EventTimingRule] = []
+    for marker, (kind, top_seed_count, note) in footnote_kinds.items():
+        event_numbers = event_numbers_for_footnote(text, marker)
+        if event_numbers:
+            rules.append(EventTimingRule(frozenset(event_numbers), kind, top_seed_count, note, f"meet flyer footnote {marker}"))
+    return rules
+
+
+def event_numbers_for_footnote(text: str, marker: str) -> set[int]:
+    numbers: set[int] = set()
+    marker_pattern = re.escape(f"({marker})")
+    for marker_match in re.finditer(marker_pattern, text):
+        before = text[max(0, marker_match.start() - 120):marker_match.start()].strip()
+        after = text[marker_match.end():marker_match.end() + 20]
+        event_matches = list(
+            re.finditer(
+                r"\b(\d{1,3})\s+((?:10&U|11-12|12&U|13-14|14&U)\s+(?:\d{2,4}\s+)?(?:Individual Medley|Freestyle|Backstroke|Breaststroke|Butterfly))$",
+                before,
+                flags=re.IGNORECASE,
+            )
+        )
+        boys_match = re.match(r"\s+(\d{1,3})\b", after)
+        if not event_matches or not boys_match:
+            continue
+        match = event_matches[-1]
+        event_name = match.group(2)
+        if event_name_looks_like_individual_event(event_name):
+            numbers.add(int(match.group(1)))
+            numbers.add(int(boys_match.group(1)))
+    return numbers
+
+
+def event_name_looks_like_individual_event(value: str) -> bool:
+    return bool(re.search(r"\b(Free|Freestyle|Back|Backstroke|Breast|Breaststroke|Fly|Butterfly|Medley|IM)\b", value, flags=re.IGNORECASE))
+
+
+def range_from_match(match: re.Match) -> set[int]:
+    start = int(match.group(1))
+    end = int(match.group(2) or start)
+    if end < start:
+        start, end = end, start
+    if end - start > 200:
+        return {start}
+    return set(range(start, end + 1))
+
+
+def top_seed_count_from_text(text: str) -> int | None:
+    match = re.search(r"\btop\s+(\d{1,2})\s+swimmers?\b", text, flags=re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    if re.search(r"\bfastest seeded heat\b", text, flags=re.IGNORECASE):
+        return 8
+    return None
+
+
 def parse_roman_session_numbers(value: str) -> list[int]:
     roman_map = {
         "I": 1,
@@ -1235,6 +1351,8 @@ def entry_source_label(entry: PsychEntry) -> str:
 
 
 def event_format_label(swim: SwimEvent) -> str:
+    if swim.timing_rule:
+        return "Timed final"
     if event_name_is_timed_final(swim.psych.event_name) or event_name_is_timed_final(swim.timeline.event_name):
         return "Timed final"
     if swim.final_timeline and swim.final_timeline.session_number != swim.timeline.session_number:
@@ -1272,14 +1390,17 @@ def build_swim_events(
 ) -> list[SwimEvent]:
     primary = primary_timeline_by_event(timeline_events)
     finals = final_timeline_by_event(timeline_events)
+    timing_rules = parse_meet_timing_rules(flyer_text)
     swim_events: list[SwimEvent] = []
     for entry in entries:
-        timeline = primary.get(entry.event_number)
+        primary_timeline = primary.get(entry.event_number)
+        rule = timing_rules.get(entry.event_number)
+        final_timeline = finals.get(entry.event_number)
+        timeline = timeline_for_timing_rule(entry, primary_timeline, final_timeline, rule)
         if not timeline:
             continue
-        final_timeline = finals.get(entry.event_number)
         standard = lookup(entry.event_name, entry.seed_time, state=state, age=entry.age)
-        final_note = finals_note(timeline, final_timeline)
+        final_note = finals_note(entry, timeline, final_timeline, rule)
         checkin = checkin_note(entry.event_number, flyer_text)
         swim_events.append(
             SwimEvent(
@@ -1294,6 +1415,7 @@ def build_swim_events(
                 },
                 finals_note=final_note,
                 checkin_note=checkin,
+                timing_rule=rule,
             )
         )
     return sorted(swim_events, key=lambda item: item.timeline.start)
@@ -1329,7 +1451,43 @@ def relay_finals_note(timeline: TimelineEvent, flyer_text: str = "") -> str:
     return "Relay timing is estimated from the timeline. Confirm final relay assignment and timing with coach or official postings."
 
 
-def finals_note(timeline: TimelineEvent, final_timeline: TimelineEvent | None) -> str:
+def timeline_for_timing_rule(
+    entry: PsychEntry,
+    primary_timeline: TimelineEvent | None,
+    final_timeline: TimelineEvent | None,
+    rule: EventTimingRule | None,
+) -> TimelineEvent | None:
+    if not rule:
+        return primary_timeline
+    if rule.kind == "timed_final_fastest_heat_finals" and rule.top_seed_count and final_timeline:
+        if 0 < entry.seed_place <= rule.top_seed_count:
+            return final_timeline
+    return primary_timeline or final_timeline
+
+
+def finals_note(
+    entry: PsychEntry,
+    timeline: TimelineEvent,
+    final_timeline: TimelineEvent | None,
+    rule: EventTimingRule | None = None,
+) -> str:
+    if rule and rule.kind == "timed_final_fastest_heat_finals":
+        if rule.top_seed_count and 0 < entry.seed_place <= rule.top_seed_count and final_timeline:
+            return (
+                f"Timed final; {rule.source} says the fastest seeded heat swims during finals. "
+                f"This entry is seed place {entry.seed_place}, so the finals-session window is used. Confirm with the official heat sheet."
+            )
+        if rule.top_seed_count and entry.seed_place > rule.top_seed_count:
+            return (
+                f"Timed final; {rule.source} says the fastest seeded heat swims during finals and other heats swim in the preliminary session. "
+                f"This entry is seed place {entry.seed_place}, so the preliminary-session window is used. Confirm with the official heat sheet."
+            )
+        return (
+            f"Timed final; {rule.source} says the fastest seeded heat swims during finals. "
+            "Seed placement was not enough to choose the finals heat confidently; confirm with the official heat sheet."
+        )
+    if rule and rule.kind == "timed_final":
+        return f"Timed final based on {rule.source}; no separate qualifying final."
     if event_name_is_timed_final(timeline.event_name):
         return "Timed final; no separate finals swim."
     if final_timeline and final_timeline.session_number != timeline.session_number:
@@ -1571,6 +1729,7 @@ def build_daily_payload(
             if isinstance(item, SwimEvent)
             and item.final_timeline
             and item.final_timeline.session_number != item.timeline.session_number
+            and not item.timing_rule
         ]
         if possible_finals:
             lines.extend(["", "Possible finals:", *possible_finals])
