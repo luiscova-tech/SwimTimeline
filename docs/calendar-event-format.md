@@ -160,8 +160,9 @@ Finals:
 B/A finals if top 16 in age group. Finals session starts 5:30 PM.
 
 Benchmarks:
-USA-S: achieved {tier}; next {next_tier} at {next_standard_time}
-AZSI: Regional {regional_time} | State {state_time}
+USA-S {age} Girls LCM: achieved {tier}; next {next_tier} at {next_standard_time}
+AZSI 11-12 Girls LCM: Regional {regional_time} | State {state_time}
+Standards confidence: USA-S verified, AZSI verified
 
 Source verification:
 Psych sheet: page 4, middle column

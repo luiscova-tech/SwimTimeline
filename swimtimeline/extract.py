@@ -1278,7 +1278,7 @@ def build_swim_events(
         if not timeline:
             continue
         final_timeline = finals.get(entry.event_number)
-        standard = lookup(entry.event_name, entry.seed_time, state=state)
+        standard = lookup(entry.event_name, entry.seed_time, state=state, age=entry.age)
         final_note = finals_note(timeline, final_timeline)
         checkin = checkin_note(entry.event_number, flyer_text)
         swim_events.append(
@@ -1290,6 +1290,7 @@ def build_swim_events(
                     "usa": standard.usa_summary,
                     "lsc": standard.lsc_summary,
                     "advanced": standard.advanced_summary,
+                    "confidence": standard.confidence_summary,
                 },
                 finals_note=final_note,
                 checkin_note=checkin,
@@ -1426,6 +1427,8 @@ def build_detailed_payload(
         )
         if swim.benchmarks.get("advanced"):
             lines.append(swim.benchmarks["advanced"] or "")
+        if swim.benchmarks.get("confidence"):
+            lines.append(swim.benchmarks["confidence"] or "")
         lines.extend(
             [
                 "",
@@ -1582,6 +1585,8 @@ def build_daily_payload(
             lines.append(f"#{item.psych.event_number} {benchmark} | {lsc}")
             if item.benchmarks.get("advanced"):
                 lines.append(f"#{item.psych.event_number} {item.benchmarks['advanced']}")
+            if item.benchmarks.get("confidence"):
+                lines.append(f"#{item.psych.event_number} {item.benchmarks['confidence']}")
         if any(isinstance(item, RelayEvent) for item in day_items):
             lines.extend(
                 [
@@ -1878,7 +1883,7 @@ def summarize_relay(relay_event: RelayEvent) -> dict:
         "page": relay.page,
         "column": relay.source_label,
         "source_document": relay.source_label,
-        "benchmarks": {"usa": "n/a for relay", "lsc": "n/a for relay", "advanced": None},
+        "benchmarks": {"usa": "n/a for relay", "lsc": "n/a for relay", "advanced": None, "confidence": "Standards confidence: n/a for relay"},
         "finals_note": relay_event.finals_note,
         "event_format": "Timed final relay",
         "checkin_note": None,

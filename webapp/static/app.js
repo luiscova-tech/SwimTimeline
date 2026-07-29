@@ -524,8 +524,14 @@ async function publishCurrentMeet() {
 }
 
 function advancedLine(swim) {
-  if (!swim.benchmarks.advanced) return "";
-  return `<br>${escapeHtml(swim.benchmarks.advanced)}`;
+  const lines = [];
+  if (swim.benchmarks.advanced) {
+    lines.push(swim.benchmarks.advanced);
+  }
+  if (swim.benchmarks.confidence) {
+    lines.push(swim.benchmarks.confidence);
+  }
+  return lines.map((line) => `<br>${escapeHtml(line)}`).join("");
 }
 
 function seedDetails(swim) {

@@ -6,8 +6,18 @@ SwimTimeline keeps standards source-tracked because cuts change by season, cours
 
 The current built-in catalog covers the fixture events already present in this repo:
 
+- USA Swimming 2024-2028 Single Age Motivational Standards, 11 Girls LCM
 - USA Swimming 2024-2028 Single Age Motivational Standards, 12 Girls LCM
 - AZSI 2025-2026 State and Regional Qualifying Time Standards, Women 11-12 LCM
+
+The lookup uses the swimmer age parsed from the entry row. If a swimmer age, gender, course, state/LSC, or event is not configured, the app reports `not configured` rather than comparing against a nearby age group.
+
+Calendar descriptions and result tables include a `Standards confidence` line:
+
+- `USA-S verified`: official USA Swimming motivational row is configured for the swimmer age, gender, course, and event.
+- `AZSI verified`: configured Arizona Swimming row is available for the swimmer age group and event.
+- `advanced verified`: configured advanced cuts are available after AAAA.
+- `not configured`: the app did not calculate a standard because the matching source row is not loaded.
 
 ## Advanced Cuts
 
