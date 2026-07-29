@@ -788,6 +788,9 @@ def public_current_meet(meet: dict) -> dict:
         "status": meet.get("status"),
         "documents": meet.get("documents", []),
         "missing_documents": missing_documents,
+        "readiness": meet_readiness_items(files, missing_documents, relay_options),
+        "rules_summary": meet.get("rules_summary", []),
+        "last_updated": meet.get("last_updated") or "",
         "is_ready_for_lookup": is_ready_for_lookup,
         "has_relay": bool(files.get("relay")),
         "has_private_relay": bool(relay_options),
@@ -807,6 +810,20 @@ def missing_current_meet_documents(files: dict) -> list[str]:
     if not files.get("timeline"):
         missing.append("Timeline")
     return missing
+
+
+def meet_readiness_items(files: dict, missing_documents: list[str], relay_options: list[dict]) -> list[dict]:
+    missing = set(missing_documents)
+    items = [
+        {"label": "Meet flyer", "status": "ready" if files.get("flyer") else "optional", "detail": "Loaded" if files.get("flyer") else "Optional"},
+        {"label": "Psych/heat sheet", "status": "missing" if "Psych/heat sheet" in missing else "ready", "detail": "Needed" if "Psych/heat sheet" in missing else "Loaded"},
+        {"label": "Timeline", "status": "missing" if "Timeline" in missing else "ready", "detail": "Needed" if "Timeline" in missing else "Loaded"},
+    ]
+    if files.get("relay"):
+        items.append({"label": "Relay file", "status": "ready", "detail": "Loaded"})
+    elif relay_options:
+        items.append({"label": "Relay add-on", "status": "optional", "detail": "Available"})
+    return items
 
 
 def public_relay_options(meet: dict) -> list[dict]:

@@ -10,10 +10,18 @@
       "expires_at": "2026-08-10",
       "state": "ID",
       "status": "documents-pending",
+      "last_updated": "2026-07-29",
       "featured": true,
       "featured_until": "2026-08-10",
       "featured_label": "Next featured meet",
       "featured_note": "Meet flyer and event order are loaded. Psych sheet and projected/final timeline are still needed before calendar generation.",
+      "rules_summary": [
+        "Prelims/finals meet in long course meters.",
+        "Projected timeline is TBA at the General Meeting.",
+        "Some distance events swim all but the fastest seeded heat after prelims; fastest seeded heat swims in finals.",
+        "Relays are timed finals and all relay heats swim in finals.",
+        "Circle seeding applies to selected prelim events."
+      ],
       "files": {
         "flyer": "meets/2026-wzag-championships-boise/input/Sanctioned_2026 WZAG Championships - Boise (v5.pdf",
         "event_order": "meets/2026-wzag-championships-boise/input/2026 WZAG Championships - Event Order.pdf",
@@ -38,10 +46,17 @@
       "expires_at": "2026-07-27",
       "state": "AZ",
       "status": "ready",
+      "last_updated": "2026-07-29",
       "featured": true,
       "featured_until": "2026-07-27",
       "featured_label": "Featured current meet",
       "featured_note": "Hosted meet flyer, psych sheet, and final timeline are ready to search.",
+      "rules_summary": [
+        "Hosted flyer, psych sheet, and timeline are loaded.",
+        "Timed-final events are included in generated calendars.",
+        "Positive check-in notes appear when required by the meet documents.",
+        "MAC relay add-on is private and only shows matching relays, not relay rosters."
+      ],
       "files": {
         "flyer": "meets/2026-az-lc-age-group-state/input/age-group-state-meet-flyer.pdf",
         "psych": "meets/2026-az-lc-age-group-state/input/age-group-state-psych-sheet.pdf",

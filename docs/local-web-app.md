@@ -49,6 +49,12 @@ Hosted meets are tracked in `data/current_meets.json`. The app lists those entri
 
 WZAG Boise is marked as the featured current meet through Monday, August 10, 2026. It currently has the meet flyer and event order only, so it appears as a pending featured meet until a psych sheet or heat sheet and projected/final timeline are added. Pending meets are visible but their calendar-generation button is disabled.
 
+Current meet cards include:
+
+- Ready checklist: flyer, psych/heat sheet, timeline, and relay add-ons when relevant.
+- Meet notes: short rules that affect calendar confidence, such as timed finals, positive check-in, relay timing, or circle seeding.
+- Updated label: the most recent date the hosted meet metadata was reviewed.
+
 Age Group State has an opt-in private MAC relay add-on; the raw relay PDF is not hosted as a public document. Once its active window passes, the meet moves to Past Meets.
 
 Age Group State, Narwhal Invite, and Shark Open are preloaded with final timeline-style documents. Para Nationals is preloaded from a meet packet and psych sheet, so it is marked schedule-only and produces estimated event windows from session order.

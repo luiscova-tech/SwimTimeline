@@ -164,10 +164,13 @@ function buildMeetCard(meet, options = {}) {
   }
   const docs = (meet.documents || []).map((doc) => `<span>${escapeHtml(doc)}</span>`).join("");
   const missingDocs = (meet.missing_documents || []).map((doc) => `<span>${escapeHtml(doc)} needed</span>`).join("");
+  const readiness = renderReadinessChecklist(meet.readiness || []);
+  const rules = renderRulesSummary(meet.rules_summary || []);
   const featuredMeta = options.featured
     ? `<div class="featured-meta">
         <span>${escapeHtml(meet.featured_label || "Featured current meet")}</span>
         ${meet.featured_until_label ? `<span>Through ${escapeHtml(meet.featured_until_label)}</span>` : ""}
+        ${meet.last_updated ? `<span>Updated ${escapeHtml(meet.last_updated)}</span>` : ""}
       </div>`
     : "";
   const note = options.featured && meet.featured_note ? `<p class="meet-note">${escapeHtml(meet.featured_note)}</p>` : "";
@@ -191,6 +194,8 @@ function buildMeetCard(meet, options = {}) {
       </div>
       <div class="doc-tags">${docs}</div>
       ${pendingNote}
+      ${readiness}
+      ${rules}
       <div class="meet-progress hidden" aria-live="polite"></div>
     </div>
     <button class="primary meet-action-button" type="button">${options.featured ? "Use featured meet" : "Use this meet"}</button>
@@ -204,6 +209,39 @@ function buildMeetCard(meet, options = {}) {
     button.addEventListener("click", () => analyzeCurrentMeet(meet, card));
   }
   return card;
+}
+
+function renderReadinessChecklist(items) {
+  if (!items.length) return "";
+  const rows = items.map((item) => {
+    const status = String(item.status || "optional").toLowerCase();
+    const label = item.label || "";
+    const detail = item.detail || statusLabel(status);
+    return `
+      <li class="readiness-${escapeHtml(status)}">
+        <span aria-hidden="true"></span>
+        <strong>${escapeHtml(label)}</strong>
+        <em>${escapeHtml(detail)}</em>
+      </li>
+    `;
+  }).join("");
+  return `
+    <div class="meet-readiness" aria-label="Meet readiness">
+      <strong>Ready checklist</strong>
+      <ul>${rows}</ul>
+    </div>
+  `;
+}
+
+function renderRulesSummary(rules) {
+  if (!rules.length) return "";
+  const items = rules.map((rule) => `<li>${escapeHtml(rule)}</li>`).join("");
+  return `
+    <div class="meet-rules">
+      <strong>Meet notes</strong>
+      <ul>${items}</ul>
+    </div>
+  `;
 }
 
 function statusLabel(status) {

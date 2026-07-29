@@ -27,7 +27,7 @@ The app can run as a public Python web service. This repo includes:
 - `requirements.txt` for the Python dependency.
 - `render.yaml` for a free Render web-service deployment.
 
-The hosted Current Meets registry keeps reusable meets available without re-uploading their PDFs. Featured current meets can be date-gated so a meet such as WZAG Boise appears prominently only while families are actively using it.
+The hosted Current Meets registry keeps reusable meets available without re-uploading their PDFs. Featured current meets can be date-gated so a meet such as WZAG Boise appears prominently only while families are actively using it. Meet cards show a readiness checklist, pending-document status, and short meet-rule notes so families can tell whether lookup is available before tapping the meet.
 
 ## Meet Layout
 
