@@ -21,6 +21,8 @@ const downloadDockPrimary = document.querySelector("#downloadDockPrimary");
 const jumpDownloadsBtn = document.querySelector("#jumpDownloads");
 const hostedRelayOptions = document.querySelector("#hostedRelayOptions");
 const relayOptionList = document.querySelector("#relayOptionList");
+const generateFromUploadsBtn = document.querySelector("#generateFromUploads");
+const uploadRequirementHint = document.querySelector(".upload-requirement-hint");
 let lastPayload = null;
 let activeMeetCard = null;
 
@@ -52,16 +54,20 @@ document.addEventListener("click", (event) => {
   }
 });
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
+generateFromUploadsBtn.addEventListener("click", handleGenerateFromUploads);
+
+async function handleGenerateFromUploads() {
   resultEl.classList.add("hidden");
   hideDownloadDock();
+  uploadRequirementHint?.classList.remove("active-error");
 
   const data = new FormData(form);
   data.set("combine_family", form.elements.combine_family.checked ? "1" : "0");
   data.set("estimate_heat_lanes", form.elements.estimate_heat_lanes.checked ? "1" : "0");
   if (!getSwimmerNames().length) {
-    setStatus("At least one swimmer name is required.", "error");
+    setStatus("At least one swimmer name is required — add one near the top of the page.", "error");
+    uploadRequirementHint?.classList.add("active-error");
+    uploadRequirementHint?.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
   if (!data.getAll("modes").length) {
@@ -94,7 +100,7 @@ form.addEventListener("submit", async (event) => {
     setStatus(error.message, "error");
     showErrorDock(error.message);
   }
-});
+}
 
 function verifiedTotal(payload) {
   return Number(payload.verified_event_count || 0) + Number(payload.verified_relay_count || 0);
@@ -139,7 +145,7 @@ function renderCurrentMeets(meets, pastMeets = []) {
   const pastSummaryLabel = pastMeetsEl.querySelector("summary span");
   const pastSummaryDetail = pastMeetsEl.querySelector("summary small");
   if (pastSummaryLabel) {
-    pastSummaryLabel.textContent = noUsableCurrentMeet ? "Meets ready now" : "Past meets";
+    pastSummaryLabel.textContent = noUsableCurrentMeet ? "Past Meets — Ready to Search" : "Past meets";
   }
   if (pastSummaryDetail) {
     pastSummaryDetail.textContent = noUsableCurrentMeet
@@ -147,8 +153,38 @@ function renderCurrentMeets(meets, pastMeets = []) {
       : "Hosted documents from recently completed meets";
   }
   for (const meet of pastMeets) {
-    pastMeetList.appendChild(buildMeetCard(meet, { past: true }));
+    pastMeetList.appendChild(buildPastMeetRow(meet));
   }
+}
+
+function buildPastMeetRow(meet) {
+  const card = document.createElement("article");
+  card.className = "meet-card past-meet-row";
+  if (!meet.is_ready_for_lookup) {
+    card.classList.add("meet-card-pending");
+  }
+  const metaBits = [meet.dates, meet.state].filter(Boolean).map(escapeHtml).join(" &middot; ");
+  const statusTitle = meet.status_note ? ` title="${escapeHtml(meet.status_note)}"` : "";
+  card.innerHTML = `
+    <div class="meet-card-main">
+      <div class="meet-title-row">
+        <h3>${escapeHtml(meet.name)}</h3>
+        <span class="status-pill"${statusTitle}>${escapeHtml(statusLabel(meet.status))}</span>
+      </div>
+      <p class="muted past-meet-row-meta">${metaBits}</p>
+      <div class="meet-progress hidden" aria-live="polite"></div>
+    </div>
+    <button class="primary meet-action-button" type="button">Use this meet</button>
+  `;
+  const button = card.querySelector(".meet-action-button");
+  if (!meet.is_ready_for_lookup) {
+    button.textContent = meet.status === "schedule-only" ? "Schedule only" : "Awaiting documents";
+    button.disabled = true;
+  } else {
+    button.dataset.idleLabel = button.textContent;
+    button.addEventListener("click", () => analyzeCurrentMeet(meet, card));
+  }
+  return card;
 }
 
 function renderRelayOptions(meets) {
@@ -202,13 +238,17 @@ function buildMeetCard(meet, options = {}) {
     : "";
   const note = options.featured && meet.featured_note ? `<p class="meet-note">${escapeHtml(meet.featured_note)}</p>` : "";
   const pastMeetsPointer = options.pointToPastMeets
-    ? ` <a href="#pastMeetList" class="past-meets-pointer">See past meets that are ready now &darr;</a>`
+    ? ` <a href="#pastMeetList" class="past-meets-pointer">See past meets you can search &darr;</a>`
     : "";
   const pendingNote = !meet.is_ready_for_lookup
     ? `<p class="meet-note meet-pending-note">${escapeHtml(
         meet.status_note || "Calendar generation will unlock after the psych/heat sheet and timeline are added.",
       )}${pastMeetsPointer}</p>`
     : "";
+  const detailBlocks = `${readiness}${rules}`;
+  const details = !meet.is_ready_for_lookup && detailBlocks
+    ? `<details class="meet-detail-toggle"><summary>Details</summary>${detailBlocks}</details>`
+    : detailBlocks;
   card.innerHTML = `
     <div class="meet-card-main">
       ${featuredMeta}
@@ -226,8 +266,7 @@ function buildMeetCard(meet, options = {}) {
       </div>
       <div class="doc-tags">${docs}</div>
       ${pendingNote}
-      ${readiness}
-      ${rules}
+      ${details}
       <div class="meet-progress hidden" aria-live="polite"></div>
     </div>
     <button class="primary meet-action-button" type="button">${options.featured ? "Use featured meet" : "Use this meet"}</button>
@@ -477,7 +516,14 @@ function renderResult(payload) {
     warningsEl.appendChild(item);
   }
 
-  for (const swim of payload.items || payload.events) {
+  const items = payload.items || payload.events;
+  const seedLabel = items.some((item) => item.heat && item.lane) ? "Seed / Heat-Lane" : "Seed / Place";
+  const seedHeaderEl = document.querySelector("#seedHeader");
+  if (seedHeaderEl) {
+    seedHeaderEl.textContent = seedLabel;
+  }
+
+  for (const swim of items) {
     const row = document.createElement("tr");
     const seedCell = swim.type === "relay"
       ? `${escapeHtml(swim.seed_time)}<br>${escapeHtml(swim.relay_label || "Relay")}, leg ${escapeHtml(swim.leg || "")}`
@@ -486,12 +532,12 @@ function renderResult(payload) {
       ? `page ${swim.page}<br>${escapeHtml(swim.source_document || "relay document")}`
       : `page ${swim.page}<br>${escapeHtml(swim.source_document || "entry sheet")}<br>${escapeHtml(swim.column)} column`;
     row.innerHTML = `
-      <td>${escapeHtml(swim.day)}</td>
-      <td>${swimmerChip(swim, payload)}<strong>#${swim.event_number}${swim.type === "relay" ? " Relay" : ""}</strong>${escapeHtml(swim.event_name)}<br>${escapeHtml(swim.event_format || "")}</td>
-      <td>${seedCell}</td>
-      <td>${escapeHtml(swim.window)}</td>
-      <td>${escapeHtml(swim.benchmarks.usa || "")}<br>${escapeHtml(swim.benchmarks.lsc || "")}${advancedLine(swim)}</td>
-      <td>${sourceCell}</td>
+      <td data-col="day" data-label="Day">${escapeHtml(swim.day)}</td>
+      <td data-col="event" data-label="Event">${swimmerChip(swim, payload)}<strong>#${swim.event_number}${swim.type === "relay" ? " Relay" : ""}</strong>${escapeHtml(swim.event_name)}<br>${escapeHtml(swim.event_format || "")}</td>
+      <td data-col="seed" data-label="${escapeHtml(seedLabel)}">${seedCell}</td>
+      <td data-col="window" data-label="Window">${escapeHtml(swim.window)}</td>
+      <td data-col="benchmark" data-label="Benchmark">${escapeHtml(swim.benchmarks.usa || "")}<br>${escapeHtml(swim.benchmarks.lsc || "")}${advancedLine(swim)}</td>
+      <td data-col="source" data-label="Source">${sourceCell}</td>
     `;
     eventsBody.appendChild(row);
   }

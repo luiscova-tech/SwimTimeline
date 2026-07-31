@@ -49,15 +49,21 @@
               </div>
               <button id="addSwimmer" class="add-swimmer-button" type="button">+ Add another swimmer</button>
             </div>
-            <label>
-              <span>State / LSC <small>(optional)</small></span>
-              <input name="state" placeholder="Optional, e.g. AZ" maxlength="8" autocomplete="off">
-            </label>
+            <div class="state-field">
+              <label>
+                <span>State / LSC <small>(optional)</small></span>
+                <input name="state" placeholder="Optional, e.g. AZ" maxlength="8" autocomplete="off">
+              </label>
+              <details class="term-hint">
+                <summary>What's LSC?</summary>
+                <p>Your USA Swimming Local Swim Committee — the regional affiliate that runs swimming in your area (for example, "AZSI" for Arizona Swimming). Some LSCs publish their own time standards in addition to USA Swimming's national ones.</p>
+              </details>
+            </div>
           </div>
 
           <details class="advanced-options">
             <summary>
-              <span>More options</span>
+              <span>Family, Relays &amp; Advanced Options</span>
               <small>Family calendars, relays, heat/lane estimates, and extra calendar files</small>
             </summary>
             <div class="advanced-grid">
@@ -70,13 +76,19 @@
                     <small>Also keeps individual swimmer downloads available.</small>
                   </span>
                 </label>
-                <label class="check-option">
-                  <input type="checkbox" name="estimate_heat_lanes" value="1">
-                  <span>
-                    <strong>Estimate heat/lane from psych sheet</strong>
-                    <small>Estimated only. Actual heat/lane may change after scratches, check-in, deck entries, circle seeding, or meet-management updates.</small>
-                  </span>
-                </label>
+                <div class="check-option-group">
+                  <label class="check-option">
+                    <input type="checkbox" name="estimate_heat_lanes" value="1">
+                    <span>
+                      <strong>Estimate heat/lane from psych sheet</strong>
+                      <small>Estimated only. Actual heat/lane may change after scratches, check-in, deck entries, circle seeding, or meet-management updates.</small>
+                    </span>
+                  </label>
+                  <details class="term-hint">
+                    <summary>What's circle seeding?</summary>
+                    <p>For events split across multiple heats, the fastest swimmers are sometimes split across the last two heats instead of all placed in one "fastest" heat, so heat/lane can look out of time order for those swims. It's a meet-management choice, not a parsing error.</p>
+                  </details>
+                </div>
               </fieldset>
 
               <fieldset id="hostedRelayOptions" class="relay-options hidden">
@@ -90,7 +102,7 @@
                   <input type="checkbox" name="modes" value="daily" checked>
                   <span>
                     <strong>Daily Calendar</strong>
-                    <small>One event per meet day, starts at warm-up. Best for Google Calendar.</small>
+                    <small>One event per meet day, starts at warm-up. Best for Google Calendar — import it from a computer; the Google Calendar mobile app can't import .ics files.</small>
                   </span>
                   <em>Recommended</em>
                 </label>
@@ -165,7 +177,10 @@
                   <h2>Upload Meet Documents</h2>
                   <p class="section-copy">Use this when the meet is not available above.</p>
                 </div>
-                <button class="primary" type="submit">Generate From Uploads</button>
+                <div class="upload-submit-group">
+                  <button class="primary" type="button" id="generateFromUploads">Generate From Uploads</button>
+                  <small class="upload-requirement-hint">Needs a swimmer name entered above.</small>
+                </div>
               </div>
 
               <div class="upload-grid">
@@ -173,11 +188,17 @@
                   <span>Meet Flyer</span>
                   <input type="file" name="flyer_pdf" accept="application/pdf">
                 </label>
-                <label class="file-input">
-                  <span>Psych Sheet or Heat Sheet</span>
-                  <small>Use whichever athlete entry sheet the meet has posted.</small>
-                  <input type="file" name="psych_pdf" accept="application/pdf">
-                </label>
+                <div class="file-field">
+                  <label class="file-input">
+                    <span>Psych Sheet or Heat Sheet</span>
+                    <small>Use whichever athlete entry sheet the meet has posted.</small>
+                    <input type="file" name="psych_pdf" accept="application/pdf">
+                  </label>
+                  <details class="term-hint">
+                    <summary>What's the difference?</summary>
+                    <p>A psych sheet lists seed times and seed order before heats are assigned. A heat sheet lists the same entries after they've been split into actual heats and lanes. Meets don't always publish both — use whichever one your meet has posted.</p>
+                  </details>
+                </div>
                 <label class="file-input">
                   <span>Timeline</span>
                   <input type="file" name="timeline_pdf" accept="application/pdf">
@@ -222,17 +243,21 @@
             </div>
           </div>
           <div id="resultStats" class="result-stats"></div>
+          <details class="term-hint">
+            <summary>What do the benchmark codes mean?</summary>
+            <p>USA Swimming motivational time standards, fastest to slowest: AAAA, AAA, AA, A, BB, B. Each swim shows the tier it met and the next faster one to chase.</p>
+          </details>
           <div id="warnings" class="warnings"></div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Day</th>
-                  <th>Event</th>
-                  <th>Seed</th>
-                  <th>Window</th>
-                  <th>Benchmark</th>
-                  <th>Source</th>
+                  <th data-col="day">Day</th>
+                  <th data-col="event">Event</th>
+                  <th id="seedHeader" data-col="seed">Seed / Place</th>
+                  <th data-col="window">Window</th>
+                  <th data-col="benchmark">Benchmark</th>
+                  <th data-col="source">Source</th>
                 </tr>
               </thead>
               <tbody id="eventsBody"></tbody>
