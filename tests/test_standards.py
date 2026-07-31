@@ -41,6 +41,41 @@ class StandardsLookupTest(unittest.TestCase):
         self.assertEqual(result.usa_summary, "USA-S: not configured for this swimmer age")
         self.assertEqual(result.confidence_summary, "Standards confidence: USA-S not configured, LSC not configured")
 
+
+class AzsiSeniorBoundaryTest(unittest.TestCase):
+    """The 14/15 boundary between AZSI Age Group and AZSI Senior, and the 18/19 upper edge.
+
+    Age Group bands cover 14 and under; Senior covers 15-18. Neither overlaps the other, and 19+
+    falls off both (matching the motivational bands, which also stop at 17-18).
+    """
+
+    def test_age_14_still_resolves_to_age_group_unchanged(self):
+        result = lookup("Girls 13-14 100 LC Meter Freestyle", "1:02.00", state="AZ", age="14")
+        self.assertIn("AZSI 13-14 Girls LCM", result.lsc_summary)
+        self.assertNotIn("Senior", result.lsc_summary)
+        self.assertIn("AZSI verified", result.confidence_summary)
+
+    def test_age_15_resolves_to_senior(self):
+        result = lookup("Girls 15-16 100 LC Meter Freestyle", "1:02.00", state="AZ", age="15")
+        # State cut for Girls Senior LCM 100 free is 1:03.69; a 1:02.00 seed has met it.
+        self.assertEqual(
+            result.lsc_summary,
+            "AZSI Senior Girls LCM: State met; State 1:03.69, Regional 1:19.19",
+        )
+        self.assertIn("AZSI verified", result.confidence_summary)
+
+    def test_age_18_still_resolves_to_senior(self):
+        result = lookup("Boys 17-18 50 Yard Freestyle", "24.00", state="AZ", age="18")
+        self.assertIn("AZSI Senior Boys SCY", result.lsc_summary)
+
+    def test_age_19_resolves_to_neither_layer(self):
+        result = lookup("Girls 15-16 100 LC Meter Freestyle", "1:02.00", state="AZ", age="19")
+        self.assertEqual(result.lsc_summary, "LSC: standards not configured for this state/event")
+
+    def test_senior_is_arizona_only(self):
+        result = lookup("Girls 15-16 100 LC Meter Freestyle", "1:02.00", state="CA", age="16")
+        self.assertEqual(result.lsc_summary, "LSC: standards not configured for this state/event")
+
     def test_reports_when_course_cannot_be_read_from_the_event_name(self):
         result = lookup("Girls 11-12 50 Breaststroke", "39.50", state="AZ", age="12")
 

@@ -1,0 +1,450 @@
+{
+  "source": {
+    "name": "AZSI 2025-2026 Senior State and Regional Qualifying Time Standards",
+    "documents": {
+      "state": "azsi-senior-state-qualifying-time-standards-2025-2026.pdf",
+      "regional": "azsi-senior-regional-qualifying-time-standards-2025-2026.pdf"
+    },
+    "effective": "2025-09-01 through 2026-08-31",
+    "url": "https://www.azswimming.org/page/calendar/time-standards",
+    "courses": [
+      "SCY",
+      "SCM",
+      "LCM"
+    ],
+    "tiers": [
+      "state",
+      "regional"
+    ],
+    "generator": "scripts/extract_azsi_standards.py --mode senior",
+    "notes": "Senior standards have no age bands: one cut per event/course/gender. The meet flyer's eligibility ('open to any registered athlete who has met the Senior Qualifying Time') states no age floor or ceiling; a qualifying time in one course qualifies in all courses. Within this app's 18-and-under benchmark scope they cover ages 15-18 (Age Group bands cover 14 and under). State cuts are faster than Regional in every event; meeting the State cut removes Regional eligibility for that event."
+  },
+  "standards": {
+    "SCY": {
+      "girls": {
+        "50 free": {
+          "state": "25.49",
+          "regional": "32.29"
+        },
+        "100 free": {
+          "state": "55.89",
+          "regional": "1:09.99"
+        },
+        "200 free": {
+          "state": "2:00.99",
+          "regional": "2:30.79"
+        },
+        "500 free": {
+          "state": "5:25.49",
+          "regional": "6:41.29"
+        },
+        "1000 free": {
+          "state": "11:20.79",
+          "regional": "13:51.09"
+        },
+        "1650 free": {
+          "state": "19:39.09",
+          "regional": "23:06.29"
+        },
+        "50 back": {
+          "state": "29.59",
+          "regional": "35.19"
+        },
+        "100 back": {
+          "state": "1:04.19",
+          "regional": "1:16.29"
+        },
+        "200 back": {
+          "state": "2:18.29",
+          "regional": "2:44.79"
+        },
+        "50 breast": {
+          "state": "33.79",
+          "regional": "40.79"
+        },
+        "100 breast": {
+          "state": "1:13.29",
+          "regional": "1:28.29"
+        },
+        "200 breast": {
+          "state": "2:36.49",
+          "regional": "3:09.99"
+        },
+        "50 fly": {
+          "state": "27.99",
+          "regional": "33.99"
+        },
+        "100 fly": {
+          "state": "1:02.79",
+          "regional": "1:16.19"
+        },
+        "200 fly": {
+          "state": "2:22.59",
+          "regional": "2:46.79"
+        },
+        "200 im": {
+          "state": "2:17.19",
+          "regional": "2:48.89"
+        },
+        "400 im": {
+          "state": "4:53.09",
+          "regional": "6:08.49"
+        }
+      },
+      "boys": {
+        "50 free": {
+          "state": "23.39",
+          "regional": "28.99"
+        },
+        "100 free": {
+          "state": "50.39",
+          "regional": "1:03.29"
+        },
+        "200 free": {
+          "state": "1:51.19",
+          "regional": "2:18.29"
+        },
+        "500 free": {
+          "state": "5:04.49",
+          "regional": "6:14.69"
+        },
+        "1000 free": {
+          "state": "10:35.09",
+          "regional": "12:56.99"
+        },
+        "1650 free": {
+          "state": "19:09.49",
+          "regional": "21:46.69"
+        },
+        "50 back": {
+          "state": "28.39",
+          "regional": "32.99"
+        },
+        "100 back": {
+          "state": "59.99",
+          "regional": "1:09.69"
+        },
+        "200 back": {
+          "state": "2:13.19",
+          "regional": "2:31.59"
+        },
+        "50 breast": {
+          "state": "30.19",
+          "regional": "36.99"
+        },
+        "100 breast": {
+          "state": "1:04.69",
+          "regional": "1:19.19"
+        },
+        "200 breast": {
+          "state": "2:27.09",
+          "regional": "2:52.79"
+        },
+        "50 fly": {
+          "state": "25.39",
+          "regional": "31.09"
+        },
+        "100 fly": {
+          "state": "56.19",
+          "regional": "1:08.79"
+        },
+        "200 fly": {
+          "state": "2:09.89",
+          "regional": "2:33.29"
+        },
+        "200 im": {
+          "state": "2:05.89",
+          "regional": "2:34.29"
+        },
+        "400 im": {
+          "state": "4:31.29",
+          "regional": "5:31.39"
+        }
+      }
+    },
+    "SCM": {
+      "girls": {
+        "50 free": {
+          "state": "28.29",
+          "regional": "36.09"
+        },
+        "100 free": {
+          "state": "1:02.19",
+          "regional": "1:17.89"
+        },
+        "200 free": {
+          "state": "2:14.59",
+          "regional": "2:47.39"
+        },
+        "400 free": {
+          "state": "4:42.29",
+          "regional": "5:48.09"
+        },
+        "800 free": {
+          "state": "9:50.49",
+          "regional": "12:00.89"
+        },
+        "1500 free": {
+          "state": "19:23.99",
+          "regional": "22:48.49"
+        },
+        "50 back": {
+          "state": "32.89",
+          "regional": "39.09"
+        },
+        "100 back": {
+          "state": "1:11.29",
+          "regional": "1:24.79"
+        },
+        "200 back": {
+          "state": "2:33.69",
+          "regional": "3:03.09"
+        },
+        "50 breast": {
+          "state": "37.59",
+          "regional": "45.29"
+        },
+        "100 breast": {
+          "state": "1:21.49",
+          "regional": "1:38.19"
+        },
+        "200 breast": {
+          "state": "2:54.09",
+          "regional": "3:31.29"
+        },
+        "50 fly": {
+          "state": "31.09",
+          "regional": "37.69"
+        },
+        "100 fly": {
+          "state": "1:09.79",
+          "regional": "1:24.69"
+        },
+        "200 fly": {
+          "state": "2:38.49",
+          "regional": "3:05.39"
+        },
+        "200 im": {
+          "state": "2:32.29",
+          "regional": "3:07.49"
+        },
+        "400 im": {
+          "state": "5:25.39",
+          "regional": "6:27.99"
+        }
+      },
+      "boys": {
+        "50 free": {
+          "state": "26.19",
+          "regional": "32.49"
+        },
+        "100 free": {
+          "state": "55.89",
+          "regional": "1:10.39"
+        },
+        "200 free": {
+          "state": "2:03.39",
+          "regional": "2:33.29"
+        },
+        "400 free": {
+          "state": "4:29.29",
+          "regional": "5:28.99"
+        },
+        "800 free": {
+          "state": "9:54.69",
+          "regional": "11:13.89"
+        },
+        "1500 free": {
+          "state": "19:08.09",
+          "regional": "21:29.99"
+        },
+        "50 back": {
+          "state": "31.59",
+          "regional": "36.69"
+        },
+        "100 back": {
+          "state": "1:06.59",
+          "regional": "1:17.49"
+        },
+        "200 back": {
+          "state": "2:27.89",
+          "regional": "2:48.29"
+        },
+        "50 breast": {
+          "state": "35.79",
+          "regional": "41.09"
+        },
+        "100 breast": {
+          "state": "1:16.79",
+          "regional": "1:27.99"
+        },
+        "200 breast": {
+          "state": "2:43.19",
+          "regional": "3:11.79"
+        },
+        "50 fly": {
+          "state": "28.19",
+          "regional": "34.69"
+        },
+        "100 fly": {
+          "state": "1:02.39",
+          "regional": "1:16.69"
+        },
+        "200 fly": {
+          "state": "2:24.19",
+          "regional": "2:50.79"
+        },
+        "200 im": {
+          "state": "2:19.69",
+          "regional": "2:51.49"
+        },
+        "400 im": {
+          "state": "5:01.19",
+          "regional": "6:08.19"
+        }
+      }
+    },
+    "LCM": {
+      "girls": {
+        "50 free": {
+          "state": "29.59",
+          "regional": "36.69"
+        },
+        "100 free": {
+          "state": "1:03.69",
+          "regional": "1:19.19"
+        },
+        "200 free": {
+          "state": "2:18.19",
+          "regional": "2:50.89"
+        },
+        "400 free": {
+          "state": "4:52.79",
+          "regional": "6:00.89"
+        },
+        "800 free": {
+          "state": "10:02.49",
+          "regional": "12:15.49"
+        },
+        "1500 free": {
+          "state": "19:57.09",
+          "regional": "23:27.49"
+        },
+        "50 back": {
+          "state": "34.89",
+          "regional": "40.29"
+        },
+        "100 back": {
+          "state": "1:15.69",
+          "regional": "1:27.39"
+        },
+        "200 back": {
+          "state": "2:39.89",
+          "regional": "3:07.99"
+        },
+        "50 breast": {
+          "state": "38.99",
+          "regional": "46.29"
+        },
+        "100 breast": {
+          "state": "1:24.39",
+          "regional": "1:40.39"
+        },
+        "200 breast": {
+          "state": "3:01.29",
+          "regional": "3:33.99"
+        },
+        "50 fly": {
+          "state": "31.89",
+          "regional": "38.29"
+        },
+        "100 fly": {
+          "state": "1:11.59",
+          "regional": "1:25.89"
+        },
+        "200 fly": {
+          "state": "2:40.09",
+          "regional": "3:07.19"
+        },
+        "200 im": {
+          "state": "2:38.79",
+          "regional": "3:12.59"
+        },
+        "400 im": {
+          "state": "5:34.59",
+          "regional": "6:39.29"
+        }
+      },
+      "boys": {
+        "50 free": {
+          "state": "26.69",
+          "regional": "33.39"
+        },
+        "100 free": {
+          "state": "58.09",
+          "regional": "1:12.49"
+        },
+        "200 free": {
+          "state": "2:09.89",
+          "regional": "2:38.09"
+        },
+        "400 free": {
+          "state": "4:33.09",
+          "regional": "5:36.09"
+        },
+        "800 free": {
+          "state": "9:29.59",
+          "regional": "11:36.89"
+        },
+        "1500 free": {
+          "state": "19:32.09",
+          "regional": "22:20.19"
+        },
+        "50 back": {
+          "state": "33.19",
+          "regional": "38.69"
+        },
+        "100 back": {
+          "state": "1:09.99",
+          "regional": "1:21.59"
+        },
+        "200 back": {
+          "state": "2:32.29",
+          "regional": "2:54.49"
+        },
+        "50 breast": {
+          "state": "36.49",
+          "regional": "42.69"
+        },
+        "100 breast": {
+          "state": "1:18.29",
+          "regional": "1:31.49"
+        },
+        "200 breast": {
+          "state": "2:49.39",
+          "regional": "3:19.09"
+        },
+        "50 fly": {
+          "state": "29.39",
+          "regional": "35.49"
+        },
+        "100 fly": {
+          "state": "1:05.09",
+          "regional": "1:18.59"
+        },
+        "200 fly": {
+          "state": "2:28.29",
+          "regional": "2:54.99"
+        },
+        "200 im": {
+          "state": "2:27.89",
+          "regional": "2:57.99"
+        },
+        "400 im": {
+          "state": "5:13.69",
+          "regional": "6:23.19"
+        }
+      }
+    }
+  }
+}

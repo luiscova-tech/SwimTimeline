@@ -12,7 +12,13 @@ three courses, both genders, and multiple age bands -- not just the original Gir
 
 import unittest
 
-from swimtimeline.standards import AZSI_STANDARDS, MOTIVATIONAL_STANDARDS, TIER_ORDER, parse_time
+from swimtimeline.standards import (
+    AZSI_SENIOR_STANDARDS,
+    AZSI_STANDARDS,
+    MOTIVATIONAL_STANDARDS,
+    TIER_ORDER,
+    parse_time,
+)
 
 
 class MotivationalStandardsValueTest(unittest.TestCase):
@@ -98,7 +104,8 @@ class AzsiStandardsValueTest(unittest.TestCase):
     Group State and Regional Qualifying Time Standards (docs/Sources/azsi-*-2025-2026.pdf),
     now broadened from 11-12 Girls LCM to all three courses (SCY/SCM/LCM), both genders, and
     the three Age Group bands (10 & under, 11-12, 13-14). Values cross-checked against the raw
-    PDFs. The 15-18 Senior standards live in a separate document and are intentionally absent.
+    PDFs. The 15-18 Senior standards live in a separate catalog (AZSI_SENIOR_STANDARDS) and are
+    intentionally absent from this Age Group catalog.
     """
 
     def cut(self, course, gender, band, event):
@@ -159,6 +166,85 @@ class AzsiStandardsValueTest(unittest.TestCase):
                         self.assertIsNotNone(state, where)
                         self.assertIsNotNone(regional, where)
                         self.assertLess(state, regional, f"{where}: state {cuts['state']} not faster than regional {cuts['regional']}")
+
+
+class AzsiSeniorStandardsValueTest(unittest.TestCase):
+    """Spot-checks for the AZSI Senior catalog against the official 2025-2026 AZSI Senior State
+    and Regional Qualifying Time Standards (docs/Sources/azsi-senior-*-2025-2026.pdf). Unlike
+    Age Group, Senior has no age bands: one cut per course/gender/event. Values cross-checked
+    against the raw PDFs; gender is assigned in extraction by a speed vote (men's cuts faster).
+    """
+
+    def cut(self, course, gender, event):
+        return AZSI_SENIOR_STANDARDS[course][gender][event]
+
+    def test_girls_scy_50_free(self):
+        self.assertEqual(self.cut("SCY", "girls", "50 free"), {"state": "25.49", "regional": "32.29"})
+
+    def test_boys_scy_50_free_is_faster_than_girls(self):
+        # Gender-assignment guard: the boys block is the faster one.
+        self.assertEqual(self.cut("SCY", "boys", "50 free"), {"state": "23.39", "regional": "28.99"})
+        self.assertLess(
+            parse_time(self.cut("SCY", "boys", "50 free")["state"]),
+            parse_time(self.cut("SCY", "girls", "50 free")["state"]),
+        )
+
+    def test_boys_scy_100_free(self):
+        self.assertEqual(self.cut("SCY", "boys", "100 free"), {"state": "50.39", "regional": "1:03.29"})
+
+    def test_girls_lcm_400_im(self):
+        self.assertEqual(self.cut("LCM", "girls", "400 im"), {"state": "5:34.59", "regional": "6:39.29"})
+
+    def test_boys_lcm_50_free(self):
+        self.assertEqual(self.cut("LCM", "boys", "50 free"), {"state": "26.69", "regional": "33.39"})
+
+    def test_scm_800_free_source_quirk_preserved(self):
+        # Lone cell where the men's cut is slower than the women's on the State sheet; the
+        # majority-vote gender assignment still places it correctly. Guards against a
+        # "men always faster" shortcut silently flipping this event's genders.
+        self.assertEqual(self.cut("SCM", "girls", "800 free")["state"], "9:50.49")
+        self.assertEqual(self.cut("SCM", "boys", "800 free")["state"], "9:54.69")
+
+    def test_combined_distance_free_keys_are_per_course(self):
+        # "400/500", "800/1000", "1500/1650" resolve to yards distances under SCY and meters
+        # distances under LCM/SCM, exactly as the Age Group catalog keys them.
+        self.assertIn("500 free", AZSI_SENIOR_STANDARDS["SCY"]["girls"])
+        self.assertIn("1650 free", AZSI_SENIOR_STANDARDS["SCY"]["girls"])
+        self.assertIn("400 free", AZSI_SENIOR_STANDARDS["LCM"]["girls"])
+        self.assertIn("1500 free", AZSI_SENIOR_STANDARDS["SCM"]["girls"])
+
+
+class AzsiSeniorStandardsStructureTest(unittest.TestCase):
+    def test_covers_three_courses_two_genders_no_age_bands(self):
+        for course in ("SCY", "SCM", "LCM"):
+            self.assertIn(course, AZSI_SENIOR_STANDARDS)
+            for gender in ("girls", "boys"):
+                events = AZSI_SENIOR_STANDARDS[course][gender]
+                self.assertEqual(len(events), 17, f"{course} {gender}")
+                # Values sit directly under the event (no band level): each is a {state,
+                # regional} dict, never a nested band -> event mapping.
+                for event, cell in events.items():
+                    self.assertEqual(set(cell), {"state", "regional"}, f"{course} {gender} {event}")
+
+    def test_no_age_band_keys_leaked_in(self):
+        for course in AZSI_SENIOR_STANDARDS.values():
+            for gender in course.values():
+                for band in ("10 & under", "11-12", "13-14", "15-16", "17-18"):
+                    self.assertNotIn(band, gender)
+
+    def test_catalog_totals(self):
+        cells = sum(len(events) for genders in AZSI_SENIOR_STANDARDS.values() for events in genders.values())
+        self.assertEqual(cells, 102)  # 17 events x 3 courses x 2 genders
+
+    def test_state_cut_is_faster_than_regional_for_every_cell(self):
+        for course, genders in AZSI_SENIOR_STANDARDS.items():
+            for gender, events in genders.items():
+                for event, cuts in events.items():
+                    where = f"{course} {gender} senior {event}"
+                    state, regional = parse_time(cuts["state"]), parse_time(cuts["regional"])
+                    self.assertIsNotNone(state, where)
+                    self.assertIsNotNone(regional, where)
+                    self.assertLess(state, regional, f"{where}: state {cuts['state']} not faster than regional {cuts['regional']}")
 
 
 if __name__ == "__main__":
