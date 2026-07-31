@@ -425,6 +425,11 @@ fieldset,
   border-color: #f1a56d;
 }
 
+.meet-card.is-empty {
+  border-color: #e5bd70;
+  background: #fff8e9;
+}
+
 .meet-card-pending {
   border-color: #d9c088;
   background: #fffdf8;
@@ -432,6 +437,13 @@ fieldset,
 
 .meet-pending-note {
   color: #73510c;
+}
+
+.past-meets-pointer {
+  color: var(--accent-dark);
+  font-weight: 800;
+  text-decoration: underline;
+  white-space: nowrap;
 }
 
 .past-meet-card {
@@ -971,7 +983,8 @@ input[name="state"] {
 }
 
 .ready-dot,
-.error-dot {
+.error-dot,
+.empty-dot {
   display: inline-block;
   flex: 0 0 auto;
   width: 14px;
@@ -986,6 +999,10 @@ input[name="state"] {
 
 .error-dot {
   background: #d97706;
+}
+
+.empty-dot {
+  background: var(--gold);
 }
 
 .status {
@@ -1033,6 +1050,12 @@ input[name="state"] {
 
 .status-error {
   border-color: #f1c76d;
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.status-empty {
+  border-color: #e5bd70;
   background: var(--warn-bg);
   color: var(--warn);
 }
@@ -1125,6 +1148,10 @@ input[name="state"] {
 
 .download-dock.dock-error {
   border-color: #f1a56d;
+}
+
+.download-dock.dock-empty {
+  border-color: #e5bd70;
 }
 
 .download-dock-copy {

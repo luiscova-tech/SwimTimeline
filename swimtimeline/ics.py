@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+# Any year works here; only used to sample a winter and summer offset/name.
+_TZ_SAMPLE_YEAR = 2024
 
 
 def escape_text(value: str) -> str:
@@ -45,6 +49,63 @@ def local_dt(value: str) -> str:
     return datetime.fromisoformat(value).strftime("%Y%m%dT%H%M%S")
 
 
+def offset_str(offset: timedelta) -> str:
+    total_minutes = round(offset.total_seconds() / 60)
+    sign = "-" if total_minutes < 0 else "+"
+    total_minutes = abs(total_minutes)
+    return f"{sign}{total_minutes // 60:02d}{total_minutes % 60:02d}"
+
+
+def vtimezone_lines(tzid: str) -> list[str]:
+    try:
+        zone = ZoneInfo(tzid)
+    except (ZoneInfoNotFoundError, ValueError):
+        zone = ZoneInfo("America/Phoenix")
+        tzid = "America/Phoenix"
+
+    winter = datetime(_TZ_SAMPLE_YEAR, 1, 15, tzinfo=zone)
+    summer = datetime(_TZ_SAMPLE_YEAR, 7, 15, tzinfo=zone)
+    winter_offset = winter.utcoffset() or timedelta(0)
+    summer_offset = summer.utcoffset() or timedelta(0)
+
+    lines = ["BEGIN:VTIMEZONE", f"TZID:{tzid}"]
+    if winter_offset == summer_offset:
+        lines.extend(
+            [
+                "BEGIN:STANDARD",
+                "DTSTART:19700101T000000",
+                f"TZOFFSETFROM:{offset_str(winter_offset)}",
+                f"TZOFFSETTO:{offset_str(winter_offset)}",
+                f"TZNAME:{winter.tzname() or 'STD'}",
+                "END:STANDARD",
+            ]
+        )
+    else:
+        # US zones have used "2nd Sunday in March" / "1st Sunday in November"
+        # DST transitions since 2007; every zone in STATE_TIMEZONES that
+        # observes DST follows this rule.
+        lines.extend(
+            [
+                "BEGIN:STANDARD",
+                "DTSTART:19701101T020000",
+                "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU",
+                f"TZOFFSETFROM:{offset_str(summer_offset)}",
+                f"TZOFFSETTO:{offset_str(winter_offset)}",
+                f"TZNAME:{winter.tzname() or 'STD'}",
+                "END:STANDARD",
+                "BEGIN:DAYLIGHT",
+                "DTSTART:19700308T020000",
+                "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU",
+                f"TZOFFSETFROM:{offset_str(winter_offset)}",
+                f"TZOFFSETTO:{offset_str(summer_offset)}",
+                f"TZNAME:{summer.tzname() or 'DST'}",
+                "END:DAYLIGHT",
+            ]
+        )
+    lines.append("END:VTIMEZONE")
+    return lines
+
+
 def build_ics(data: dict) -> str:
     now = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     tzid = data["calendar"].get("timezone", "America/Phoenix")
@@ -58,15 +119,8 @@ def build_ics(data: dict) -> str:
     add_line(lines, "METHOD:PUBLISH")
     add_line(lines, f"X-WR-CALNAME:{escape_text(cal_name)}")
     add_line(lines, f"X-WR-TIMEZONE:{tzid}")
-    add_line(lines, "BEGIN:VTIMEZONE")
-    add_line(lines, f"TZID:{tzid}")
-    add_line(lines, "BEGIN:STANDARD")
-    add_line(lines, "DTSTART:19700101T000000")
-    add_line(lines, "TZOFFSETFROM:-0700")
-    add_line(lines, "TZOFFSETTO:-0700")
-    add_line(lines, "TZNAME:MST")
-    add_line(lines, "END:STANDARD")
-    add_line(lines, "END:VTIMEZONE")
+    for tz_line in vtimezone_lines(tzid):
+        add_line(lines, tz_line)
 
     for event in data["events"]:
         description = "\n".join(event["description_lines"])

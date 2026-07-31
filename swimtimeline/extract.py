@@ -11,6 +11,7 @@ from math import ceil
 from pathlib import Path
 import re
 from typing import Iterable
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pypdf import PdfReader
 
@@ -20,6 +21,79 @@ from .standards import SOURCES, lookup
 
 DEFAULT_TZ = "America/Phoenix"
 DEFAULT_STATE = "AZ"
+
+# One representative IANA zone per state/DC, used only as a fallback when a
+# meet record has no explicit "timezone". Several states straddle two zones
+# (FL and ID panhandles; also TX, KS, NE, SD, ND, OR, MI, IN, KY, TN county
+# splits) and are mapped here to their majority zone, so a venue in the
+# minority zone needs an explicit per-meet "timezone" override to be correct.
+STATE_TIMEZONES: dict[str, str] = {
+    "AL": "America/Chicago",
+    "AK": "America/Anchorage",
+    "AZ": "America/Phoenix",
+    "AR": "America/Chicago",
+    "CA": "America/Los_Angeles",
+    "CO": "America/Denver",
+    "CT": "America/New_York",
+    "DE": "America/New_York",
+    "DC": "America/New_York",
+    "FL": "America/New_York",
+    "GA": "America/New_York",
+    "HI": "Pacific/Honolulu",
+    "ID": "America/Boise",
+    "IL": "America/Chicago",
+    "IN": "America/Indiana/Indianapolis",
+    "IA": "America/Chicago",
+    "KS": "America/Chicago",
+    "KY": "America/New_York",
+    "LA": "America/Chicago",
+    "ME": "America/New_York",
+    "MD": "America/New_York",
+    "MA": "America/New_York",
+    "MI": "America/Detroit",
+    "MN": "America/Chicago",
+    "MS": "America/Chicago",
+    "MO": "America/Chicago",
+    "MT": "America/Denver",
+    "NE": "America/Chicago",
+    "NV": "America/Los_Angeles",
+    "NH": "America/New_York",
+    "NJ": "America/New_York",
+    "NM": "America/Denver",
+    "NY": "America/New_York",
+    "NC": "America/New_York",
+    "ND": "America/Chicago",
+    "OH": "America/New_York",
+    "OK": "America/Chicago",
+    "OR": "America/Los_Angeles",
+    "PA": "America/New_York",
+    "RI": "America/New_York",
+    "SC": "America/New_York",
+    "SD": "America/Chicago",
+    "TN": "America/Chicago",
+    "TX": "America/Chicago",
+    "UT": "America/Denver",
+    "VT": "America/New_York",
+    "VA": "America/New_York",
+    "WA": "America/Los_Angeles",
+    "WV": "America/New_York",
+    "WI": "America/Chicago",
+    "WY": "America/Denver",
+}
+
+
+def resolve_meet_timezone(state: str | None = None, explicit_timezone: str | None = None) -> str:
+    """Resolve an IANA timezone for a meet, preferring an explicit override over the state table."""
+    candidates = (explicit_timezone, STATE_TIMEZONES.get((state or "").strip().upper()))
+    for candidate in candidates:
+        if not candidate:
+            continue
+        try:
+            ZoneInfo(candidate)
+        except (ZoneInfoNotFoundError, ValueError):
+            continue
+        return candidate
+    return DEFAULT_TZ
 
 
 @dataclass
@@ -1551,6 +1625,7 @@ def build_detailed_payload(
     swims: list[SwimEvent],
     relays: list[RelayEvent],
     day_numbers: dict[date, int],
+    timezone: str = DEFAULT_TZ,
 ) -> dict:
     events: list[dict] = []
     swimmer_slug = swimmer_uid_part(swimmer_name)
@@ -1649,7 +1724,7 @@ def build_detailed_payload(
         )
     events.sort(key=lambda event: event["start"])
     return {
-        "calendar": {"name": f"{swimmer_name} - {short_name}", "timezone": DEFAULT_TZ},
+        "calendar": {"name": f"{swimmer_name} - {short_name}", "timezone": timezone},
         "meet": {"id": meet_id, "name": meet_name, "short_name": short_name},
         "events": events,
     }
@@ -1663,6 +1738,7 @@ def build_daily_payload(
     swims: list[SwimEvent],
     relays: list[RelayEvent],
     sessions: dict[int, SessionInfo],
+    timezone: str = DEFAULT_TZ,
 ) -> dict:
     events: list[dict] = []
     by_day: dict[date, list[SwimEvent | RelayEvent]] = {}
@@ -1767,7 +1843,7 @@ def build_daily_payload(
             }
         )
     return {
-        "calendar": {"name": f"{swimmer_name} - {short_name} Daily", "timezone": DEFAULT_TZ},
+        "calendar": {"name": f"{swimmer_name} - {short_name} Daily", "timezone": timezone},
         "meet": {"id": meet_id, "name": meet_name, "short_name": short_name},
         "events": events,
     }
@@ -1781,18 +1857,19 @@ def build_weekend_payload(
     swims: list[SwimEvent],
     relays: list[RelayEvent],
     sessions: dict[int, SessionInfo],
+    timezone: str = DEFAULT_TZ,
 ) -> dict:
     swimmer_slug = swimmer_uid_part(swimmer_name)
-    daily = build_daily_payload(meet_id, meet_name, short_name, swimmer_name, swims, relays, sessions)["events"]
+    daily = build_daily_payload(meet_id, meet_name, short_name, swimmer_name, swims, relays, sessions, timezone=timezone)["events"]
     if not daily:
-        return {"calendar": {"name": f"{swimmer_name} - {short_name} Weekend", "timezone": DEFAULT_TZ}, "events": []}
+        return {"calendar": {"name": f"{swimmer_name} - {short_name} Weekend", "timezone": timezone}, "events": []}
     start = min(datetime.fromisoformat(event["start"]) for event in daily)
     end = max(datetime.fromisoformat(event["end"]) for event in daily)
     lines = [swimmer_name, short_name, "", "Meet summary:"]
     for event in daily:
         lines.extend(["", event["title"].removeprefix(f"{swimmer_name} - "), *event["description_lines"][9:]])
     return {
-        "calendar": {"name": f"{swimmer_name} - {short_name} Weekend", "timezone": DEFAULT_TZ},
+        "calendar": {"name": f"{swimmer_name} - {short_name} Weekend", "timezone": timezone},
         "meet": {"id": meet_id, "name": meet_name, "short_name": short_name},
         "events": [
             {
@@ -1915,7 +1992,9 @@ def analyze_uploads(
     state: str = DEFAULT_STATE,
     modes: Iterable[str] = ("daily",),
     estimate_heat_lanes: bool = False,
+    meet_timezone: str | None = None,
 ) -> dict:
+    resolved_timezone = meet_timezone or resolve_meet_timezone(state)
     flyer_text = "\n".join(extract_text_pages(flyer_pdf)) if flyer_pdf else ""
     meet_name, sessions, timeline_events = parse_timeline(timeline_pdf, flyer_text=flyer_text)
     entries, page_counts, name_warnings = extract_psych_entries(psych_pdf, swimmer_name)
@@ -1941,6 +2020,7 @@ def analyze_uploads(
             swims,
             relays,
             sessions,
+            timezone=resolved_timezone,
         )
     if "weekend" in selected_modes:
         selected_payloads["weekend"] = build_weekend_payload(
@@ -1951,6 +2031,7 @@ def analyze_uploads(
             swims,
             relays,
             sessions,
+            timezone=resolved_timezone,
         )
     if "detailed" in selected_modes:
         selected_payloads["detailed"] = build_detailed_payload(
@@ -1961,6 +2042,7 @@ def analyze_uploads(
             swims,
             relays,
             day_numbers_for_items(swims, relays),
+            timezone=resolved_timezone,
         )
     files = write_outputs(output_dir, meet_name, output_swimmer_name, entries, swims, relays, page_counts, selected_payloads)
 

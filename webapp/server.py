@@ -28,9 +28,15 @@ USAGE_STATS_PATH = ROOT / "data" / "usage_stats.json"
 HOSTED_MEETS_DIR = ROOT / "meets" / "current-hosted"
 DEFAULT_MODES = ["daily"]
 VALID_MODES = {"daily", "weekend", "detailed"}
+UPLOAD_FIELD_LABELS = {
+    "flyer_pdf": "Meet Flyer",
+    "psych_pdf": "Psych Sheet or Heat Sheet",
+    "timeline_pdf": "Timeline",
+    "relay_pdf": "Relay Doc",
+}
 sys.path.insert(0, str(ROOT))
 
-from swimtimeline.extract import analyze_uploads
+from swimtimeline.extract import analyze_uploads, resolve_meet_timezone
 from swimtimeline.ics import build_ics
 
 
@@ -168,11 +174,14 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
 
         meet = resolve_current_meet(meet_id)
         state = str(payload.get("state") or meet.get("state") or "").strip().upper()
+        # Timezone must come from the meet's own venue, not the swimmer/LSC
+        # state above (a traveling swimmer may enter their home LSC there).
+        meet_timezone = resolve_meet_timezone(state=meet.get("state"), explicit_timezone=meet.get("timezone"))
         files = meet.get("files", {})
-        flyer_path = resolve_repo_file(files.get("flyer"), required=False)
-        psych_path = resolve_repo_file(files.get("psych"), required=True)
-        timeline_path = resolve_repo_file(files.get("timeline"), required=True)
-        relay_path = resolve_repo_file(files.get("relay"), required=False)
+        flyer_path = resolve_repo_file(files.get("flyer"), required=False, label="Meet Flyer")
+        psych_path = resolve_repo_file(files.get("psych"), required=True, label="Psych Sheet or Heat Sheet")
+        timeline_path = resolve_repo_file(files.get("timeline"), required=True, label="Timeline")
+        relay_path = resolve_repo_file(files.get("relay"), required=False, label="Relay Doc")
         internal_relay_sources = resolve_current_meet_relay_sources(meet, relay_option_ids)
 
         run_id = f"{int(time.time())}-{uuid4().hex[:8]}"
@@ -189,6 +198,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             modes=modes,
             combine_family=combine_family,
             estimate_heat_lanes=estimate_heat_lanes,
+            meet_timezone=meet_timezone,
         )
         result["run_id"] = run_id
         result["current_meet_id"] = meet_id
@@ -230,10 +240,10 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         target_dir = HOSTED_MEETS_DIR / meet_id / "input"
         target_dir.mkdir(parents=True, exist_ok=True)
         files = {
-            "flyer": copy_hosted_upload(uploads.get("flyer"), target_dir),
-            "psych": copy_hosted_upload(uploads.get("psych"), target_dir),
-            "timeline": copy_hosted_upload(uploads.get("timeline"), target_dir),
-            "relay": copy_hosted_upload(uploads.get("relay"), target_dir),
+            "flyer": copy_hosted_upload(uploads.get("flyer"), target_dir, label="Meet Flyer"),
+            "psych": copy_hosted_upload(uploads.get("psych"), target_dir, label="Psych Sheet or Heat Sheet"),
+            "timeline": copy_hosted_upload(uploads.get("timeline"), target_dir, label="Timeline"),
+            "relay": copy_hosted_upload(uploads.get("relay"), target_dir, label="Relay Doc"),
         }
         if not files["psych"] or not files["timeline"]:
             raise ValueError("A psych sheet and timeline are required before saving to Current Meets.")
@@ -247,6 +257,11 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             "end_date": end_date,
             "expires_at": expiration_date(end_date),
             "state": state,
+            # Best-effort: `state` here is whatever the uploader typed in the
+            # State/LSC field, which for a traveling swimmer may not match the
+            # meet's actual venue. Correct the "timezone" field by hand in
+            # data/current_meets.json if this guess is wrong for the venue.
+            "timezone": resolve_meet_timezone(state=state),
             "status": "ready",
             "files": files,
             "documents": hosted_document_labels(files),
@@ -412,14 +427,14 @@ def unique_swimmer_names(names: list[str]) -> list[str]:
 def save_upload(form: cgi.FieldStorage, name: str, upload_dir: Path, required: bool) -> Path | None:
     if name not in form:
         if required:
-            raise ValueError(f"{name} is required.")
+            raise ValueError(f"{UPLOAD_FIELD_LABELS.get(name, name)} is required.")
         return None
     item = form[name]
     if isinstance(item, list):
         item = item[0]
     if not item.filename:
         if required:
-            raise ValueError(f"{name} is required.")
+            raise ValueError(f"{UPLOAD_FIELD_LABELS.get(name, name)} is required.")
         return None
     filename = safe_filename(item.filename)
     target = upload_dir / filename
@@ -451,6 +466,7 @@ def analyze_swimmer_set(
     modes: list[str],
     combine_family: bool,
     estimate_heat_lanes: bool,
+    meet_timezone: str | None = None,
 ) -> dict:
     if len(swimmer_names) == 1:
         return analyze_uploads(
@@ -464,6 +480,7 @@ def analyze_swimmer_set(
             state=state,
             modes=modes,
             estimate_heat_lanes=estimate_heat_lanes,
+            meet_timezone=meet_timezone,
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -486,6 +503,7 @@ def analyze_swimmer_set(
             state=state,
             modes=modes,
             estimate_heat_lanes=estimate_heat_lanes,
+            meet_timezone=meet_timezone,
         )
         result["output_subdir"] = subdir_name
         result["files"] = {key: f"{subdir_name}/{name}" for key, name in result["files"].items()}
@@ -769,13 +787,22 @@ def public_meets_payload() -> dict:
     return {"current_meets": current_meets, "past_meets": past_meets}
 
 
+# Statuses that block clickable calendar-generation regardless of which
+# documents are on file. "documents-pending" means the meet isn't loaded yet;
+# "schedule-only" means it's loaded from a meet-packet schedule rather than a
+# final timeline, so calendar generation isn't offered even though a psych
+# sheet may already be present.
+NOT_READY_STATUSES = {"documents-pending", "schedule-only"}
+
+
 def public_current_meet(meet: dict) -> dict:
     files = meet.get("files", {})
     featured_until = parse_iso_date(str(meet.get("featured_until") or ""))
     is_featured = current_meet_is_featured(meet)
     relay_options = public_relay_options(meet)
     missing_documents = missing_current_meet_documents(files)
-    is_ready_for_lookup = not missing_documents and str(meet.get("status") or "") != "documents-pending"
+    status = str(meet.get("status") or "")
+    is_ready_for_lookup = not missing_documents and status not in NOT_READY_STATUSES
     return {
         "id": meet.get("id"),
         "name": meet.get("name"),
@@ -788,10 +815,11 @@ def public_current_meet(meet: dict) -> dict:
         "status": meet.get("status"),
         "documents": meet.get("documents", []),
         "missing_documents": missing_documents,
-        "readiness": meet_readiness_items(files, missing_documents, relay_options),
+        "readiness": meet_readiness_items(files, missing_documents, relay_options, status),
         "rules_summary": meet.get("rules_summary", []),
         "last_updated": meet.get("last_updated") or "",
         "is_ready_for_lookup": is_ready_for_lookup,
+        "status_note": meet.get("status_note") or default_status_note(status, is_ready_for_lookup),
         "has_relay": bool(files.get("relay")),
         "has_private_relay": bool(relay_options),
         "relay_options": relay_options,
@@ -803,6 +831,14 @@ def public_current_meet(meet: dict) -> dict:
     }
 
 
+def default_status_note(status: str, is_ready_for_lookup: bool) -> str:
+    if is_ready_for_lookup:
+        return ""
+    if status == "schedule-only":
+        return "This meet's schedule is posted, but automatic calendar generation isn't available for this meet yet."
+    return "Calendar generation will unlock after the psych/heat sheet and timeline are added."
+
+
 def missing_current_meet_documents(files: dict) -> list[str]:
     missing: list[str] = []
     if not files.get("psych"):
@@ -812,7 +848,7 @@ def missing_current_meet_documents(files: dict) -> list[str]:
     return missing
 
 
-def meet_readiness_items(files: dict, missing_documents: list[str], relay_options: list[dict]) -> list[dict]:
+def meet_readiness_items(files: dict, missing_documents: list[str], relay_options: list[dict], status: str = "") -> list[dict]:
     missing = set(missing_documents)
     items = [
         {"label": "Meet flyer", "status": "ready" if files.get("flyer") else "optional", "detail": "Loaded" if files.get("flyer") else "Optional"},
@@ -823,6 +859,8 @@ def meet_readiness_items(files: dict, missing_documents: list[str], relay_option
         items.append({"label": "Relay file", "status": "ready", "detail": "Loaded"})
     elif relay_options:
         items.append({"label": "Relay add-on", "status": "optional", "detail": "Available"})
+    if status == "schedule-only":
+        items.append({"label": "Swimmer verification", "status": "missing", "detail": "Not available for this meet"})
     return items
 
 
@@ -888,7 +926,7 @@ def resolve_current_meet_relay_sources(meet: dict, relay_option_ids: list[str]) 
         option = options.get(option_id)
         if not option:
             raise ValueError("Selected relay option is not available for this meet.")
-        source = resolve_repo_file(option.get("source"), required=True)
+        source = resolve_repo_file(option.get("source"), required=True, label="Relay add-on")
         assert source is not None
         sources.append(source)
     return sources
@@ -904,25 +942,25 @@ def relay_status(relay_path: Path | None, internal_relay_sources: list[Path]) ->
     return "not_uploaded"
 
 
-def resolve_repo_file(path_value: str | None, required: bool) -> Path | None:
+def resolve_repo_file(path_value: str | None, required: bool, label: str = "document") -> Path | None:
     if not path_value:
         if required:
-            raise ValueError("Current meet is missing a required document.")
+            raise ValueError(f"Current meet is missing its {label}.")
         return None
     target = (ROOT / path_value).resolve()
     if ROOT not in [target, *target.parents]:
         raise ValueError("Current meet document path is outside the workspace.")
     if not target.is_file():
         if required:
-            raise ValueError(f"Current meet document not found: {path_value}")
+            raise ValueError(f"Current meet's {label} could not be found. Please contact SwimTimeline support.")
         return None
     return target
 
 
-def copy_hosted_upload(path_value: str | None, target_dir: Path) -> str | None:
+def copy_hosted_upload(path_value: str | None, target_dir: Path, label: str = "document") -> str | None:
     if not path_value:
         return None
-    source = resolve_repo_file(path_value, required=True)
+    source = resolve_repo_file(path_value, required=True, label=label)
     assert source is not None
     target = target_dir / safe_filename(source.name)
     shutil.copy2(source, target)

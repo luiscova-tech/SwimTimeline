@@ -46,6 +46,11 @@ swimmerList.addEventListener("click", (event) => {
     updateRemoveButtons();
   }
 });
+document.addEventListener("click", (event) => {
+  if (event.target.classList.contains("past-meets-pointer")) {
+    pastMeetsEl.open = true;
+  }
+});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -80,12 +85,20 @@ form.addEventListener("submit", async (event) => {
       throw new Error(payload.error || "Upload failed.");
     }
     renderResult(payload);
-    setStatus("Calendar files are ready.", "success");
+    if (verifiedTotal(payload) > 0) {
+      setStatus("Calendar files are ready.", "success");
+    } else {
+      setStatus("No matching swimmer events were found. You can still download an empty calendar below.", "empty");
+    }
   } catch (error) {
     setStatus(error.message, "error");
     showErrorDock(error.message);
   }
 });
+
+function verifiedTotal(payload) {
+  return Number(payload.verified_event_count || 0) + Number(payload.verified_relay_count || 0);
+}
 
 async function loadCurrentMeets() {
   try {
@@ -104,14 +117,17 @@ function renderCurrentMeets(meets, pastMeets = []) {
   renderRelayOptions(meets);
   const featuredMeet = meets.find((meet) => meet.is_featured);
   const regularMeets = meets.filter((meet) => meet !== featuredMeet);
+  const anyCurrentReady = meets.some((meet) => meet.is_ready_for_lookup);
+  const hasUsablePastMeet = pastMeets.some((meet) => meet.is_ready_for_lookup);
+  const noUsableCurrentMeet = !anyCurrentReady && hasUsablePastMeet;
   if (featuredMeet) {
-    featuredMeetEl.appendChild(buildMeetCard(featuredMeet, { featured: true }));
+    featuredMeetEl.appendChild(buildMeetCard(featuredMeet, { featured: true, pointToPastMeets: noUsableCurrentMeet }));
   }
   if (!meets.length) {
     currentMeetList.innerHTML = `<div class="empty-state">No hosted meets yet.</div>`;
   }
   for (const meet of regularMeets) {
-    currentMeetList.appendChild(buildMeetCard(meet));
+    currentMeetList.appendChild(buildMeetCard(meet, { pointToPastMeets: noUsableCurrentMeet }));
   }
   if (featuredMeet && !regularMeets.length) {
     currentMeetList.classList.add("hidden");
@@ -119,6 +135,17 @@ function renderCurrentMeets(meets, pastMeets = []) {
     currentMeetList.classList.remove("hidden");
   }
   pastMeetsEl.classList.toggle("hidden", !pastMeets.length);
+  pastMeetsEl.open = noUsableCurrentMeet;
+  const pastSummaryLabel = pastMeetsEl.querySelector("summary span");
+  const pastSummaryDetail = pastMeetsEl.querySelector("summary small");
+  if (pastSummaryLabel) {
+    pastSummaryLabel.textContent = noUsableCurrentMeet ? "Meets ready now" : "Past meets";
+  }
+  if (pastSummaryDetail) {
+    pastSummaryDetail.textContent = noUsableCurrentMeet
+      ? "No current meet is ready yet, but these are still available to search."
+      : "Hosted documents from recently completed meets";
+  }
   for (const meet of pastMeets) {
     pastMeetList.appendChild(buildMeetCard(meet, { past: true }));
   }
@@ -174,8 +201,13 @@ function buildMeetCard(meet, options = {}) {
       </div>`
     : "";
   const note = options.featured && meet.featured_note ? `<p class="meet-note">${escapeHtml(meet.featured_note)}</p>` : "";
+  const pastMeetsPointer = options.pointToPastMeets
+    ? ` <a href="#pastMeetList" class="past-meets-pointer">See past meets that are ready now &darr;</a>`
+    : "";
   const pendingNote = !meet.is_ready_for_lookup
-    ? `<p class="meet-note meet-pending-note">Calendar generation will unlock after the psych/heat sheet and timeline are added.</p>`
+    ? `<p class="meet-note meet-pending-note">${escapeHtml(
+        meet.status_note || "Calendar generation will unlock after the psych/heat sheet and timeline are added.",
+      )}${pastMeetsPointer}</p>`
     : "";
   card.innerHTML = `
     <div class="meet-card-main">
@@ -202,7 +234,7 @@ function buildMeetCard(meet, options = {}) {
   `;
   const button = card.querySelector(".meet-action-button");
   if (!meet.is_ready_for_lookup) {
-    button.textContent = "Awaiting documents";
+    button.textContent = meet.status === "schedule-only" ? "Schedule only" : "Awaiting documents";
     button.disabled = true;
   } else {
     button.dataset.idleLabel = button.textContent;
@@ -291,8 +323,12 @@ async function analyzeCurrentMeet(meet, card) {
       throw new Error(payload.error || "Current meet analysis failed.");
     }
     renderResult(payload);
-    setMeetCardState(card, "success", { meet, swimmerNames, payload });
-    setStatus("Calendar files are ready.", "success");
+    const noMatches = verifiedTotal(payload) === 0;
+    setMeetCardState(card, noMatches ? "empty" : "success", { meet, swimmerNames, payload });
+    setStatus(
+      noMatches ? "No matching swimmer events were found. You can still download an empty calendar below." : "Calendar files are ready.",
+      noMatches ? "empty" : "success",
+    );
   } catch (error) {
     setMeetCardState(card, "error", { message: error.message });
     setStatus(error.message, "error");
@@ -304,7 +340,7 @@ function setMeetCardState(card, state, options = {}) {
   const button = card.querySelector(".meet-action-button");
   const progress = card.querySelector(".meet-progress");
   const idleLabel = button.dataset.idleLabel || "Use this meet";
-  card.classList.remove("is-busy", "is-ready", "is-error");
+  card.classList.remove("is-busy", "is-ready", "is-empty", "is-error");
   progress.classList.add("hidden");
   progress.innerHTML = "";
   button.disabled = false;
@@ -334,20 +370,29 @@ function setMeetCardState(card, state, options = {}) {
     return;
   }
 
-  if (state === "success") {
+  if (state === "success" || state === "empty") {
+    const isEmpty = state === "empty";
     const primary = primaryCalendarDownload(options.payload || {});
     const primaryLink = primary
       ? `<a class="inline-download-primary" href="${escapeHtml(primary.href)}">${escapeHtml(primary.label)}</a>`
       : "";
-    card.classList.add("is-ready");
+    card.classList.add(isEmpty ? "is-empty" : "is-ready");
     button.innerHTML = "Create again";
     progress.classList.remove("hidden");
     progress.innerHTML = `
       <div class="meet-progress-main">
-        <span class="ready-dot" aria-hidden="true"></span>
+        <span class="${isEmpty ? "empty-dot" : "ready-dot"}" aria-hidden="true"></span>
         <div>
-          <strong>Calendar ready for ${escapeHtml(swimmerListLabel(options.swimmerNames || []))}</strong>
-          <span>Download it now, or open the full file list below.</span>
+          <strong>${
+            isEmpty
+              ? `No events found for ${escapeHtml(swimmerListLabel(options.swimmerNames || []))}`
+              : `Calendar ready for ${escapeHtml(swimmerListLabel(options.swimmerNames || []))}`
+          }</strong>
+          <span>${
+            isEmpty
+              ? "Check the spelling, or try Last, First. You can still download an empty calendar below."
+              : "Download it now, or open the full file list below."
+          }</span>
         </div>
       </div>
       <div class="inline-ready-actions">
@@ -628,22 +673,25 @@ function revealResultDownloads(payload) {
 }
 
 function updateReadyDock(payload) {
-  downloadDock.classList.remove("dock-busy", "dock-error");
-  downloadDock.classList.add("dock-ready");
-  downloadDockTitle.textContent = "Calendar ready";
+  const noMatches = verifiedTotal(payload) === 0;
+  downloadDock.classList.remove("dock-busy", "dock-error", "dock-ready", "dock-empty");
+  downloadDock.classList.add(noMatches ? "dock-empty" : "dock-ready");
+  downloadDockTitle.textContent = noMatches ? "No events found" : "Calendar ready";
   jumpDownloadsBtn.textContent = "View all files";
   jumpDownloadsBtn.dataset.action = "downloads";
   jumpDownloadsBtn.classList.remove("hidden");
   const primary = primaryCalendarDownload(payload);
   if (!primary) {
     downloadDockPrimary.classList.add("hidden");
-    downloadDockMessage.textContent = "Calendar files are ready.";
+    downloadDockMessage.textContent = noMatches ? "No matching swimmer events were found." : "Calendar files are ready.";
     return;
   }
   downloadDockPrimary.href = primary.href;
   downloadDockPrimary.textContent = primary.label;
   downloadDockPrimary.classList.remove("hidden");
-  downloadDockMessage.textContent = primary.message;
+  downloadDockMessage.textContent = noMatches
+    ? "No matching swimmer events were found, but you can still download an empty calendar."
+    : primary.message;
 }
 
 function primaryCalendarDownload(payload) {

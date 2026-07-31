@@ -2,3 +2,4 @@
 data/usage_stats.json
 __pycache__/
 *.pyc
+.venv312/
