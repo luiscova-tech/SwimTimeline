@@ -6,3 +6,11 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python webapp/server.py --host 0.0.0.0
     autoDeploy: true
+    envVars:
+      # webapp/server.py uses the stdlib cgi module (cgi.FieldStorage), which
+      # was removed in Python 3.13. Render's default Python version depends on
+      # when the service was created and can change for new services, so this
+      # must stay pinned below 3.13 explicitly rather than relying on the
+      # platform default. Keep in sync with .python-version at the repo root.
+      - key: PYTHON_VERSION
+        value: "3.12.13"
