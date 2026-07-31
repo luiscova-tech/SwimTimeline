@@ -3,3 +3,4 @@ data/usage_stats.json
 __pycache__/
 *.pyc
 .venv312/
+.DS_Store
