@@ -8,7 +8,7 @@ Source documents:
 
 Benchmark sources:
 
-- USA Swimming 2024-2028 Single Age Motivational Standards, 12 Girls LCM
+- USA Swimming 2024-2028 Motivational Standards (two-year age group), 11-12 Girls LCM
 - AZSI 2025-2026 Age Group State and Regional Qualifying Time Standards, Women 11-12 LCM
 
 Note: Age-group sessions are held at Kino. The psych sheet event names and seed times are listed as LC Meter. Benchmarks below use LCM because the psych sheet lists Mila's seed times in LC Meter events.
@@ -27,9 +27,9 @@ Benchmarks:
 
 | Event # | USA-S Motivational | AZSI |
 | ---: | --- | --- |
-| 17 | AA; next AAA 35.29 | State met; State 39.19, Regional 47.19 |
+| 17 | A; next AA 36.79 | State met; State 39.19, Regional 47.19 |
 | 23 | A; next AA 40.89 | State met; State 44.09, Regional 53.19 |
-| 25 | AAA; next AAAA 1:04.29 | State met; State 1:11.99, Regional 1:24.79 |
+| 25 | AAA; next AAAA 1:04.19 | State met; State 1:11.99, Regional 1:24.79 |
 
 ## Saturday, June 13, 2026
 
@@ -45,7 +45,7 @@ Benchmarks:
 
 | Event # | USA-S Motivational | AZSI |
 | ---: | --- | --- |
-| 41 | AAA; next AAAA 2:20.09 | State met; State 2:39.39, Regional 3:03.49 |
+| 41 | AAA; next AAAA 2:19.79 | State met; State 2:39.39, Regional 3:03.49 |
 | 43 | BB; next A 35.79 | State met; State 36.39, Regional 44.49 |
 | 51 | AAAA | State met; State 32.59, Regional 37.89 |
 
@@ -61,7 +61,7 @@ Benchmarks:
 
 | Event # | USA-S Motivational | AZSI |
 | ---: | --- | --- |
-| 71 | A; next AA 11:15.59 | State met; State 11:52.49, Regional 12:21.49 |
+| 71 | A; next AA 11:14.89 | State met; State 11:52.49, Regional 12:21.49 |
 
 Check-in note: Event #71 is one of Events 53-72. The meet flyer says Events 53-72 are deck-seeded timed-final events and athletes must check in at the clerk of course before the start of warm-up for Session #7.
 

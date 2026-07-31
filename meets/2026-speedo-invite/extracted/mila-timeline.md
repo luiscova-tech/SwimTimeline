@@ -9,7 +9,7 @@ Source documents:
 
 Benchmark sources:
 
-- USA Swimming 2024-2028 Single Age Motivational Standards, 12 Girls LCM
+- USA Swimming 2024-2028 Motivational Standards (two-year age group), 11-12 Girls LCM
 - AZSI 2025-2026 Age Group State and Regional Qualifying Time Standards, Women 11-12 LCM
 
 Note: Age-group sessions are listed in the meet flyer as 25-yard pool sessions, while the psych sheet event names and seed times are listed as LC Meter. Benchmarks below use LCM because the psych sheet lists Mila's seed times in LC Meter events.
@@ -28,9 +28,9 @@ Benchmarks:
 
 | Event # | USA-S Motivational | AZSI |
 | ---: | --- | --- |
-| 13 | AAA; next AAAA 1:04.29 | State met; State 1:09.89, Regional 1:25.49 |
+| 13 | AAA; next AAAA 1:04.19 | State met; State 1:09.89, Regional 1:25.49 |
 | 17 | A; next AA 40.89 | State met; State 42.79, Regional 51.99 |
-| 23 | AA; next AAA 35.29 | State met; State 37.39, Regional 46.99 |
+| 23 | A; next AA 36.79 | State met; State 37.39, Regional 46.99 |
 
 ## Saturday, May 23, 2026
 
@@ -45,7 +45,7 @@ Benchmarks:
 
 | Event # | USA-S Motivational | AZSI |
 | ---: | --- | --- |
-| 43 | AA; next AAA 2:26.79 | State met; State 2:34.39, Regional 3:11.29 |
+| 43 | AA; next AAA 2:26.49 | State met; State 2:34.39, Regional 3:11.29 |
 | 47 | AA; next AAA 1:25.89 | State met; State 1:33.79, Regional 1:54.59 |
 
 ## Sunday, May 24, 2026
@@ -61,7 +61,7 @@ Benchmarks:
 
 | Event # | USA-S Motivational | AZSI |
 | ---: | --- | --- |
-| 75 | AAA; next AAAA 29.29 | State met; State 31.99, Regional 38.19 |
+| 75 | AAA; next AAAA 29.19 | State met; State 31.99, Regional 38.19 |
 | 79 | BB; next A 1:24.79 | Regional met; State target 1:21.09, Regional 1:42.19 |
 
 ## Monday, May 25, 2026
