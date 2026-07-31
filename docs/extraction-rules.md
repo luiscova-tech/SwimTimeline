@@ -63,6 +63,16 @@ Extract swim meet schedules for the swimmer names provided by the user from the 
 * Assume top 8 per age group advance to finals unless the timeline or meet document states otherwise.
 * Optional heat/lane estimates may be shown only when clearly labeled as estimates. Do not treat estimated heat/lane as verified heat-sheet data.
 
+## Timezone Rules
+
+* Every entry in `data/current_meets.json` must set an explicit `timezone` field (an IANA zone name, e.g. `America/Phoenix`) based on the meet's actual venue. Do not leave it unset and do not infer it from the swimmer's state or LSC.
+* The `STATE_TIMEZONES` fallback table in `swimtimeline/extract.py` only covers each state's majority zone, so it is not reliable for meets in a state that spans two zones. Confirm the venue directly (city/venue name on the meet flyer, or a maps lookup) before setting `timezone` for a meet in any of:
+  * Florida — panhandle counties west of the Apalachicola River are Central; the rest of the state is Eastern.
+  * Idaho — the northern panhandle counties are Pacific; the rest of the state, including Boise, is Mountain.
+  * Texas, Kansas, Nebraska, South Dakota, North Dakota, Oregon — each has a smaller western or eastern county-level exception to the state's dominant zone.
+  * Michigan, Indiana, Kentucky, Tennessee — each has a county-level Eastern/Central split.
+* When a meet is promoted from an upload via "Save To Current Meets," the generated `timezone` field is inferred from the uploader's State/LSC form field, not the meet's venue. Check it by hand before treating the new hosted meet entry as correct.
+
 ## Verification Rules
 
 * Make one full pass through the psych sheet or heat sheet and log swimmer occurrences with page and column.
