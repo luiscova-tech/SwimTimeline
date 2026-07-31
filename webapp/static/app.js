@@ -141,11 +141,10 @@ function renderCurrentMeets(meets, pastMeets = []) {
     currentMeetList.classList.remove("hidden");
   }
   pastMeetsEl.classList.toggle("hidden", !pastMeets.length);
-  pastMeetsEl.open = noUsableCurrentMeet;
   const pastSummaryLabel = pastMeetsEl.querySelector("summary span");
   const pastSummaryDetail = pastMeetsEl.querySelector("summary small");
   if (pastSummaryLabel) {
-    pastSummaryLabel.textContent = noUsableCurrentMeet ? "Past Meets — Ready to Search" : "Past meets";
+    pastSummaryLabel.textContent = "Past Meets";
   }
   if (pastSummaryDetail) {
     pastSummaryDetail.textContent = noUsableCurrentMeet
