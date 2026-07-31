@@ -4,13 +4,25 @@ SwimTimeline keeps standards source-tracked because cuts change by season, cours
 
 ## Built In
 
-The current built-in catalog covers the fixture events already present in this repo:
+The USA Swimming motivational standards are loaded from `data/motivational_standards.json`,
+which covers the full published catalog:
 
-- USA Swimming 2024-2028 Single Age Motivational Standards, 11 Girls LCM
-- USA Swimming 2024-2028 Single Age Motivational Standards, 12 Girls LCM
-- AZSI 2025-2026 State and Regional Qualifying Time Standards, Women 11-12 LCM
+- USA Swimming 2024-2028 Motivational Standards (two-year age group), both genders, all
+  three courses (SCY/SCM/LCM), and every age group (10 & under, 11-12, 13-14, 15-16,
+  17-18), all events. Single-age standards are intentionally not used.
+- AZSI 2025-2026 State and Regional Qualifying Time Standards, Women 11-12 LCM (an Arizona
+  LSC layer that applies only to AZ 11-12 girls swimming long-course meters).
 
-The lookup uses the swimmer age parsed from the entry row. If a swimmer age, gender, course, state/LSC, or event is not configured, the app reports `not configured` rather than comparing against a nearby age group.
+The data file is generated from the official PDF by
+`scripts/extract_motivational_standards.py`. To adopt a new quad (2029-2032, etc.), drop
+the new age-group PDF into `docs/Sources/`, rerun that script, review the JSON diff, and
+commit — no parsing code changes.
+
+The lookup reads **gender** and **course** from the event name (USA Swimming psych/heat
+sheets label every event, e.g. "Girls 11-12 200 LC Meter Freestyle") and maps the
+swimmer's age (from the entry row) to its two-year band. If gender, course, age band, or
+event cannot be resolved, the app reports `not configured` rather than comparing against
+an inapplicable group.
 
 Calendar descriptions and result tables include a `Standards confidence` line:
 

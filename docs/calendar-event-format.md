@@ -233,7 +233,7 @@ When publishing through the Google Calendar API, use attendee email addresses pl
 
 Time standards are external reference data and must be versioned by season/source before use.
 
-- USA Swimming motivational standards: use the official 2024-2028 single-age standards unless the meet requires a different standard set.
+- USA Swimming motivational standards: use the official 2024-2028 two-year age-group standards unless the meet requires a different standard set.
 - Arizona Swimming standards: use the official AZSI qualifying standards for the meet season.
 
 Do not calculate benchmark lines until the swimmer's age, gender, course, event, and seed time have all been verified.
