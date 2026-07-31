@@ -12,7 +12,7 @@ three courses, both genders, and multiple age bands -- not just the original Gir
 
 import unittest
 
-from swimtimeline.standards import AZSI_11_12_GIRLS_LCM, MOTIVATIONAL_STANDARDS, TIER_ORDER, parse_time
+from swimtimeline.standards import AZSI_STANDARDS, MOTIVATIONAL_STANDARDS, TIER_ORDER, parse_time
 
 
 class MotivationalStandardsValueTest(unittest.TestCase):
@@ -94,50 +94,71 @@ class MotivationalStandardsStructureTest(unittest.TestCase):
 
 
 class AzsiStandardsValueTest(unittest.TestCase):
-    """Spot-checks for the Arizona LSC table against the official 2025-2026 AZSI Age Group
-    State and Regional Qualifying Time Standards (docs/Sources/azsi-*-2025-2026.pdf),
-    WOMEN 11-12 Long Course Meters.
-
-    The table had regressed to a gender-mixed state: seven events (50/100/200/800 free,
-    50 back, 50 breast, 50 fly) carried the MEN 11-12 cuts, plus a few stray typos. These
-    checks pin the corrected WOMEN values and guard the specific wrong ones that were live.
+    """Spot-checks for the AZSI (Arizona LSC) catalog against the official 2025-2026 AZSI Age
+    Group State and Regional Qualifying Time Standards (docs/Sources/azsi-*-2025-2026.pdf),
+    now broadened from 11-12 Girls LCM to all three courses (SCY/SCM/LCM), both genders, and
+    the three Age Group bands (10 & under, 11-12, 13-14). Values cross-checked against the raw
+    PDFs. The 15-18 Senior standards live in a separate document and are intentionally absent.
     """
 
-    def test_100_free_is_women_not_men(self):
-        # Was 1:11.99 (the MEN 11-12 state cut); the WOMEN cut is 1:09.89.
-        self.assertEqual(AZSI_11_12_GIRLS_LCM["100 free"]["state"], "1:09.89")
-        self.assertEqual(AZSI_11_12_GIRLS_LCM["100 free"]["regional"], "1:25.49")
+    def cut(self, course, gender, band, event):
+        return AZSI_STANDARDS[course][gender][band][event]
 
-    def test_50_free_is_women_not_men(self):
-        self.assertEqual(AZSI_11_12_GIRLS_LCM["50 free"]["state"], "31.99")
-        self.assertEqual(AZSI_11_12_GIRLS_LCM["50 free"]["regional"], "38.19")
+    # --- 11-12 Girls LCM: the previously-corrected slice must survive the broadening ---
+    def test_girls_lcm_11_12_100_free_stays_corrected(self):
+        # Last session's fix: was the MEN cut 1:11.99; correct WOMEN cut is 1:09.89.
+        self.assertEqual(self.cut("LCM", "girls", "11-12", "100 free"), {"state": "1:09.89", "regional": "1:25.49"})
 
-    def test_800_free_state_and_regional(self):
-        self.assertEqual(AZSI_11_12_GIRLS_LCM["800 free"]["state"], "11:34.19")
-        self.assertEqual(AZSI_11_12_GIRLS_LCM["800 free"]["regional"], "13:29.59")
+    def test_girls_lcm_11_12_400_im_stays_corrected(self):
+        self.assertEqual(self.cut("LCM", "girls", "11-12", "400 im"), {"state": "6:27.69", "regional": "7:16.29"})
 
-    def test_400_im_state_typo_fixed(self):
-        # State was 6:04.49 (matched no published row); correct value is 6:27.69.
-        self.assertEqual(AZSI_11_12_GIRLS_LCM["400 im"]["state"], "6:27.69")
+    def test_girls_lcm_11_12_50_free_stays_corrected(self):
+        self.assertEqual(self.cut("LCM", "girls", "11-12", "50 free"), {"state": "31.99", "regional": "38.19"})
 
-    def test_200_im_regional_typo_fixed(self):
-        # State (2:56.29) was already correct; regional was 3:31.59, should be 3:33.19.
-        self.assertEqual(AZSI_11_12_GIRLS_LCM["200 im"]["state"], "2:56.29")
-        self.assertEqual(AZSI_11_12_GIRLS_LCM["200 im"]["regional"], "3:33.19")
+    # --- New dimensions (Boys, SCY, SCM, 10 & under, 13-14) ---
+    def test_boys_scy_13_14_100_free(self):
+        self.assertEqual(self.cut("SCY", "boys", "13-14", "100 free"), {"state": "55.09", "regional": "1:06.29"})
 
-    def test_events_that_were_already_correct_stay_correct(self):
-        self.assertEqual(AZSI_11_12_GIRLS_LCM["100 back"]["state"], "1:21.09")
-        self.assertEqual(AZSI_11_12_GIRLS_LCM["100 breast"]["regional"], "1:54.59")
-        self.assertEqual(AZSI_11_12_GIRLS_LCM["400 free"]["state"], "5:25.79")
+    def test_boys_scm_13_14_200_im(self):
+        self.assertEqual(self.cut("SCM", "boys", "13-14", "200 im"), {"state": "2:31.99", "regional": "2:59.69"})
 
-    def test_state_cut_is_faster_than_regional_for_every_event(self):
+    def test_boys_lcm_10_and_under_50_free(self):
+        self.assertEqual(self.cut("LCM", "boys", "10 & under", "50 free"), {"state": "37.19", "regional": "46.69"})
+
+    def test_girls_scy_11_12_100_free(self):
+        self.assertEqual(self.cut("SCY", "girls", "11-12", "100 free"), {"state": "1:01.99", "regional": "1:13.59"})
+
+    def test_events_newly_added_within_11_12_girls_lcm(self):
+        # Events the old 13-event table omitted; now present.
+        self.assertEqual(self.cut("LCM", "girls", "11-12", "1500 free"), {"state": "22:47.09", "regional": "25:54.89"})
+        self.assertIn("200 back", AZSI_STANDARDS["LCM"]["girls"]["11-12"])
+
+    # --- Structural invariants ---
+    def test_covers_three_courses_two_genders_three_age_group_bands(self):
+        expected_bands = {"10 & under", "11-12", "13-14"}
+        for course in ("SCY", "SCM", "LCM"):
+            self.assertIn(course, AZSI_STANDARDS)
+            for gender in ("girls", "boys"):
+                self.assertEqual(set(AZSI_STANDARDS[course][gender]), expected_bands)
+
+    def test_senior_bands_are_absent_out_of_scope(self):
+        for course in AZSI_STANDARDS.values():
+            for gender in course.values():
+                self.assertNotIn("15-16", gender)
+                self.assertNotIn("17-18", gender)
+
+    def test_state_cut_is_faster_than_regional_for_every_cell(self):
         # Arizona rule: meeting the State cut removes Regional eligibility (swim up to State),
         # which only holds if State is the faster time everywhere.
-        for event, cuts in AZSI_11_12_GIRLS_LCM.items():
-            state, regional = parse_time(cuts["state"]), parse_time(cuts["regional"])
-            self.assertIsNotNone(state, event)
-            self.assertIsNotNone(regional, event)
-            self.assertLess(state, regional, f"{event}: state {cuts['state']} not faster than regional {cuts['regional']}")
+        for course, genders in AZSI_STANDARDS.items():
+            for gender, bands in genders.items():
+                for band, events in bands.items():
+                    for event, cuts in events.items():
+                        where = f"{course} {gender} {band} {event}"
+                        state, regional = parse_time(cuts["state"]), parse_time(cuts["regional"])
+                        self.assertIsNotNone(state, where)
+                        self.assertIsNotNone(regional, where)
+                        self.assertLess(state, regional, f"{where}: state {cuts['state']} not faster than regional {cuts['regional']}")
 
 
 if __name__ == "__main__":
