@@ -24,11 +24,11 @@ SOURCES = [
     },
     {
         "name": "AZSI 2025-2026 Age Group State Qualifying Time Standards",
-        "url": "https://www.azswimming.org/wp-content/uploads/2025/08/AZSI-Age-Group-State-Qualifying-Time-Standards-2025-2026.pdf",
+        "url": "https://www.azswimming.org/azswimming/UserFiles/File/azsi-age-group-state-qualifying-time-standards-2025-2026_080831.pdf",
     },
     {
         "name": "AZSI 2025-2026 Age Group Regional Qualifying Time Standards",
-        "url": "https://www.azswimming.org/wp-content/uploads/2025/09/AZSI-Age-Group-Regional-Qualifying-Time-Standards-2025-2026.pdf",
+        "url": "https://www.azswimming.org/azswimming/UserFiles/File/azsi-age-group-regional-qualifying-time-standards-2025-2026_068948.pdf",
     },
 ]
 
@@ -183,22 +183,31 @@ def load_advanced_catalog(path: Path = ADVANCED_STANDARDS_PATH) -> tuple[list[di
     return sources, normalized
 
 
-# Arizona LSC state/regional qualifying cuts (Women 11-12 LC Meters). This is a distinct
-# source from the national motivational standards and only covers AZ 11-12 girls in LCM.
+# Arizona LSC state/regional qualifying cuts, WOMEN 11-12 Long Course Meters, from the
+# 2025-2026 AZSI Age Group State and Regional Qualifying Time Standards (both effective
+# Sep 1, 2025 - Aug 31, 2026). This is a distinct source from the national motivational
+# standards. State cuts are faster than Regional cuts in every event; a swimmer who meets
+# the State cut is no longer eligible for Regionals in that event (they swim up to State),
+# which is what lookup() reports as "State met".
+#
+# Narrow scope (flagged, not expanded here): only 11-12, only girls, only LCM. The source
+# documents also publish 10-U and 13-14 bands, both genders, and SCY/SCM columns; and even
+# within 11-12 girls LCM they include four events omitted below (1500 free, 200 back,
+# 200 breast, 200 fly). Verified against docs/Sources/azsi-*-2025-2026.pdf.
 AZSI_11_12_GIRLS_LCM: dict[str, dict[str, str]] = {
-    "50 free": {"state": "32.59", "regional": "37.89"},
-    "100 free": {"state": "1:11.99", "regional": "1:24.79"},
-    "200 free": {"state": "2:39.39", "regional": "3:03.49"},
+    "50 free": {"state": "31.99", "regional": "38.19"},
+    "100 free": {"state": "1:09.89", "regional": "1:25.49"},
+    "200 free": {"state": "2:34.39", "regional": "3:11.29"},
     "400 free": {"state": "5:25.79", "regional": "6:23.39"},
-    "800 free": {"state": "11:52.49", "regional": "12:21.49"},
-    "50 back": {"state": "39.19", "regional": "47.19"},
+    "800 free": {"state": "11:34.19", "regional": "13:29.59"},
+    "50 back": {"state": "37.39", "regional": "46.99"},
     "100 back": {"state": "1:21.09", "regional": "1:42.19"},
-    "50 breast": {"state": "44.09", "regional": "53.19"},
+    "50 breast": {"state": "42.79", "regional": "51.99"},
     "100 breast": {"state": "1:33.79", "regional": "1:54.59"},
-    "50 fly": {"state": "36.39", "regional": "44.49"},
-    "100 fly": {"state": "1:22.79", "regional": "1:41.89"},
-    "200 im": {"state": "2:56.29", "regional": "3:31.59"},
-    "400 im": {"state": "6:04.49", "regional": "7:16.49"},
+    "50 fly": {"state": "35.89", "regional": "43.59"},
+    "100 fly": {"state": "1:21.59", "regional": "1:40.89"},
+    "200 im": {"state": "2:56.29", "regional": "3:33.19"},
+    "400 im": {"state": "6:27.69", "regional": "7:16.29"},
 }
 
 

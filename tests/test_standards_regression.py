@@ -12,7 +12,7 @@ three courses, both genders, and multiple age bands -- not just the original Gir
 
 import unittest
 
-from swimtimeline.standards import MOTIVATIONAL_STANDARDS, TIER_ORDER, parse_time
+from swimtimeline.standards import AZSI_11_12_GIRLS_LCM, MOTIVATIONAL_STANDARDS, TIER_ORDER, parse_time
 
 
 class MotivationalStandardsValueTest(unittest.TestCase):
@@ -91,6 +91,53 @@ class MotivationalStandardsStructureTest(unittest.TestCase):
             for tiers in events.values()
         )
         self.assertEqual(values, 3648)
+
+
+class AzsiStandardsValueTest(unittest.TestCase):
+    """Spot-checks for the Arizona LSC table against the official 2025-2026 AZSI Age Group
+    State and Regional Qualifying Time Standards (docs/Sources/azsi-*-2025-2026.pdf),
+    WOMEN 11-12 Long Course Meters.
+
+    The table had regressed to a gender-mixed state: seven events (50/100/200/800 free,
+    50 back, 50 breast, 50 fly) carried the MEN 11-12 cuts, plus a few stray typos. These
+    checks pin the corrected WOMEN values and guard the specific wrong ones that were live.
+    """
+
+    def test_100_free_is_women_not_men(self):
+        # Was 1:11.99 (the MEN 11-12 state cut); the WOMEN cut is 1:09.89.
+        self.assertEqual(AZSI_11_12_GIRLS_LCM["100 free"]["state"], "1:09.89")
+        self.assertEqual(AZSI_11_12_GIRLS_LCM["100 free"]["regional"], "1:25.49")
+
+    def test_50_free_is_women_not_men(self):
+        self.assertEqual(AZSI_11_12_GIRLS_LCM["50 free"]["state"], "31.99")
+        self.assertEqual(AZSI_11_12_GIRLS_LCM["50 free"]["regional"], "38.19")
+
+    def test_800_free_state_and_regional(self):
+        self.assertEqual(AZSI_11_12_GIRLS_LCM["800 free"]["state"], "11:34.19")
+        self.assertEqual(AZSI_11_12_GIRLS_LCM["800 free"]["regional"], "13:29.59")
+
+    def test_400_im_state_typo_fixed(self):
+        # State was 6:04.49 (matched no published row); correct value is 6:27.69.
+        self.assertEqual(AZSI_11_12_GIRLS_LCM["400 im"]["state"], "6:27.69")
+
+    def test_200_im_regional_typo_fixed(self):
+        # State (2:56.29) was already correct; regional was 3:31.59, should be 3:33.19.
+        self.assertEqual(AZSI_11_12_GIRLS_LCM["200 im"]["state"], "2:56.29")
+        self.assertEqual(AZSI_11_12_GIRLS_LCM["200 im"]["regional"], "3:33.19")
+
+    def test_events_that_were_already_correct_stay_correct(self):
+        self.assertEqual(AZSI_11_12_GIRLS_LCM["100 back"]["state"], "1:21.09")
+        self.assertEqual(AZSI_11_12_GIRLS_LCM["100 breast"]["regional"], "1:54.59")
+        self.assertEqual(AZSI_11_12_GIRLS_LCM["400 free"]["state"], "5:25.79")
+
+    def test_state_cut_is_faster_than_regional_for_every_event(self):
+        # Arizona rule: meeting the State cut removes Regional eligibility (swim up to State),
+        # which only holds if State is the faster time everywhere.
+        for event, cuts in AZSI_11_12_GIRLS_LCM.items():
+            state, regional = parse_time(cuts["state"]), parse_time(cuts["regional"])
+            self.assertIsNotNone(state, event)
+            self.assertIsNotNone(regional, event)
+            self.assertLess(state, regional, f"{event}: state {cuts['state']} not faster than regional {cuts['regional']}")
 
 
 if __name__ == "__main__":
