@@ -377,19 +377,30 @@ def page_column_for_line(page: int, line: str, fragments: list[Fragment]) -> str
 
 
 def parse_psych_line(line: str) -> PsychLine | None:
-    line, heat, round_name = normalize_entry_line(line)
-    
+    clean, heat, round_name = normalize_entry_line(line)
+    return parse_entry_fields(clean, heat, round_name)
+
+
+def parse_entry_fields(clean: str, heat: int | None, round_name: str | None) -> PsychLine | None:
+    """Parse an already-normalized entry row into a PsychLine.
+
+    ``heat``/``round_name`` are the resolved heat context for this row -- either a
+    header found on the row itself or one carried forward by the caller's cursor from
+    an earlier ``Heat N of M`` line in the same event. When a heat is in effect the row
+    comes from a heat sheet and the trailing number is the swimmer's lane; otherwise the
+    row is from a psych/seeded list and the trailing number is the seed place.
+    """
     match = re.search(
         r"(?P<team>[A-Z0-9-]+?)\s*"
         r"(?P<seed>(?:NT|(?:\d+:)?\d{1,2}\.\d{2}[A-Z]?))\s*"
         r"(?P<age>\d{1,2})\s*"
         r"(?P<name>.+?)\s*"
         r"(?P<place>\d+)\s*$",
-        line,
+        clean,
         flags=re.IGNORECASE,
     )
     if not match:
-        return parse_para_psych_line(line, heat, round_name)
+        return parse_para_psych_line(clean, heat, round_name)
     return PsychLine(
         team=match.group("team"),
         seed=match.group("seed"),
@@ -452,6 +463,73 @@ def normalize_entry_line(line: str) -> tuple[str, int | None, str | None]:
     return clean, heat, round_name
 
 
+# The heat number must be followed by whitespace, "(", or end of line -- never by a decimal
+# point -- so a swimmer row whose team code is literally "HEAT" ("HEAT 25.52 ..." with the
+# seed glued on) is not misread as a heat header.
+_HEAT_HEADER_RE = re.compile(r"^Heat\s+(?P<heat>\d+)(?=[\s(]|$)(?:\s+of\s+\d+)?\s*(?P<rest>.*)$", re.IGNORECASE)
+_EVENT_PAREN_RE = re.compile(r"\(\s*#\s*(?P<num>\d+)\s+(?P<name>[^)]+?)\s*\)")
+_SEED_TOKEN_RE = re.compile(r"(?:NT|(?:\d+:)?\d{1,2}\.\d{2})", re.IGNORECASE)
+# Used ONLY to peel a round word off the front of a concatenated header line so the first
+# swimmer's team code stays clean (e.g. "PrelimsSYS-FL 2:13..." -> round "Prelims", team
+# "SYS-FL"). Recognition of the heat header itself does NOT depend on this list. Each entry
+# ends in a fixed spelling (no optional trailing "s") so it can never swallow a team code's
+# leading letter; arbitrary/lettered round labels come through the own-line branch instead.
+_KNOWN_ROUND_RE = re.compile(
+    r"(?P<round>Timed\s+Finals|Prelims|Finals|Semi-?finals|Swim-?off)",
+    re.IGNORECASE,
+)
+
+
+@dataclass
+class HeatHeader:
+    heat: int
+    round_name: str | None
+    event_number: int | None
+    event_name: str | None
+    swimmer_remainder: str
+
+
+def parse_heat_header(clean: str) -> HeatHeader | None:
+    """Recognize a heat header purely from ``Heat N [of M] ...`` structure.
+
+    Everything after the heat number is treated as an OPAQUE round label -- it does not
+    have to match a known list, so "Prelims", "Timed Finals", and "C - Final" are all
+    recognized. A HY-TEK program may print the header on its own line (round label only) or
+    concatenate the heat's first swimmer onto the same line, and a "(#N Event Name)"
+    continuation reference may be present (it is how an event's later heats are labeled when
+    they spill onto a new page). Returns the heat number, round label, any event reference,
+    and the leftover swimmer text ("" when the header sits on its own line). Returns None
+    when the line is not a heat header.
+    """
+    match = _HEAT_HEADER_RE.match(clean)
+    if not match:
+        return None
+    heat = int(match.group("heat"))
+    rest = match.group("rest")
+
+    event_number = event_name = None
+    paren = _EVENT_PAREN_RE.search(rest)
+    if paren:
+        event_number = int(paren.group("num"))
+        event_name = normalize_event_header_name(paren.group("name").strip())
+        rest = normalize_space(rest[: paren.start()] + " " + rest[paren.end() :])
+
+    if not _SEED_TOKEN_RE.search(rest):
+        # Header on its own line: the whole remainder is the round label; no swimmer here.
+        return HeatHeader(heat, rest.strip() or None, event_number, event_name, "")
+
+    # A swimmer is concatenated onto this line. Peel a known round word off the front so the
+    # team code stays clean; if the label is unfamiliar, leave the row intact (best effort).
+    known = _KNOWN_ROUND_RE.match(rest)
+    if known:
+        round_name = known.group("round").strip()
+        remainder = rest[known.end() :].strip()
+    else:
+        round_name = None
+        remainder = rest.strip()
+    return HeatHeader(heat, round_name or None, event_number, event_name, remainder)
+
+
 def parse_psych_entry_line(
     line: str,
     patterns: Iterable[re.Pattern[str]],
@@ -495,17 +573,61 @@ def collect_psych_entries(
     page_counts: list[dict] = []
     auto_place_by_event: dict[int, int] = {}
 
+    # Heat sheets (HY-TEK Meet Programs) print a "Heat N [of M] <Round>" header per heat --
+    # sometimes on its own line, sometimes concatenated onto the first swimmer's row -- and
+    # the rest of the heat follows on bare rows with no heat marker. Two forward cursors
+    # carry context the way a reader's eye does:
+    #   * heat/round: so every swimmer in a heat gets its heat and lane, not just the first.
+    #   * event: so an event that spills across a page break -- where the next page begins
+    #     with a "Heat N (#event)" continuation header instead of a repeated "Event N" line
+    #     -- still associates its rows correctly. A page-scoped header lookup used to drop
+    #     those rows silently.
+    # The event cursor persists across pages; it is replaced by a new event header or by a
+    # continuation reference. The heat cursor is cleared by a new event header, an
+    # "Alternates" section, or the next heat header. Neither is cleared by page-break junk,
+    # so a heat or event split across a page boundary survives.
+    event_header_re = re.compile(r"(?:#|Event)\s*(\d+)\s+(.+)$", re.IGNORECASE)
+    current_event: tuple[int, str] | None = None
+    current_heat: int | None = None
+    current_round: str | None = None
+
     for page_number, text in enumerate(pages, start=1):
         lines = text.splitlines()
         count = 0
         for index, line in enumerate(lines):
-            row = parse_psych_line(line)
+            normalized = normalize_space(line)
+
+            event_match = event_header_re.match(normalized)
+            if event_match:
+                current_event = (int(event_match.group(1)), normalize_event_header_name(event_match.group(2)))
+                current_heat = None
+                current_round = None
+                continue
+
+            if re.match(r"Alternates?\b", normalized, flags=re.IGNORECASE):
+                # Finals-sheet alternates are not assigned to a heat; end the heat block.
+                current_heat = None
+                current_round = None
+                continue
+
+            heat_header = parse_heat_header(normalized)
+            if heat_header is not None:
+                current_heat = heat_header.heat
+                current_round = heat_header.round_name
+                if heat_header.event_number is not None:
+                    current_event = (heat_header.event_number, heat_header.event_name)
+                clean = heat_header.swimmer_remainder
+                if not clean:
+                    continue  # header on its own line; swimmers follow on later rows
+            else:
+                clean, _, _ = normalize_entry_line(line)
+
+            row = parse_entry_fields(clean, current_heat, current_round)
             if row is None:
                 continue
-            header = scan_event_header(lines, index)
-            if header is None:
+            if current_event is None:
                 continue
-            event_number, event_name = header
+            event_number, event_name = current_event
             seed_place = row.seed_place
             if seed_place <= 0:
                 seed_place = auto_place_by_event.get(event_number, 0) + 1
