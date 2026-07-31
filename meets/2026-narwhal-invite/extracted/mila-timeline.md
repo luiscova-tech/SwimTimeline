@@ -27,9 +27,9 @@ Benchmarks:
 
 | Event # | USA-S Motivational | AZSI |
 | ---: | --- | --- |
-| 17 | A; next AA 36.79 | State met; State 39.19, Regional 47.19 |
-| 23 | A; next AA 40.89 | State met; State 44.09, Regional 53.19 |
-| 25 | AAA; next AAAA 1:04.19 | State met; State 1:11.99, Regional 1:24.79 |
+| 17 | A; next AA 36.79 | State met; State 37.39, Regional 46.99 |
+| 23 | A; next AA 40.89 | State met; State 42.79, Regional 51.99 |
+| 25 | AAA; next AAAA 1:04.19 | State met; State 1:09.89, Regional 1:25.49 |
 
 ## Saturday, June 13, 2026
 
@@ -45,9 +45,9 @@ Benchmarks:
 
 | Event # | USA-S Motivational | AZSI |
 | ---: | --- | --- |
-| 41 | AAA; next AAAA 2:19.79 | State met; State 2:39.39, Regional 3:03.49 |
-| 43 | BB; next A 35.79 | State met; State 36.39, Regional 44.49 |
-| 51 | AAAA | State met; State 32.59, Regional 37.89 |
+| 41 | AAA; next AAAA 2:19.79 | State met; State 2:34.39, Regional 3:11.29 |
+| 43 | BB; next A 35.79 | Regional met; State target 35.89, Regional 43.59 |
+| 51 | AAAA | State met; State 31.99, Regional 38.19 |
 
 ## Sunday, June 14, 2026
 
@@ -61,7 +61,7 @@ Benchmarks:
 
 | Event # | USA-S Motivational | AZSI |
 | ---: | --- | --- |
-| 71 | A; next AA 11:14.89 | State met; State 11:52.49, Regional 12:21.49 |
+| 71 | A; next AA 11:14.89 | State met; State 11:34.19, Regional 13:29.59 |
 
 Check-in note: Event #71 is one of Events 53-72. The meet flyer says Events 53-72 are deck-seeded timed-final events and athletes must check in at the clerk of course before the start of warm-up for Session #7.
 
