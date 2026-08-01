@@ -57,16 +57,80 @@ class AzsiSeniorBoundaryTest(unittest.TestCase):
 
     def test_age_15_resolves_to_senior(self):
         result = lookup("Girls 15-16 100 LC Meter Freestyle", "1:02.00", state="AZ", age="15")
-        # State cut for Girls Senior LCM 100 free is 1:03.69; a 1:02.00 seed has met it.
+        # State cut for Girls Senior LCM 100 free is 1:03.69; a 1:02.00 seed has met it. Regional
+        # is suppressed once State is met (see AzsiRegionalSuppressionTest below).
         self.assertEqual(
             result.lsc_summary,
-            "AZSI Senior Girls LCM: State met; State 1:03.69, Regional 1:19.19",
+            "AZSI Senior Girls LCM: State met; State 1:03.69",
         )
         self.assertIn("AZSI verified", result.confidence_summary)
 
     def test_age_18_still_resolves_to_senior(self):
         result = lookup("Boys 17-18 50 Yard Freestyle", "24.00", state="AZ", age="18")
         self.assertIn("AZSI Senior Boys SCY", result.lsc_summary)
+
+
+class AzsiRegionalSuppressionTest(unittest.TestCase):
+    """Arizona's own eligibility rule: meeting the State cut in an event removes Regional
+    eligibility for that event entirely (the swimmer swims up to State). Showing a Regional value
+    once State is met would misstate an eligibility the swimmer no longer has, so lookup() drops
+    the Regional value/target from lsc_summary in that case -- not just a display preference.
+    When State is NOT met, Regional continues to show exactly as before (met or target).
+    Covers both the Age Group and Senior AZSI catalogs, which share this summary logic.
+    """
+
+    def test_state_met_suppresses_regional_entirely_age_group(self):
+        # Girls 11-12 LCM 50 Breast: State cut 42.79, Regional 51.99. A 39.50 seed meets State.
+        result = lookup("Girls 11-12 50 LC Meter Breaststroke", "39.50", state="AZ", age="12")
+        self.assertEqual(result.lsc_summary, "AZSI 11-12 Girls LCM: State met; State 42.79")
+        self.assertNotIn("Regional", result.lsc_summary)
+
+    def test_state_met_suppresses_regional_entirely_senior(self):
+        # Girls Senior LCM 100 Free: State cut 1:03.69, Regional 1:19.19. A 1:02.00 seed meets State.
+        result = lookup("Girls 15-16 100 LC Meter Freestyle", "1:02.00", state="AZ", age="15")
+        self.assertEqual(result.lsc_summary, "AZSI Senior Girls LCM: State met; State 1:03.69")
+        self.assertNotIn("Regional", result.lsc_summary)
+
+    def test_regional_met_but_not_state_still_shows_regional(self):
+        # Same event/cuts as above: a 45.00 seed misses State (42.79) but meets Regional (51.99).
+        result = lookup("Girls 11-12 50 LC Meter Breaststroke", "45.00", state="AZ", age="12")
+        self.assertEqual(
+            result.lsc_summary,
+            "AZSI 11-12 Girls LCM: Regional met; State target 42.79, Regional 51.99",
+        )
+
+    def test_neither_met_still_shows_both_as_targets(self):
+        # A 60.00 seed misses both cuts -- both remain visible as targets.
+        result = lookup("Girls 11-12 50 LC Meter Breaststroke", "60.00", state="AZ", age="12")
+        self.assertEqual(
+            result.lsc_summary,
+            "AZSI 11-12 Girls LCM: target State 42.79, Regional 51.99",
+        )
+
+    def test_all_twelve_wzag_combinations_show_state_met_with_no_regional(self):
+        # Regression pin for the 2026 WZAG Boise psych-sheet verification session: every one of
+        # Cova's and Stein's 6 events showed "State met" under the old format (which still listed
+        # Regional despite the swimmer no longer being Regional-eligible). All 12 must now show
+        # zero Regional line.
+        combos = [
+            ("Girls 11-12 50 LC Meter Breaststroke", "39.82", "12"),
+            ("Girls 11-12 100 LC Meter Freestyle", "1:03.41", "12"),
+            ("Girls 11-12 200 LC Meter Freestyle", "2:20.36", "12"),
+            ("Girls 11-12 100 LC Meter Breaststroke", "1:28.02", "12"),
+            ("Girls 11-12 400 LC Meter Freestyle", "4:54.19", "12"),
+            ("Girls 11-12 50 LC Meter Freestyle", "28.62", "12"),
+            ("Girls 13-14 800 LC Meter Freestyle", "9:45.52", "13"),
+            ("Girls 13-14 200 LC Meter Freestyle", "2:10.67", "13"),
+            ("Girls 13-14 100 LC Meter Butterfly", "1:10.99", "13"),
+            ("Girls 13-14 50 LC Meter Butterfly", "30.17", "13"),
+            ("Girls 13-14 400 LC Meter Freestyle", "4:40.52", "13"),
+            ("Girls 13-14 50 LC Meter Freestyle", "28.27", "13"),
+        ]
+        for event_name, seed_time, age in combos:
+            result = lookup(event_name, seed_time, state="AZ", age=age)
+            where = f"{event_name} seed={seed_time} age={age}"
+            self.assertIn("State met", result.lsc_summary, where)
+            self.assertNotIn("Regional", result.lsc_summary, where)
 
     def test_age_19_resolves_to_neither_layer(self):
         result = lookup("Girls 15-16 100 LC Meter Freestyle", "1:02.00", state="AZ", age="19")

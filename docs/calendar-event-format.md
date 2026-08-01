@@ -161,7 +161,7 @@ B/A finals if top 16 in age group. Finals session starts 5:30 PM.
 
 Benchmarks:
 USA-S {age} Girls LCM: achieved {tier}; next {next_tier} at {next_standard_time}
-AZSI 11-12 Girls LCM: Regional {regional_time} | State {state_time}
+AZSI 11-12 Girls LCM: State met; State {state_time}
 Standards confidence: USA-S verified, AZSI verified
 
 Source verification:
@@ -170,11 +170,20 @@ Timeline: event #31
 Relay source: n/a
 ```
 
+If the swimmer has not yet met the State cut, the AZSI line instead reads
+`AZSI 11-12 Girls LCM: Regional met; State target {state_time}, Regional {regional_time}`
+(Regional cut met) or `AZSI 11-12 Girls LCM: target State {state_time}, Regional {regional_time}`
+(neither cut met). Regional only ever appears in those two cases. Once State is met, Arizona's
+own eligibility rule removes Regional eligibility for that event (the swimmer swims up to State
+instead), so the Regional value is omitted entirely -- not just redundant -- rather than shown
+alongside a "State met" result.
+
 The benchmark line should include only the nearest useful standards, not the entire table. A good default is:
 
 - the swimmer's achieved tier, if any
 - the next faster USA Swimming motivational standard
-- the AZ Regional and State standards for the event, age group, gender, and course
+- the AZ State standard for the event, age group, gender, and course -- plus the Regional
+  standard too, but only if State has not yet been met
 
 ## Finals Notes
 

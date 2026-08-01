@@ -419,7 +419,11 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
         state_cut = parse_time(azsi["state"])
         regional_cut = parse_time(azsi["regional"])
         if state_cut is not None and seed_seconds <= state_cut:
-            lsc_summary = f"{azsi_label}: State met; State {azsi['state']}, Regional {azsi['regional']}"
+            # Arizona rule: meeting the State cut removes Regional eligibility for that event
+            # entirely (the swimmer swims up to State), so the Regional value is dropped here --
+            # not just redundant, showing it would misstate an eligibility the swimmer no longer
+            # has.
+            lsc_summary = f"{azsi_label}: State met; State {azsi['state']}"
         elif regional_cut is not None and seed_seconds <= regional_cut:
             lsc_summary = f"{azsi_label}: Regional met; State target {azsi['state']}, Regional {azsi['regional']}"
         else:
