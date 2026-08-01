@@ -76,6 +76,61 @@ class AzsiSeniorBoundaryTest(unittest.TestCase):
         result = lookup("Girls 15-16 100 LC Meter Freestyle", "1:02.00", state="CA", age="16")
         self.assertEqual(result.lsc_summary, "LSC: standards not configured for this state/event")
 
+
+class SectionalLookupTest(unittest.TestCase):
+    """Speedo Sectional targets: AZ swimmers, AGE-OPEN (both meet flyers gate eligibility purely
+    on qualifying time, no age floor/ceiling), both meets named individually and never merged into
+    a generic "Sectional". Reported on the dedicated sectional_summary line, separate from the AZSI
+    lsc_summary and absent from the confidence string.
+    """
+
+    def test_names_both_meets_individually_when_both_offer_the_event(self):
+        result = lookup("Girls 15-16 50 Yard Freestyle", "24.50", state="AZ", age="16")
+        self.assertIsNotNone(result.sectional_summary)
+        self.assertIn("Four Corners Spring Speedo Sectional: met 24.99", result.sectional_summary)
+        self.assertIn("Western Region Summer Speedo Sectional: met 24.99", result.sectional_summary)
+
+    def test_target_when_seed_is_slower_than_the_cut(self):
+        result = lookup("Girls 15-16 50 Yard Freestyle", "26.00", state="AZ", age="16")
+        self.assertIn("Four Corners Spring Speedo Sectional: target 24.99", result.sectional_summary)
+        self.assertIn("Western Region Summer Speedo Sectional: target 24.99", result.sectional_summary)
+
+    def test_fifty_of_stroke_shows_summer_meet_only(self):
+        # Four Corners omits the 50s of stroke, so only the Summer meet should appear.
+        result = lookup("Boys 17-18 50 Yard Backstroke", "25.00", state="AZ", age="17")
+        self.assertIn("Western Region Summer Speedo Sectional", result.sectional_summary)
+        self.assertNotIn("Four Corners", result.sectional_summary)
+
+    def test_age_open_below_the_senior_range_still_gets_sectional(self):
+        # Age-open: a 14-year-old AZ swimmer sees the Sectional target too (not just 15-18),
+        # while the AZSI Age Group LSC line stays on its own 13-14 band.
+        result = lookup("Girls 13-14 50 Yard Freestyle", "24.50", state="AZ", age="14")
+        self.assertIsNotNone(result.sectional_summary)
+        self.assertIn("Four Corners Spring Speedo Sectional: met 24.99", result.sectional_summary)
+        self.assertIn("AZSI 13-14 Girls SCY", result.lsc_summary)
+
+    def test_age_open_above_the_motivational_range_still_gets_sectional(self):
+        # A 19-year-old is past every USA-S/AZSI band, but Sectionals are age-open, so an AZ
+        # swimmer who met the time still sees the target -- the only benchmark that applies.
+        result = lookup("Girls 15-16 50 Yard Freestyle", "24.50", state="AZ", age="19")
+        self.assertIsNotNone(result.sectional_summary)
+        self.assertIn("Western Region Summer Speedo Sectional: met 24.99", result.sectional_summary)
+        self.assertEqual(result.lsc_summary, "LSC: standards not configured for this state/event")
+
+    def test_sectional_shows_even_when_age_is_unknown(self):
+        # Eligibility does not depend on age, so an unknown age does not suppress the target.
+        result = lookup("Girls 50 Yard Freestyle", "24.50", state="AZ", age=None)
+        self.assertIsNotNone(result.sectional_summary)
+
+    def test_sectional_is_arizona_only(self):
+        result = lookup("Girls 15-16 50 Yard Freestyle", "24.50", state="CA", age="16")
+        self.assertIsNone(result.sectional_summary)
+
+    def test_sectional_does_not_alter_the_confidence_line(self):
+        # Confidence tracks USA-S and LSC only; the Sectional line is reported separately.
+        result = lookup("Girls 15-16 50 Yard Freestyle", "24.50", state="AZ", age="16")
+        self.assertNotIn("ectional", result.confidence_summary)
+
     def test_reports_when_course_cannot_be_read_from_the_event_name(self):
         result = lookup("Girls 11-12 50 Breaststroke", "39.50", state="AZ", age="12")
 

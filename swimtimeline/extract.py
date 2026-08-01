@@ -1606,6 +1606,7 @@ def build_swim_events(
                 benchmarks={
                     "usa": standard.usa_summary,
                     "lsc": standard.lsc_summary,
+                    "sectional": standard.sectional_summary,
                     "advanced": standard.advanced_summary,
                     "confidence": standard.confidence_summary,
                 },
@@ -2246,7 +2247,7 @@ def summarize_relay(relay_event: RelayEvent) -> dict:
         "page": relay.page,
         "column": relay.source_label,
         "source_document": relay.source_label,
-        "benchmarks": {"usa": "n/a for relay", "lsc": "n/a for relay", "advanced": None, "confidence": "Standards confidence: n/a for relay"},
+        "benchmarks": {"usa": "n/a for relay", "lsc": "n/a for relay", "sectional": None, "advanced": None, "confidence": "Standards confidence: n/a for relay"},
         "finals_note": relay_event.finals_note,
         "event_format": "Timed final relay",
         "checkin_note": None,

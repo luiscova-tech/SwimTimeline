@@ -1,0 +1,815 @@
+{
+  "source": {
+    "name": "USA Swimming 2026 Speedo Championship Series -- Western Region Sectionals",
+    "program": "USA Swimming Speedo Championship Series (Sectionals)",
+    "effective": "2026 season",
+    "courses": [
+      "SCY",
+      "SCM",
+      "LCM"
+    ],
+    "tiers": [
+      "qualifying"
+    ],
+    "generator": "scripts/extract_sectional_standards.py",
+    "notes": "Two distinct Western-Region Sectional meets kept separately identifiable (never merged): four_corners_spring and western_region_summer. No age bands (open/senior cuts, one qualifying time per event/course/gender); no bonus standard. Relay events included. For the 2026 season the two meets share identical individual cutoffs; the Summer meet additionally lists the 50s of Back/Breast/Fly. Both meet flyers are age-open (eligibility is purely by qualifying time, no age floor or ceiling); standards.py applies these to Arizona swimmers of any age."
+  },
+  "meets": {
+    "four_corners_spring": {
+      "name": "Four Corners Spring Speedo Sectional",
+      "series": "2026 USA Swimming Speedo Championship Series",
+      "location": "Carmel Aquatic Center, Carmel, IN",
+      "dates": "2026-03-26 through 2026-03-29",
+      "qualifying_period": "2024-12-01 through close of entries",
+      "document": "sectional-four-corners-spring-standards-2026.pdf",
+      "url": "https://www.gomotionapp.com/azseals/__doc__/211074_4_2026-speedo-sectionals-four-corners-final.pdf",
+      "standards": {
+        "SCY": {
+          "girls": {
+            "50 free": {
+              "qualifying": "24.99"
+            },
+            "100 free": {
+              "qualifying": "53.71"
+            },
+            "200 free": {
+              "qualifying": "1:56.22"
+            },
+            "500 free": {
+              "qualifying": "5:13.17"
+            },
+            "1000 free": {
+              "qualifying": "10:52.09"
+            },
+            "1650 free": {
+              "qualifying": "18:19.78"
+            },
+            "100 back": {
+              "qualifying": "59.50"
+            },
+            "200 back": {
+              "qualifying": "2:07.80"
+            },
+            "100 breast": {
+              "qualifying": "1:08.46"
+            },
+            "200 breast": {
+              "qualifying": "2:29.07"
+            },
+            "100 fly": {
+              "qualifying": "58.86"
+            },
+            "200 fly": {
+              "qualifying": "2:12.26"
+            },
+            "200 im": {
+              "qualifying": "2:11.81"
+            },
+            "400 im": {
+              "qualifying": "4:39.34"
+            },
+            "200 free relay": {
+              "qualifying": "1:44.69"
+            },
+            "400 free relay": {
+              "qualifying": "3:49.09"
+            },
+            "800 free relay": {
+              "qualifying": "8:14.49"
+            },
+            "200 medley relay": {
+              "qualifying": "1:56.29"
+            },
+            "400 medley relay": {
+              "qualifying": "4:09.49"
+            }
+          },
+          "boys": {
+            "50 free": {
+              "qualifying": "22.41"
+            },
+            "100 free": {
+              "qualifying": "48.46"
+            },
+            "200 free": {
+              "qualifying": "1:45.84"
+            },
+            "500 free": {
+              "qualifying": "4:49.98"
+            },
+            "1000 free": {
+              "qualifying": "10:10.58"
+            },
+            "1650 free": {
+              "qualifying": "17:13.16"
+            },
+            "100 back": {
+              "qualifying": "54.42"
+            },
+            "200 back": {
+              "qualifying": "1:58.45"
+            },
+            "100 breast": {
+              "qualifying": "1:01.53"
+            },
+            "200 breast": {
+              "qualifying": "2:15.19"
+            },
+            "100 fly": {
+              "qualifying": "53.46"
+            },
+            "200 fly": {
+              "qualifying": "2:00.94"
+            },
+            "200 im": {
+              "qualifying": "1:59.85"
+            },
+            "400 im": {
+              "qualifying": "4:18.37"
+            },
+            "200 free relay": {
+              "qualifying": "1:32.99"
+            },
+            "400 free relay": {
+              "qualifying": "3:25.49"
+            },
+            "800 free relay": {
+              "qualifying": "7:38.69"
+            },
+            "200 medley relay": {
+              "qualifying": "1:44.69"
+            },
+            "400 medley relay": {
+              "qualifying": "3:47.49"
+            }
+          }
+        },
+        "SCM": {
+          "girls": {
+            "50 free": {
+              "qualifying": "27.76"
+            },
+            "100 free": {
+              "qualifying": "59.04"
+            },
+            "200 free": {
+              "qualifying": "2:07.92"
+            },
+            "400 free": {
+              "qualifying": "4:29.34"
+            },
+            "800 free": {
+              "qualifying": "9:27.35"
+            },
+            "1500 free": {
+              "qualifying": "18:07.11"
+            },
+            "100 back": {
+              "qualifying": "1:06.33"
+            },
+            "200 back": {
+              "qualifying": "2:22.78"
+            },
+            "100 breast": {
+              "qualifying": "1:15.15"
+            },
+            "200 breast": {
+              "qualifying": "2:43.68"
+            },
+            "100 fly": {
+              "qualifying": "1:04.55"
+            },
+            "200 fly": {
+              "qualifying": "2:26.43"
+            },
+            "200 im": {
+              "qualifying": "2:25.85"
+            },
+            "400 im": {
+              "qualifying": "5:07.75"
+            },
+            "200 free relay": {
+              "qualifying": "1:56.89"
+            },
+            "400 free relay": {
+              "qualifying": "4:12.14"
+            },
+            "800 free relay": {
+              "qualifying": "9:10.46"
+            },
+            "200 medley relay": {
+              "qualifying": "2:10.99"
+            },
+            "400 medley relay": {
+              "qualifying": "4:44.93"
+            }
+          },
+          "boys": {
+            "50 free": {
+              "qualifying": "24.72"
+            },
+            "100 free": {
+              "qualifying": "53.27"
+            },
+            "200 free": {
+              "qualifying": "1:56.48"
+            },
+            "400 free": {
+              "qualifying": "4:10.18"
+            },
+            "800 free": {
+              "qualifying": "8:53.74"
+            },
+            "1500 free": {
+              "qualifying": "16:53.43"
+            },
+            "100 back": {
+              "qualifying": "1:00.66"
+            },
+            "200 back": {
+              "qualifying": "2:12.65"
+            },
+            "100 breast": {
+              "qualifying": "1:07.35"
+            },
+            "200 breast": {
+              "qualifying": "2:27.80"
+            },
+            "100 fly": {
+              "qualifying": "59.43"
+            },
+            "200 fly": {
+              "qualifying": "2:14.37"
+            },
+            "200 im": {
+              "qualifying": "2:12.30"
+            },
+            "400 im": {
+              "qualifying": "4:45.76"
+            },
+            "200 free relay": {
+              "qualifying": "1:43.78"
+            },
+            "400 free relay": {
+              "qualifying": "3:46.85"
+            },
+            "800 free relay": {
+              "qualifying": "8:26.70"
+            },
+            "200 medley relay": {
+              "qualifying": "1:55.50"
+            },
+            "400 medley relay": {
+              "qualifying": "4:15.75"
+            }
+          }
+        },
+        "LCM": {
+          "girls": {
+            "50 free": {
+              "qualifying": "28.44"
+            },
+            "100 free": {
+              "qualifying": "1:01.26"
+            },
+            "200 free": {
+              "qualifying": "2:12.75"
+            },
+            "400 free": {
+              "qualifying": "4:43.21"
+            },
+            "800 free": {
+              "qualifying": "9:48.19"
+            },
+            "1500 free": {
+              "qualifying": "18:54.49"
+            },
+            "100 back": {
+              "qualifying": "1:09.54"
+            },
+            "200 back": {
+              "qualifying": "2:29.20"
+            },
+            "100 breast": {
+              "qualifying": "1:20.46"
+            },
+            "200 breast": {
+              "qualifying": "2:54.86"
+            },
+            "100 fly": {
+              "qualifying": "1:06.87"
+            },
+            "200 fly": {
+              "qualifying": "2:32.74"
+            },
+            "200 im": {
+              "qualifying": "2:32.19"
+            },
+            "400 im": {
+              "qualifying": "5:21.68"
+            },
+            "200 free relay": {
+              "qualifying": "1:59.29"
+            },
+            "400 free relay": {
+              "qualifying": "4:17.29"
+            },
+            "800 free relay": {
+              "qualifying": "9:21.69"
+            },
+            "200 medley relay": {
+              "qualifying": "2:13.39"
+            },
+            "400 medley relay": {
+              "qualifying": "4:48.39"
+            }
+          },
+          "boys": {
+            "50 free": {
+              "qualifying": "25.79"
+            },
+            "100 free": {
+              "qualifying": "55.89"
+            },
+            "200 free": {
+              "qualifying": "2:02.20"
+            },
+            "400 free": {
+              "qualifying": "4:23.21"
+            },
+            "800 free": {
+              "qualifying": "9:19.51"
+            },
+            "1500 free": {
+              "qualifying": "17:45.59"
+            },
+            "100 back": {
+              "qualifying": "1:04.26"
+            },
+            "200 back": {
+              "qualifying": "2:20.40"
+            },
+            "100 breast": {
+              "qualifying": "1:13.70"
+            },
+            "200 breast": {
+              "qualifying": "2:40.88"
+            },
+            "100 fly": {
+              "qualifying": "1:00.97"
+            },
+            "200 fly": {
+              "qualifying": "2:20.25"
+            },
+            "200 im": {
+              "qualifying": "2:19.28"
+            },
+            "400 im": {
+              "qualifying": "5:00.19"
+            },
+            "200 free relay": {
+              "qualifying": "1:46.89"
+            },
+            "400 free relay": {
+              "qualifying": "3:54.59"
+            },
+            "800 free relay": {
+              "qualifying": "8:43.99"
+            },
+            "200 medley relay": {
+              "qualifying": "1:59.69"
+            },
+            "400 medley relay": {
+              "qualifying": "4:23.39"
+            }
+          }
+        }
+      }
+    },
+    "western_region_summer": {
+      "name": "Western Region Summer Speedo Sectional",
+      "series": "2026 USA Swimming Speedo Championship Series",
+      "location": "Idaho Central Aquatic Center, Boise, ID",
+      "dates": "2026-07-16 through 2026-07-19",
+      "qualifying_period": "2025-06-01 through close of entries",
+      "document": "sectional-western-region-summer-standards-2026.pdf",
+      "url": "https://www.gomotionapp.com/wzone/UserFiles/Image/QuickUpload/2026-speedo-sectionals---vtime-standards_099437.pdf",
+      "standards": {
+        "SCY": {
+          "girls": {
+            "50 free": {
+              "qualifying": "24.99"
+            },
+            "100 free": {
+              "qualifying": "53.71"
+            },
+            "200 free": {
+              "qualifying": "1:56.22"
+            },
+            "500 free": {
+              "qualifying": "5:13.17"
+            },
+            "1000 free": {
+              "qualifying": "10:52.09"
+            },
+            "1650 free": {
+              "qualifying": "18:19.78"
+            },
+            "50 back": {
+              "qualifying": "27.29"
+            },
+            "100 back": {
+              "qualifying": "59.50"
+            },
+            "200 back": {
+              "qualifying": "2:07.80"
+            },
+            "50 breast": {
+              "qualifying": "30.69"
+            },
+            "100 breast": {
+              "qualifying": "1:08.46"
+            },
+            "200 breast": {
+              "qualifying": "2:29.07"
+            },
+            "50 fly": {
+              "qualifying": "26.69"
+            },
+            "100 fly": {
+              "qualifying": "58.86"
+            },
+            "200 fly": {
+              "qualifying": "2:12.26"
+            },
+            "200 im": {
+              "qualifying": "2:11.81"
+            },
+            "400 im": {
+              "qualifying": "4:39.34"
+            },
+            "200 free relay": {
+              "qualifying": "1:44.69"
+            },
+            "400 free relay": {
+              "qualifying": "3:49.09"
+            },
+            "800 free relay": {
+              "qualifying": "8:14.49"
+            },
+            "200 medley relay": {
+              "qualifying": "1:56.29"
+            },
+            "400 medley relay": {
+              "qualifying": "4:09.49"
+            }
+          },
+          "boys": {
+            "50 free": {
+              "qualifying": "22.41"
+            },
+            "100 free": {
+              "qualifying": "48.46"
+            },
+            "200 free": {
+              "qualifying": "1:45.84"
+            },
+            "500 free": {
+              "qualifying": "4:49.98"
+            },
+            "1000 free": {
+              "qualifying": "10:10.58"
+            },
+            "1650 free": {
+              "qualifying": "17:13.16"
+            },
+            "50 back": {
+              "qualifying": "24.49"
+            },
+            "100 back": {
+              "qualifying": "54.42"
+            },
+            "200 back": {
+              "qualifying": "1:58.45"
+            },
+            "50 breast": {
+              "qualifying": "27.19"
+            },
+            "100 breast": {
+              "qualifying": "1:01.53"
+            },
+            "200 breast": {
+              "qualifying": "2:15.19"
+            },
+            "50 fly": {
+              "qualifying": "23.69"
+            },
+            "100 fly": {
+              "qualifying": "53.46"
+            },
+            "200 fly": {
+              "qualifying": "2:00.94"
+            },
+            "200 im": {
+              "qualifying": "1:59.85"
+            },
+            "400 im": {
+              "qualifying": "4:18.37"
+            },
+            "200 free relay": {
+              "qualifying": "1:32.99"
+            },
+            "400 free relay": {
+              "qualifying": "3:25.49"
+            },
+            "800 free relay": {
+              "qualifying": "7:38.69"
+            },
+            "200 medley relay": {
+              "qualifying": "1:44.69"
+            },
+            "400 medley relay": {
+              "qualifying": "3:47.49"
+            }
+          }
+        },
+        "SCM": {
+          "girls": {
+            "50 free": {
+              "qualifying": "27.76"
+            },
+            "100 free": {
+              "qualifying": "59.04"
+            },
+            "200 free": {
+              "qualifying": "2:07.92"
+            },
+            "400 free": {
+              "qualifying": "4:29.34"
+            },
+            "800 free": {
+              "qualifying": "9:27.35"
+            },
+            "1500 free": {
+              "qualifying": "18:07.11"
+            },
+            "50 back": {
+              "qualifying": "30.30"
+            },
+            "100 back": {
+              "qualifying": "1:06.33"
+            },
+            "200 back": {
+              "qualifying": "2:22.78"
+            },
+            "50 breast": {
+              "qualifying": "33.75"
+            },
+            "100 breast": {
+              "qualifying": "1:15.15"
+            },
+            "200 breast": {
+              "qualifying": "2:43.68"
+            },
+            "50 fly": {
+              "qualifying": "29.24"
+            },
+            "100 fly": {
+              "qualifying": "1:04.55"
+            },
+            "200 fly": {
+              "qualifying": "2:26.43"
+            },
+            "200 im": {
+              "qualifying": "2:25.85"
+            },
+            "400 im": {
+              "qualifying": "5:07.75"
+            },
+            "200 free relay": {
+              "qualifying": "1:56.89"
+            },
+            "400 free relay": {
+              "qualifying": "4:12.14"
+            },
+            "800 free relay": {
+              "qualifying": "9:10.46"
+            },
+            "200 medley relay": {
+              "qualifying": "2:10.99"
+            },
+            "400 medley relay": {
+              "qualifying": "4:44.93"
+            }
+          },
+          "boys": {
+            "50 free": {
+              "qualifying": "24.72"
+            },
+            "100 free": {
+              "qualifying": "53.27"
+            },
+            "200 free": {
+              "qualifying": "1:56.48"
+            },
+            "400 free": {
+              "qualifying": "4:10.18"
+            },
+            "800 free": {
+              "qualifying": "8:53.74"
+            },
+            "1500 free": {
+              "qualifying": "16:53.43"
+            },
+            "50 back": {
+              "qualifying": "27.22"
+            },
+            "100 back": {
+              "qualifying": "1:00.66"
+            },
+            "200 back": {
+              "qualifying": "2:12.65"
+            },
+            "50 breast": {
+              "qualifying": "29.64"
+            },
+            "100 breast": {
+              "qualifying": "1:07.35"
+            },
+            "200 breast": {
+              "qualifying": "2:27.80"
+            },
+            "50 fly": {
+              "qualifying": "26.45"
+            },
+            "100 fly": {
+              "qualifying": "59.43"
+            },
+            "200 fly": {
+              "qualifying": "2:14.37"
+            },
+            "200 im": {
+              "qualifying": "2:12.30"
+            },
+            "400 im": {
+              "qualifying": "4:45.76"
+            },
+            "200 free relay": {
+              "qualifying": "1:43.78"
+            },
+            "400 free relay": {
+              "qualifying": "3:46.85"
+            },
+            "800 free relay": {
+              "qualifying": "8:26.70"
+            },
+            "200 medley relay": {
+              "qualifying": "1:55.50"
+            },
+            "400 medley relay": {
+              "qualifying": "4:15.75"
+            }
+          }
+        },
+        "LCM": {
+          "girls": {
+            "50 free": {
+              "qualifying": "28.44"
+            },
+            "100 free": {
+              "qualifying": "1:01.26"
+            },
+            "200 free": {
+              "qualifying": "2:12.75"
+            },
+            "400 free": {
+              "qualifying": "4:43.21"
+            },
+            "800 free": {
+              "qualifying": "9:48.19"
+            },
+            "1500 free": {
+              "qualifying": "18:54.49"
+            },
+            "50 back": {
+              "qualifying": "31.49"
+            },
+            "100 back": {
+              "qualifying": "1:09.54"
+            },
+            "200 back": {
+              "qualifying": "2:29.20"
+            },
+            "50 breast": {
+              "qualifying": "35.59"
+            },
+            "100 breast": {
+              "qualifying": "1:20.46"
+            },
+            "200 breast": {
+              "qualifying": "2:54.86"
+            },
+            "50 fly": {
+              "qualifying": "30.29"
+            },
+            "100 fly": {
+              "qualifying": "1:06.87"
+            },
+            "200 fly": {
+              "qualifying": "2:32.74"
+            },
+            "200 im": {
+              "qualifying": "2:32.19"
+            },
+            "400 im": {
+              "qualifying": "5:21.68"
+            },
+            "200 free relay": {
+              "qualifying": "1:59.29"
+            },
+            "400 free relay": {
+              "qualifying": "4:17.29"
+            },
+            "800 free relay": {
+              "qualifying": "9:21.69"
+            },
+            "200 medley relay": {
+              "qualifying": "2:13.39"
+            },
+            "400 medley relay": {
+              "qualifying": "4:48.39"
+            }
+          },
+          "boys": {
+            "50 free": {
+              "qualifying": "25.79"
+            },
+            "100 free": {
+              "qualifying": "55.89"
+            },
+            "200 free": {
+              "qualifying": "2:02.20"
+            },
+            "400 free": {
+              "qualifying": "4:23.21"
+            },
+            "800 free": {
+              "qualifying": "9:19.51"
+            },
+            "1500 free": {
+              "qualifying": "17:45.59"
+            },
+            "50 back": {
+              "qualifying": "28.69"
+            },
+            "100 back": {
+              "qualifying": "1:04.26"
+            },
+            "200 back": {
+              "qualifying": "2:20.40"
+            },
+            "50 breast": {
+              "qualifying": "31.99"
+            },
+            "100 breast": {
+              "qualifying": "1:13.70"
+            },
+            "200 breast": {
+              "qualifying": "2:40.88"
+            },
+            "50 fly": {
+              "qualifying": "27.39"
+            },
+            "100 fly": {
+              "qualifying": "1:00.97"
+            },
+            "200 fly": {
+              "qualifying": "2:20.25"
+            },
+            "200 im": {
+              "qualifying": "2:19.28"
+            },
+            "400 im": {
+              "qualifying": "5:00.19"
+            },
+            "200 free relay": {
+              "qualifying": "1:46.89"
+            },
+            "400 free relay": {
+              "qualifying": "3:54.59"
+            },
+            "800 free relay": {
+              "qualifying": "8:43.99"
+            },
+            "200 medley relay": {
+              "qualifying": "1:59.69"
+            },
+            "400 medley relay": {
+              "qualifying": "4:23.39"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -12,10 +12,14 @@ three courses, both genders, and multiple age bands -- not just the original Gir
 
 import unittest
 
+import json
+
 from swimtimeline.standards import (
     AZSI_SENIOR_STANDARDS,
     AZSI_STANDARDS,
     MOTIVATIONAL_STANDARDS,
+    SECTIONAL_MEETS,
+    SECTIONAL_STANDARDS_PATH,
     TIER_ORDER,
     parse_time,
 )
@@ -245,6 +249,92 @@ class AzsiSeniorStandardsStructureTest(unittest.TestCase):
                     self.assertIsNotNone(state, where)
                     self.assertIsNotNone(regional, where)
                     self.assertLess(state, regional, f"{where}: state {cuts['state']} not faster than regional {cuts['regional']}")
+
+
+class SectionalStandardsValueTest(unittest.TestCase):
+    """Spot-checks for the Speedo Sectional catalog against the official 2026 documents
+    (docs/Sources/sectional-*-standards-2026.pdf). Two distinct meets, no age bands, one
+    qualifying cut per event/course/gender (no bonus), relays included. Values cross-checked
+    against the raw PDFs.
+    """
+
+    def setUp(self):
+        self.meets = {m["key"]: m for m in SECTIONAL_MEETS}
+        self.raw = json.loads(SECTIONAL_STANDARDS_PATH.read_text(encoding="utf-8"))
+
+    def cut(self, meet_key, course, gender, event):
+        return self.meets[meet_key]["standards"][course][gender][event]
+
+    def test_both_meets_present_and_distinct(self):
+        self.assertEqual(set(self.meets), {"four_corners_spring", "western_region_summer"})
+        fc = self.raw["meets"]["four_corners_spring"]
+        wr = self.raw["meets"]["western_region_summer"]
+        # Distinct identity: different names, dates, venues, qualifying periods -- not merged.
+        self.assertNotEqual(fc["name"], wr["name"])
+        self.assertNotEqual(fc["dates"], wr["dates"])
+        self.assertNotEqual(fc["location"], wr["location"])
+        self.assertNotEqual(fc["qualifying_period"], wr["qualifying_period"])
+        self.assertEqual(fc["dates"], "2026-03-26 through 2026-03-29")
+        self.assertEqual(wr["dates"], "2026-07-16 through 2026-07-19")
+
+    def test_four_corners_individual_values(self):
+        self.assertEqual(self.cut("four_corners_spring", "SCY", "girls", "50 free"), {"qualifying": "24.99"})
+        self.assertEqual(self.cut("four_corners_spring", "SCY", "boys", "50 free"), {"qualifying": "22.41"})
+        self.assertEqual(self.cut("four_corners_spring", "LCM", "girls", "400 im"), {"qualifying": "5:21.68"})
+
+    def test_western_region_individual_values(self):
+        self.assertEqual(self.cut("western_region_summer", "SCY", "girls", "50 free"), {"qualifying": "24.99"})
+        self.assertEqual(self.cut("western_region_summer", "SCM", "boys", "200 free"), {"qualifying": "1:56.48"})
+
+    def test_relay_events_are_captured(self):
+        self.assertEqual(self.cut("four_corners_spring", "SCY", "girls", "200 free relay"), {"qualifying": "1:44.69"})
+        self.assertEqual(self.cut("four_corners_spring", "SCY", "girls", "400 medley relay"), {"qualifying": "4:09.49"})
+
+    def test_shared_events_are_identical_across_the_two_meets(self):
+        # For 2026 the two meets publish the same cutoffs on every shared event; this pins that
+        # so a future single-meet re-extraction that drifts one of them is caught.
+        fc = self.meets["four_corners_spring"]["standards"]
+        wr = self.meets["western_region_summer"]["standards"]
+        for course in ("SCY", "SCM", "LCM"):
+            for gender in ("girls", "boys"):
+                shared = set(fc[course][gender]) & set(wr[course][gender])
+                for event in shared:
+                    self.assertEqual(fc[course][gender][event], wr[course][gender][event], f"{course} {gender} {event}")
+
+    def test_only_summer_meet_lists_the_50s_of_stroke(self):
+        fc = self.meets["four_corners_spring"]["standards"]["SCY"]["girls"]
+        wr = self.meets["western_region_summer"]["standards"]["SCY"]["girls"]
+        for event in ("50 back", "50 breast", "50 fly"):
+            self.assertNotIn(event, fc, f"Four Corners unexpectedly lists {event}")
+            self.assertIn(event, wr, f"Western Region missing {event}")
+        self.assertEqual(wr["50 back"], {"qualifying": "27.29"})
+
+
+class SectionalStandardsStructureTest(unittest.TestCase):
+    def setUp(self):
+        self.meets = {m["key"]: m for m in SECTIONAL_MEETS}
+
+    def test_event_counts_per_meet(self):
+        # Four Corners: 19 events; Western Region Summer: 22 (adds the three 50s of stroke).
+        for course in ("SCY", "SCM", "LCM"):
+            for gender in ("girls", "boys"):
+                self.assertEqual(len(self.meets["four_corners_spring"]["standards"][course][gender]), 19)
+                self.assertEqual(len(self.meets["western_region_summer"]["standards"][course][gender]), 22)
+
+    def test_every_cell_is_a_single_qualifying_time_no_bonus(self):
+        for meet in self.meets.values():
+            for course, genders in meet["standards"].items():
+                for gender, events in genders.items():
+                    for event, cell in events.items():
+                        where = f"{meet['key']} {course} {gender} {event}"
+                        self.assertEqual(set(cell), {"qualifying"}, where)  # no "bonus" tier
+                        self.assertIsNotNone(parse_time(cell["qualifying"]), where)
+
+    def test_no_age_band_keys(self):
+        for meet in self.meets.values():
+            for course, genders in meet["standards"].items():
+                for gender in ("girls", "boys"):
+                    self.assertEqual(set(genders[gender]) & {"10 & under", "11-12", "13-14", "15-16", "17-18"}, set())
 
 
 if __name__ == "__main__":
