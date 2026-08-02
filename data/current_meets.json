@@ -11,6 +11,7 @@
       "state": "ID",
       "timezone": "America/Boise",
       "venue": "Idaho Central Aquatic Center, 3575 S. Findley Ave., Boise, ID 83705",
+      "timeline_type": "projected",
       "status": "ready",
       "last_updated": "2026-08-02",
       "featured": true,
@@ -35,7 +36,7 @@
         "Meet flyer",
         "Event order",
         "Psych/heat sheet",
-        "Projected timeline"
+        "Timeline"
       ]
     },
     {
@@ -48,6 +49,7 @@
       "expires_at": "2026-07-27",
       "state": "AZ",
       "timezone": "America/Phoenix",
+      "timeline_type": "final",
       "status": "ready",
       "last_updated": "2026-07-29",
       "featured": true,
@@ -69,7 +71,7 @@
       "documents": [
         "Meet flyer",
         "Psych/heat sheet",
-        "Final timeline"
+        "Timeline"
       ],
       "relay_options": [
         {
@@ -115,6 +117,7 @@
       "expires_at": "2026-06-15",
       "state": "AZ",
       "timezone": "America/Phoenix",
+      "timeline_type": "final",
       "status": "ready",
       "featured": true,
       "featured_until": "2026-06-15",
@@ -129,7 +132,7 @@
       "documents": [
         "Meet flyer",
         "Psych/heat sheet",
-        "Final timeline"
+        "Timeline"
       ]
     },
     {
@@ -143,6 +146,7 @@
       "state": "FL",
       "timezone": "America/New_York",
       "venue": "Selby Aquatic Center, Sarasota, FL",
+      "timeline_type": "final",
       "status": "ready",
       "files": {
         "flyer": "meets/2026-shark-open/input/2026-shark-open-flyer.pdf",
@@ -153,7 +157,7 @@
       "documents": [
         "Meet flyer",
         "Psych/heat sheet",
-        "Final timeline"
+        "Timeline"
       ]
     }
   ]

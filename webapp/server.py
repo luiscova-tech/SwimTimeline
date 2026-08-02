@@ -181,6 +181,10 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         # when the meet's own flyer/timeline PDFs don't name a facility, so a non-AZ meet no
         # longer inherits a hardcoded Arizona address. None -> "Meet facility" (never a wrong one).
         meet_venue = meet.get("venue") or None
+        # Whether this meet's timeline is a settled final schedule or a pre-meet projection. Drives
+        # STATUS:CONFIRMED vs STATUS:TENTATIVE and a per-event caveat in the generated calendar.
+        # Anything not explicitly "projected" (including absent) is treated as final.
+        timeline_projected = meet.get("timeline_type") == "projected"
         files = meet.get("files", {})
         flyer_path = resolve_repo_file(files.get("flyer"), required=False, label="Meet Flyer")
         psych_path = resolve_repo_file(files.get("psych"), required=True, label="Psych Sheet or Heat Sheet")
@@ -204,6 +208,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             estimate_heat_lanes=estimate_heat_lanes,
             meet_timezone=meet_timezone,
             meet_venue=meet_venue,
+            timeline_projected=timeline_projected,
         )
         result["run_id"] = run_id
         result["current_meet_id"] = meet_id
@@ -473,6 +478,7 @@ def analyze_swimmer_set(
     estimate_heat_lanes: bool,
     meet_timezone: str | None = None,
     meet_venue: str | None = None,
+    timeline_projected: bool = False,
 ) -> dict:
     if len(swimmer_names) == 1:
         return analyze_uploads(
@@ -488,6 +494,7 @@ def analyze_swimmer_set(
             estimate_heat_lanes=estimate_heat_lanes,
             meet_timezone=meet_timezone,
             meet_venue=meet_venue,
+            timeline_projected=timeline_projected,
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -512,6 +519,7 @@ def analyze_swimmer_set(
             estimate_heat_lanes=estimate_heat_lanes,
             meet_timezone=meet_timezone,
             meet_venue=meet_venue,
+            timeline_projected=timeline_projected,
         )
         result["output_subdir"] = subdir_name
         result["files"] = {key: f"{subdir_name}/{name}" for key, name in result["files"].items()}
@@ -821,7 +829,7 @@ def public_current_meet(meet: dict) -> dict:
         "expires_at": meet.get("expires_at"),
         "state": meet.get("state"),
         "status": meet.get("status"),
-        "documents": meet.get("documents", []),
+        "documents": document_labels(meet),
         "missing_documents": missing_documents,
         "readiness": meet_readiness_items(files, missing_documents, relay_options, status),
         "rules_summary": meet.get("rules_summary", []),
@@ -845,6 +853,22 @@ def default_status_note(status: str, is_ready_for_lookup: bool) -> str:
     if status == "schedule-only":
         return "This meet's schedule is posted, but automatic calendar generation isn't available for this meet yet."
     return "Calendar generation will unlock after the psych/heat sheet and timeline are added."
+
+
+def timeline_document_label(meet: dict) -> str:
+    # Single source of truth: the displayed wording is computed from timeline_type, not stored
+    # as its own independent string, so the two can no longer drift apart. Anything not
+    # explicitly "projected" (including absent) reads as a final timeline, matching how
+    # timeline_projected defaults to False everywhere else this field is used.
+    return "Projected timeline" if meet.get("timeline_type") == "projected" else "Final timeline"
+
+
+def document_labels(meet: dict) -> list[str]:
+    # data/current_meets.json stores a neutral "Timeline" placeholder in the documents checklist;
+    # here it's expanded to the real "Projected timeline"/"Final timeline" wording derived from
+    # timeline_type. Any other entry (Meet flyer, Event order, Psych/heat sheet, Meet packet,
+    # Schedule source, ...) passes through unchanged.
+    return [timeline_document_label(meet) if label == "Timeline" else label for label in meet.get("documents", [])]
 
 
 def missing_current_meet_documents(files: dict) -> list[str]:

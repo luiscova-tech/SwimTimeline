@@ -72,6 +72,52 @@ class ScheduleOnlyReadinessTest(unittest.TestCase):
         self.assertTrue(server.public_current_meet(meet)["is_ready_for_lookup"])
 
 
+class TimelineDocumentLabelTest(unittest.TestCase):
+    """The 'Projected timeline'/'Final timeline' checklist wording is derived from timeline_type,
+    not stored as its own independent string -- data/current_meets.json stores a neutral
+    "Timeline" placeholder, expanded here, so the two facts can't drift apart.
+    """
+
+    def test_projected_timeline_type_expands_to_projected_label(self):
+        self.assertEqual(server.timeline_document_label({"timeline_type": "projected"}), "Projected timeline")
+
+    def test_final_timeline_type_expands_to_final_label(self):
+        self.assertEqual(server.timeline_document_label({"timeline_type": "final"}), "Final timeline")
+
+    def test_missing_timeline_type_defaults_to_final_label(self):
+        # Matches timeline_projected defaulting to False everywhere else this field is used.
+        self.assertEqual(server.timeline_document_label({}), "Final timeline")
+
+    def test_document_labels_expands_the_placeholder_and_passes_other_entries_through(self):
+        meet = {"timeline_type": "projected", "documents": ["Meet flyer", "Psych/heat sheet", "Timeline"]}
+
+        self.assertEqual(server.document_labels(meet), ["Meet flyer", "Psych/heat sheet", "Projected timeline"])
+
+    def test_real_wzag_entry_shows_projected_label_from_timeline_type(self):
+        meet = server.resolve_current_meet("2026-wzag-championships-boise")
+
+        self.assertEqual(meet["timeline_type"], "projected")
+        self.assertIn("Projected timeline", server.public_current_meet(meet)["documents"])
+        self.assertNotIn("Final timeline", server.public_current_meet(meet)["documents"])
+
+    def test_real_narwhal_entry_shows_final_label_from_timeline_type(self):
+        meet = server.resolve_current_meet("2026-narwhal-invite")
+
+        self.assertEqual(meet["timeline_type"], "final")
+        self.assertIn("Final timeline", server.public_current_meet(meet)["documents"])
+        self.assertNotIn("Projected timeline", server.public_current_meet(meet)["documents"])
+
+    def test_real_para_nationals_entry_has_no_computed_timeline_label(self):
+        # Schedule-only meet: its documents use different vocabulary ("Schedule source") and
+        # carries no timeline_type at all, so nothing here should be expanded or invented.
+        meet = server.resolve_current_meet("2026-para-nationals")
+
+        documents = server.public_current_meet(meet)["documents"]
+        self.assertNotIn("Final timeline", documents)
+        self.assertNotIn("Projected timeline", documents)
+        self.assertIn("Schedule source", documents)
+
+
 class UploadErrorMessageTest(unittest.TestCase):
     def test_upload_field_labels_cover_all_document_fields(self):
         self.assertEqual(server.UPLOAD_FIELD_LABELS["psych_pdf"], "Psych Sheet or Heat Sheet")

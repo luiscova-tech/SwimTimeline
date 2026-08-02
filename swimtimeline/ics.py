@@ -132,7 +132,10 @@ def build_ics(data: dict) -> str:
         add_line(lines, f"DTEND;TZID={tzid}:{local_dt(event['end'])}")
         add_line(lines, f"LOCATION:{escape_text(event['location'])}")
         add_line(lines, f"DESCRIPTION:{escape_text(description)}")
-        add_line(lines, "STATUS:CONFIRMED")
+        # CONFIRMED for a settled final timeline; TENTATIVE for a pre-meet projected timeline
+        # whose times may still shift. Defaults to CONFIRMED so anything not explicitly marked
+        # projected is unchanged.
+        add_line(lines, f"STATUS:{event.get('status', 'CONFIRMED')}")
         add_line(lines, "TRANSP:OPAQUE")
         add_line(lines, "END:VEVENT")
 

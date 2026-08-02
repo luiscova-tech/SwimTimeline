@@ -22,6 +22,14 @@ from .standards import SOURCES, lookup
 DEFAULT_TZ = "America/Phoenix"
 DEFAULT_STATE = "AZ"
 
+# Added to every calendar event's description when the meet's timeline is a pre-meet projection
+# (timeline_type == "projected") rather than a settled final timeline. Mirrors the meet-level
+# banner but on each individual event, and pairs with STATUS:TENTATIVE in the generated .ics.
+PROJECTED_TIMELINE_NOTE = (
+    "Heads up: these times come from a pre-meet projected timeline and may still shift; "
+    "confirm against the final meet timeline once it is posted."
+)
+
 # One representative IANA zone per state/DC, used only as a fallback when a
 # meet record has no explicit "timezone". Several states straddle two zones
 # (FL and ID panhandles; also TX, KS, NE, SD, ND, OR, MI, IN, KY, TN county
@@ -1748,8 +1756,10 @@ def build_detailed_payload(
     relays: list[RelayEvent],
     day_numbers: dict[date, int],
     timezone: str = DEFAULT_TZ,
+    timeline_projected: bool = False,
 ) -> dict:
     events: list[dict] = []
+    event_status = "TENTATIVE" if timeline_projected else "CONFIRMED"
     swimmer_slug = swimmer_uid_part(swimmer_name)
     for swim in sorted(swims, key=lambda item: item.timeline.start):
         psych = swim.psych
@@ -1767,9 +1777,15 @@ def build_detailed_payload(
             f"Seed time: {psych.seed_time}",
             entry_position_line(psych),
             f"Timeline event window: {display_window(timeline.start, timeline.end)}",
-            "",
-            f"Finals: {swim.finals_note}",
         ]
+        if timeline_projected:
+            lines.append(PROJECTED_TIMELINE_NOTE)
+        lines.extend(
+            [
+                "",
+                f"Finals: {swim.finals_note}",
+            ]
+        )
         if swim.checkin_note:
             lines.append(f"Check-in: {swim.checkin_note}")
         lines.extend(
@@ -1801,6 +1817,7 @@ def build_detailed_payload(
                 "end": timeline.end.isoformat(timespec="seconds"),
                 "location": location_for_session(timeline),
                 "description_lines": lines,
+                "status": event_status,
             }
         )
     for relay_event in sorted(relays, key=lambda item: item.timeline.start):
@@ -1824,6 +1841,7 @@ def build_detailed_payload(
             "Important:",
             "- Relay lineup and timing may change; confirm with coach or official postings.",
             "- Timeline-derived relay windows are estimates.",
+            *(["- " + PROJECTED_TIMELINE_NOTE] if timeline_projected else []),
             "",
             f"Finals: {relay_event.finals_note}",
             "",
@@ -1842,6 +1860,7 @@ def build_detailed_payload(
                 "end": timeline.end.isoformat(timespec="seconds"),
                 "location": location_for_session(timeline),
                 "description_lines": lines,
+                "status": event_status,
             }
         )
     events.sort(key=lambda event: event["start"])
@@ -1861,8 +1880,10 @@ def build_daily_payload(
     relays: list[RelayEvent],
     sessions: dict[int, SessionInfo],
     timezone: str = DEFAULT_TZ,
+    timeline_projected: bool = False,
 ) -> dict:
     events: list[dict] = []
+    event_status = "TENTATIVE" if timeline_projected else "CONFIRMED"
     by_day: dict[date, list[SwimEvent | RelayEvent]] = {}
     for swim in swims:
         by_day.setdefault(swim.timeline.date, []).append(swim)
@@ -1909,8 +1930,12 @@ def build_daily_payload(
             f"Meet start: {display_time(session_start)}",
             f"Pool/course: {location_for_session(first.timeline)}; entry sheet lists events as LC Meter",
             "",
-            f"{possessive_name(swimmer_name)} swims:",
         ]
+        # Kept inside the weekend view's inherited slice (description_lines[9:]) so the whole-meet
+        # calendar carries the same projection caveat per day.
+        if timeline_projected:
+            lines.extend([PROJECTED_TIMELINE_NOTE, ""])
+        lines.append(f"{possessive_name(swimmer_name)} swims:")
         for item in day_items:
             if isinstance(item, RelayEvent):
                 relay = item.relay
@@ -1962,6 +1987,7 @@ def build_daily_payload(
                 "end": max(item.timeline.end for item in day_items).isoformat(timespec="seconds"),
                 "location": location_for_session(first.timeline),
                 "description_lines": lines,
+                "status": event_status,
             }
         )
     return {
@@ -1980,9 +2006,13 @@ def build_weekend_payload(
     relays: list[RelayEvent],
     sessions: dict[int, SessionInfo],
     timezone: str = DEFAULT_TZ,
+    timeline_projected: bool = False,
 ) -> dict:
     swimmer_slug = swimmer_uid_part(swimmer_name)
-    daily = build_daily_payload(meet_id, meet_name, short_name, swimmer_name, swims, relays, sessions, timezone=timezone)["events"]
+    daily = build_daily_payload(
+        meet_id, meet_name, short_name, swimmer_name, swims, relays, sessions,
+        timezone=timezone, timeline_projected=timeline_projected,
+    )["events"]
     if not daily:
         return {"calendar": {"name": f"{swimmer_name} - {short_name} Weekend", "timezone": timezone}, "events": []}
     start = min(datetime.fromisoformat(event["start"]) for event in daily)
@@ -2001,6 +2031,7 @@ def build_weekend_payload(
                 "end": end.isoformat(timespec="seconds"),
                 "location": "Multiple meet facilities",
                 "description_lines": lines,
+                "status": "TENTATIVE" if timeline_projected else "CONFIRMED",
             }
         ],
     }
@@ -2116,6 +2147,7 @@ def analyze_uploads(
     estimate_heat_lanes: bool = False,
     meet_timezone: str | None = None,
     meet_venue: str | None = None,
+    timeline_projected: bool = False,
 ) -> dict:
     resolved_timezone = meet_timezone or resolve_meet_timezone(state)
     flyer_text = "\n".join(extract_text_pages(flyer_pdf)) if flyer_pdf else ""
@@ -2144,6 +2176,7 @@ def analyze_uploads(
             relays,
             sessions,
             timezone=resolved_timezone,
+            timeline_projected=timeline_projected,
         )
     if "weekend" in selected_modes:
         selected_payloads["weekend"] = build_weekend_payload(
@@ -2155,6 +2188,7 @@ def analyze_uploads(
             relays,
             sessions,
             timezone=resolved_timezone,
+            timeline_projected=timeline_projected,
         )
     if "detailed" in selected_modes:
         selected_payloads["detailed"] = build_detailed_payload(
@@ -2166,6 +2200,7 @@ def analyze_uploads(
             relays,
             day_numbers_for_items(swims, relays),
             timezone=resolved_timezone,
+            timeline_projected=timeline_projected,
         )
     files = write_outputs(output_dir, meet_name, output_swimmer_name, entries, swims, relays, page_counts, selected_payloads)
 
