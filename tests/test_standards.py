@@ -207,34 +207,77 @@ class SectionalLookupTest(unittest.TestCase):
 
 
 class BeyondAAAAAdvancedSummaryTest(unittest.TestCase):
-    """Once USA-S hits AAAA, advanced_summary shows only the single next unmet national
-    standard -- the same "just the next rung" pattern used everywhere else (e.g. "AA; next AAA
-    39.09") -- not the whole remaining ladder with a trailing "then ..." list.
+    """Once USA-S hits AAAA, advanced_summary shows only the single next unmet elite standard --
+    the same "just the next rung" pattern used everywhere else (e.g. "AA; next AAA 39.09"), no
+    trailing "then ..." list. The rung is sourced from the live AZ Sectional + national datasets
+    (data/sectional_standards.json + data/national_standards.json), NOT the legacy generic
+    data/advanced_standards.json -- so for an AZ swimmer the next rung after AAAA is the real
+    Four Corners / Western Region Summer Sectional cut, not the stale national max reference.
     """
 
+    SECTIONAL = "Four Corners Spring Speedo Sectional / Western Region Summer Speedo Sectional"
+
     def test_shows_only_the_next_rung_with_no_trailing_then_list(self):
-        # Girls LCM 100 Free at AAAA: next rung is Speedo Sectionals 1:00.69.
+        # Girls LCM 100 Free at AAAA: the real AZ Sectional cut is 1:01.26 (both meets), not the
+        # old advanced_standards.json "Speedo Sectionals" 1:00.69 national reference.
         result = lookup("Girls 11-12 100 LC Meter Freestyle", "1:03.41", state="AZ", age="12")
 
         self.assertEqual(result.usa_summary, "USA-S 11-12 Girls LCM: AAAA")
-        self.assertEqual(result.advanced_summary, "Beyond AAAA: next Speedo Sectionals 1:00.69")
+        self.assertEqual(result.advanced_summary, f"Beyond AAAA: next {self.SECTIONAL} 1:01.26")
         self.assertNotIn("then", result.advanced_summary)
+        self.assertNotIn("28.09", result.advanced_summary)
 
-    def test_all_three_wzag_cova_aaaa_events_show_a_single_rung(self):
-        # Regression pin for the 2026 WZAG Boise psych-sheet verification session: Cova's three
-        # AAAA events (100 Free, 400 Free, 50 Free) must each show exactly one "Beyond AAAA: next
-        # ..." line, with nothing after it.
+    def test_all_three_wzag_cova_aaaa_events_route_through_real_az_sectional(self):
+        # Regression pin for the 2026 WZAG Boise verification session: Cova's three AAAA events
+        # each show one "Beyond AAAA: next ..." line whose value is the real AZ Four Corners /
+        # Western Region Summer Sectional cut (identical across the two meets for 2026).
         combos = [
-            ("Girls 11-12 100 LC Meter Freestyle", "1:03.41", "Beyond AAAA: next Speedo Sectionals 1:00.69"),
-            ("Girls 11-12 400 LC Meter Freestyle", "4:54.19", "Beyond AAAA: next Speedo Sectionals 4:35.29"),
-            ("Girls 11-12 50 LC Meter Freestyle", "28.62", "Beyond AAAA: next Speedo Sectionals 28.09"),
+            ("Girls 11-12 100 LC Meter Freestyle", "1:03.41", "1:01.26"),
+            ("Girls 11-12 400 LC Meter Freestyle", "4:54.19", "4:43.21"),
+            ("Girls 11-12 50 LC Meter Freestyle", "28.62", "28.44"),
         ]
-        for event_name, seed_time, expected in combos:
+        for event_name, seed_time, sectional_time in combos:
             result = lookup(event_name, seed_time, state="AZ", age="12")
             where = f"{event_name} seed={seed_time}"
             self.assertEqual(result.usa_summary, "USA-S 11-12 Girls LCM: AAAA", where)
-            self.assertEqual(result.advanced_summary, expected, where)
+            self.assertEqual(result.advanced_summary, f"Beyond AAAA: next {self.SECTIONAL} {sectional_time}", where)
             self.assertNotIn("then", result.advanced_summary, where)
+
+    def test_next_rung_advances_to_national_once_the_sectional_cut_is_beaten(self):
+        # A 28.20 seed is faster than the 28.44 AZ Sectional cut, so the next unmet rung is the
+        # next-hardest elite standard -- the national TYR Futures 27.39 -- not the Sectional.
+        result = lookup("Girls 11-12 50 LC Meter Freestyle", "28.20", state="AZ", age="12")
+        self.assertEqual(result.advanced_summary, "Beyond AAAA: next TYR Futures Championships 27.39")
+
+    def test_beyond_aaaa_string_drives_the_advanced_verified_confidence_bucket(self):
+        # lookup() classifies the confidence tag off the "Beyond AAAA" prefix; pin that coupling so
+        # a future reword of the summary can't silently drop it to "advanced partial".
+        result = lookup("Girls 11-12 50 LC Meter Freestyle", "28.62", state="AZ", age="12")
+        self.assertIn("advanced verified", result.confidence_summary)
+
+    def test_two_national_meets_sharing_a_cut_are_named_together(self):
+        # A 26.30 seed sits between rungs where Toyota Nationals and U.S. Open both list 26.19;
+        # the joined-name logic must name both (and works for national ties, not just sectionals).
+        result = lookup("Girls 11-12 50 LC Meter Freestyle", "26.30", state="AZ", age="12")
+        self.assertEqual(
+            result.advanced_summary,
+            "Beyond AAAA: next Toyota National Championships / Toyota U.S. Open Championships 26.19",
+        )
+
+    def test_beating_every_rung_reports_met_all_and_drops_to_advanced_partial(self):
+        # Faster than the hardest configured cut: distinct "met all" message, and the confidence
+        # bucket falls to "advanced partial" (it no longer starts with "Beyond AAAA").
+        result = lookup("Girls 11-12 50 LC Meter Freestyle", "20.00", state="AZ", age="12")
+        self.assertEqual(result.advanced_summary, "Advanced standards loaded; swimmer has met all configured targets")
+        self.assertIn("advanced partial", result.confidence_summary)
+
+    def test_non_az_swimmer_gets_national_rungs_only_no_az_sectional(self):
+        # The AZ Sectional rung is Arizona-only; a non-AZ swimmer's ladder is national-only, so
+        # the next rung is TYR Futures, never Four Corners / Western Region.
+        result = lookup("Girls 11-12 50 LC Meter Freestyle", "28.62", state="CA", age="12")
+        self.assertEqual(result.advanced_summary, "Beyond AAAA: next TYR Futures Championships 27.39")
+        self.assertNotIn("Four Corners", result.advanced_summary)
+        self.assertNotIn("Western Region", result.advanced_summary)
 
 
 if __name__ == "__main__":

@@ -1552,6 +1552,28 @@ def entry_source_label(entry: PsychEntry) -> str:
     return "Heat sheet" if entry.heat is not None else "Psych/entry sheet"
 
 
+def entry_column_display(column: str | None) -> str:
+    """The user-facing psych-sheet column word ('Left'/'Middle'/'Right'), or '' when it wasn't
+    located. "Unknown" is an internal parsing state -- page_column_for_line() couldn't resolve the
+    entry's x-position to a column -- and is never shown to families; callers omit the column
+    entirely instead of surfacing a meaningless "unknown column"."""
+    if not column or column.strip().lower() == "unknown":
+        return ""
+    return column.strip()
+
+
+def entry_column_clause(column: str | None) -> str:
+    """The ', <left/middle/right> column' suffix for a source line, or '' when not known."""
+    word = entry_column_display(column)
+    return f", {word.lower()} column" if word else ""
+
+
+def entry_source_line(entry: PsychEntry) -> str:
+    """Parent-facing 'where this entry came from' line: source + page, plus the column only when it
+    was actually located on the page."""
+    return f"{entry_source_label(entry)}: page {entry.page}{entry_column_clause(entry.column)}"
+
+
 def event_format_label(swim: SwimEvent) -> str:
     if swim.timing_rule:
         return "Timed final"
@@ -1804,7 +1826,7 @@ def build_detailed_payload(
             [
                 "",
                 "Source verification:",
-                f"{entry_source_label(psych)}: page {psych.page}, {psych.column.lower()} column",
+                entry_source_line(psych),
                 f"Timeline: event #{psych.event_number}",
                 "Relay source: n/a",
             ]
@@ -2104,7 +2126,7 @@ def build_audit(
         else:
             position = f"seed place {psych.seed_place}"
         lines.append(
-            f"| {swim.timeline.date.strftime('%A')} | {psych.event_number} | {psych.event_name} | {event_format_label(swim)} | {psych.seed_time} | {position} | {psych.page} | {psych.column} | {entry_source_label(psych)} |"
+            f"| {swim.timeline.date.strftime('%A')} | {psych.event_number} | {psych.event_name} | {event_format_label(swim)} | {psych.seed_time} | {position} | {psych.page} | {entry_column_display(psych.column)} | {entry_source_label(psych)} |"
         )
     lines.extend(["", "## Verified Relays", ""])
     if relays:
@@ -2259,7 +2281,7 @@ def summarize_swim(swim: SwimEvent) -> dict:
         "day": swim.timeline.date.strftime("%A"),
         "window": display_window(swim.timeline.start, swim.timeline.end),
         "page": swim.psych.page,
-        "column": swim.psych.column,
+        "column": entry_column_display(swim.psych.column),
         "benchmarks": swim.benchmarks,
         "finals_note": swim.finals_note,
         "checkin_note": swim.checkin_note,

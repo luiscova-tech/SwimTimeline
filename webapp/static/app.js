@@ -529,7 +529,7 @@ function renderResult(payload) {
       : seedDetails(swim);
     const sourceCell = swim.type === "relay"
       ? `page ${swim.page}<br>${escapeHtml(swim.source_document || "relay document")}`
-      : `page ${swim.page}<br>${escapeHtml(swim.source_document || "entry sheet")}<br>${escapeHtml(swim.column)} column`;
+      : `page ${swim.page}<br>${escapeHtml(swim.source_document || "entry sheet")}${swim.column ? `<br>${escapeHtml(swim.column)} column` : ""}`;
     row.innerHTML = `
       <td data-col="day" data-label="Day">${escapeHtml(swim.day)}</td>
       <td data-col="event" data-label="Event">${swimmerChip(swim, payload)}<strong>#${swim.event_number}${swim.type === "relay" ? " Relay" : ""}</strong>${escapeHtml(swim.event_name)}<br>${escapeHtml(swim.event_format || "")}</td>
