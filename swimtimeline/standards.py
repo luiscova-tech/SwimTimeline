@@ -46,7 +46,45 @@ SOURCES = [
         "name": "2026 Western Region Summer Speedo Sectional Qualifying Time Standards",
         "url": "https://www.gomotionapp.com/wzone/UserFiles/Image/QuickUpload/2026-speedo-sectionals---vtime-standards_099437.pdf",
     },
+    {
+        "name": "2026 TYR Futures Championships Time Standards",
+        "url": "https://www.usaswimming.org/docs/default-source/timesdocuments/time-standards/2026/2026_tyrfutureschampionships_timestandards-2.pdf",
+    },
+    {
+        "name": "2026 Speedo Summer Junior National Championships Time Standards",
+        "url": "https://www.usaswimming.org/docs/default-source/timesdocuments/time-standards/2026/2026_speedojuniornationalchampionships_timestandards.pdf",
+    },
+    {
+        "name": "2026 Toyota National Championships Time Standards",
+        "url": "https://www.usaswimming.org/docs/default-source/timesdocuments/time-standards/2026/18077640025_events_2026_toyotanationalchampionships_timestandards.pdf",
+    },
+    {
+        "name": "2026 Speedo Winter Junior Championships Time Standards",
+        "url": "https://swimstandards.com/times/2026-speedo-winter-junior-championships-time-standards",
+    },
+    {
+        "name": "2026 Toyota U.S. Open Time Standards",
+        "url": "https://swimstandards.com/times/2026-toyota-us-open-time-standards",
+    },
 ]
+
+# National elite standards (Futures, Toyota Nationals, Summer/Winter Juniors, U.S. Open) are open
+# to any USA Swimming member nationally -- NOT LSC-scoped like AZSI/Sectional, which only apply to
+# Arizona swimmers. Age eligibility was verified against each meet's own announcement, not assumed:
+#   - Futures / Toyota Nationals: no meet-wide age floor or ceiling. Their standards split into
+#     two age brackets (18 & Under / 19 & Over) that together cover every age with no gap --
+#     which bracket's cutoff to compare against, not who may enter.
+#   - Summer Juniors / Winter Juniors: a real meet-wide ceiling -- "all athletes at the meet must
+#     be 18 or under on the first day of the meet" -- covering both their Qualifying and Bonus
+#     tiers (there is only one eligible population), unlike the age-open Sectional/Futures/Toyota
+#     Nationals layers. Each meet's own age_ceiling (loaded from its JSON entry) carries this.
+#   - Toyota U.S. Open: its Qualifying tier is age-open (no ceiling), but its Bonus tier alone is
+#     18-and-under -- the one meet here where the two tiers have different age gates, tracked via
+#     bonus_age_ceiling separately from age_ceiling.
+# Winter Juniors and U.S. Open's official PDFs have zero extractable text (font glyphs rendered as
+# vector outlines, confirmed with both pypdf and pdfplumber, no OCR tooling in this project), so
+# both were instead sourced from swimstandards.com and saved as local CSV fixtures -- see
+# scripts/extract_national_standards.py for the full extraction/verification notes.
 
 # AZSI Senior standards apply to ages 15-18 within this app: the AZSI Age Group bands cover 14
 # and under, and the app's benchmark scope tops out at 18 (USA-S motivational bands end at
@@ -74,6 +112,9 @@ class StandardResult:
     # None when out of scope (non-AZ, or the event has no Sectional cut). New and last so existing
     # positional constructions stay valid.
     sectional_summary: str | None = None
+    # National elite targets (Futures, Toyota Nationals, Summer Juniors), any state/LSC. None
+    # when out of scope (Summer Juniors' 18-and-under ceiling, or the event has no national cut).
+    national_summary: str | None = None
 
 
 def parse_time(value: str) -> float | None:
@@ -189,6 +230,7 @@ MOTIVATIONAL_STANDARDS_PATH = ROOT / "data" / "motivational_standards.json"
 AZSI_STANDARDS_PATH = ROOT / "data" / "azsi_standards.json"
 AZSI_SENIOR_STANDARDS_PATH = ROOT / "data" / "azsi_senior_standards.json"
 SECTIONAL_STANDARDS_PATH = ROOT / "data" / "sectional_standards.json"
+NATIONAL_STANDARDS_PATH = ROOT / "data" / "national_standards.json"
 ADVANCED_STANDARDS_PATH = ROOT / "data" / "advanced_standards.json"
 
 
@@ -235,6 +277,33 @@ def load_sectional_meets(path: Path = SECTIONAL_STANDARDS_PATH) -> list[dict]:
     return meets
 
 
+def load_national_meets(path: Path = NATIONAL_STANDARDS_PATH) -> list[dict]:
+    """Load the national elite meets as an ordered list of {key, name, kind, standards, ...} dicts.
+
+    ``kind`` is "age_bracket" (Futures, Toyota Nationals -- standards nest an extra bracket level,
+    course -> gender -> bracket -> event -> {qualifying}) or "flat_bonus" (Summer/Winter Juniors,
+    U.S. Open -- course -> gender -> event -> {qualifying, bonus}, no bracket). flat_bonus meets
+    also carry "age_ceiling" (the Qualifying tier's age cap, None if age-open) and
+    "bonus_age_ceiling" (the Bonus tier's own cap -- U.S. Open's differs from its Qualifying cap:
+    the Qualifying tier is age-open but Bonus is 18-and-under only). Each meet keeps its own
+    catalog, never merged, so lookup() can name them individually.
+    """
+    if not path.exists():
+        return []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    meets = []
+    for key, meet in data.get("meets", {}).items():
+        meets.append({
+            "key": key,
+            "name": meet.get("name", key),
+            "kind": "age_bracket" if "age_brackets" in meet else "flat_bonus",
+            "standards": meet.get("standards", {}),
+            "age_ceiling": meet.get("age_ceiling"),
+            "bonus_age_ceiling": meet.get("bonus_age_ceiling"),
+        })
+    return meets
+
+
 def load_advanced_catalog(path: Path = ADVANCED_STANDARDS_PATH) -> tuple[list[dict], dict[str, list[dict[str, str]]]]:
     if not path.exists():
         return [], {}
@@ -265,10 +334,18 @@ def load_advanced_catalog(path: Path = ADVANCED_STANDARDS_PATH) -> tuple[list[di
 # and Western Region Summer -- each course -> gender -> event -> {qualifying}, kept separate so
 # lookup() can name them individually. These are a tier above LSC (zone/section level), so they
 # report on their own StandardResult.sectional_summary line rather than folding into lsc_summary.
+#
+# National elite standards (USA Swimming championship series) layer on top for ANY state/LSC --
+# not Arizona-scoped -- from data/national_standards.json (generated by
+# scripts/extract_national_standards.py). Five meets: Futures and Toyota Nationals (age-bracket
+# shape, no meet-wide age gate) and Summer Juniors, Winter Juniors, and U.S. Open (flat-plus-bonus
+# shape, each carrying its own age_ceiling/bonus_age_ceiling -- see load_national_meets). Reported
+# on their own StandardResult.national_summary line, named individually per meet like Sectionals.
 MOTIVATIONAL_STANDARDS = load_motivational_catalog()
 AZSI_STANDARDS = load_azsi_catalog()
 AZSI_SENIOR_STANDARDS = load_azsi_senior_catalog()
 SECTIONAL_MEETS = load_sectional_meets()
+NATIONAL_MEETS = load_national_meets()
 ADVANCED_SOURCES, ADVANCED_LADDER = load_advanced_catalog()
 SOURCES.extend(ADVANCED_SOURCES)
 
@@ -341,6 +418,80 @@ def sectional_summary_line(
     if not parts:
         return None
     return f"Sectional {gender_label} {course} -- " + "; ".join(parts)
+
+
+def age_bracket(age: int | None) -> str | None:
+    """Map a swimmer's age to the Futures/Toyota Nationals bracket. None if age is unknown --
+    the bracket determines which cutoff to compare against, so an unknown age can't be resolved
+    (unlike Sectionals, which has only one cutoff and needs no bracket)."""
+    if age is None:
+        return None
+    return "18 & Under" if age <= 18 else "19 & Over"
+
+
+def national_summary_line(
+    course: str | None, gender: str | None, event_key: str, seed_seconds: float, age: int | None
+) -> str | None:
+    """Per-meet national elite status for an event, or None if no meet offers it.
+
+    Each meet (Futures, Toyota Nationals, Summer/Winter Juniors, U.S. Open) is reported
+    separately and by name, never merged into one generic line. Futures/Toyota Nationals are
+    age-bracket meets (18 & Under / 19 & Over) -- an unknown age can't be resolved to a bracket,
+    so those meets are skipped rather than guessed. The flat-plus-bonus meets each carry their
+    own age_ceiling (Summer/Winter Juniors: 18, meet-wide; U.S. Open: None, age-open) and
+    bonus_age_ceiling (independent of age_ceiling for U.S. Open, whose Bonus tier alone is
+    18-and-under) -- an unknown age is treated as not-yet-disqualified (shown), matching how the
+    rest of this app treats unresolved ages as "can't rule out" rather than "assume ineligible".
+    Qualifying/Bonus are reported the same way the AZSI State/Regional split is: meeting the
+    primary Qualifying cut suppresses the Bonus value, otherwise a Bonus-met or target line shows
+    both (when Bonus applies to this swimmer's age at all).
+    """
+    if not (course and gender and event_key):
+        return None
+    gender_label = "Girls" if gender == "girls" else "Boys"
+    parts: list[str] = []
+    for meet in NATIONAL_MEETS:
+        genders = meet["standards"].get(course, {}).get(gender, {})
+        if meet["kind"] == "age_bracket":
+            bracket = age_bracket(age)
+            if bracket is None:
+                continue
+            cell = genders.get(bracket, {}).get(event_key)
+            if not cell or "qualifying" not in cell:
+                continue
+            cut = parse_time(cell["qualifying"])
+            if cut is None:
+                continue
+            status = "met" if seed_seconds <= cut else "target"
+            parts.append(f"{meet['name']} ({bracket}): {status} {cell['qualifying']}")
+        else:
+            age_ceiling = meet.get("age_ceiling")
+            if age_ceiling is not None and age is not None and age > age_ceiling:
+                continue
+            cell = genders.get(event_key)
+            if not cell or "qualifying" not in cell:
+                continue
+            bonus_age_ceiling = meet.get("bonus_age_ceiling")
+            bonus_allowed = "bonus" in cell and not (
+                bonus_age_ceiling is not None and age is not None and age > bonus_age_ceiling
+            )
+            qualifying_cut = parse_time(cell["qualifying"])
+            bonus_cut = parse_time(cell["bonus"]) if bonus_allowed else None
+            if qualifying_cut is not None and seed_seconds <= qualifying_cut:
+                parts.append(f"{meet['name']}: Qualifying met; Qualifying {cell['qualifying']}")
+            elif bonus_cut is not None and seed_seconds <= bonus_cut:
+                parts.append(
+                    f"{meet['name']}: Bonus met; Qualifying target {cell['qualifying']}, Bonus {cell['bonus']}"
+                )
+            elif bonus_allowed:
+                parts.append(
+                    f"{meet['name']}: target Qualifying {cell['qualifying']}, Bonus {cell['bonus']}"
+                )
+            else:
+                parts.append(f"{meet['name']}: target Qualifying {cell['qualifying']}")
+    if not parts:
+        return None
+    return f"National {gender_label} {course} -- " + "; ".join(parts)
 
 
 def achieved_tier(seed_seconds: float, standards: dict[str, str]) -> tuple[str | None, str | None]:
@@ -450,6 +601,12 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
     if state.upper() == "AZ":
         sectional_summary = sectional_summary_line(course, gender, event_key, seed_seconds)
 
+    # National elite layer: ANY state/LSC (not Arizona-scoped, unlike AZSI/Sectional above) --
+    # these are national championship series open to any USA Swimming member. Age gating is
+    # handled inside national_summary_line() per meet (Futures/Toyota Nationals need a resolvable
+    # bracket; each flat-plus-bonus meet carries its own age_ceiling/bonus_age_ceiling), not here.
+    national_summary = national_summary_line(course, gender, event_key, seed_seconds, swimmer_age)
+
     return StandardResult(
         event_key,
         usa_summary,
@@ -457,6 +614,7 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
         advanced_summary,
         f"Standards confidence: {', '.join(confidence_parts)}",
         sectional_summary,
+        national_summary,
     )
 
 

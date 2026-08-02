@@ -1,0 +1,1867 @@
+{
+  "source": {
+    "name": "USA Swimming 2026 National Elite Time Standards",
+    "effective": "2026 season",
+    "courses": [
+      "SCY",
+      "LCM"
+    ],
+    "generator": "scripts/extract_national_standards.py",
+    "scope": "National -- open to any USA Swimming member regardless of LSC (not state-scoped).",
+    "not_handled": [],
+    "notes": "Futures and Toyota Nationals standards are split into two age brackets (18 & Under / 19 & Over) covering every age with no gap; neither meet gates entry by age. Summer Juniors, Winter Juniors, and U.S. Open standards are flat (no bracket) plus a separate Bonus tier. Summer/Winter Juniors have a hard 18-and-under entry ceiling (both tiers); U.S. Open's Qualifying tier is age-open but its Bonus tier alone is 18-and-under. Winter Juniors and U.S. Open were sourced from swimstandards.com (CSV fixture) rather than their official PDF, which has no extractable text -- see each meet's 'source_note'."
+  },
+  "meets": {
+    "futures": {
+      "name": "TYR Futures Championships",
+      "program": "USA Swimming Futures Championship Series",
+      "effective": "2026 season",
+      "qualifying_period": "2025-06-01 through close of entries",
+      "eligibility": "Open to any USA Swimming Premium/Outreach member who has achieved the published time standard; no meet-wide age floor or ceiling. The standards table itself is split by age bracket (18 & Under / 19 & Over) -- that split determines which cutoff applies, not who may enter.",
+      "document": "national-tyr-futures-championships-standards-2026.pdf",
+      "url": "https://www.usaswimming.org/docs/default-source/timesdocuments/time-standards/2026/2026_tyrfutureschampionships_timestandards-2.pdf",
+      "age_brackets": [
+        "19 & Over",
+        "18 & Under"
+      ],
+      "standards": {
+        "SCY": {
+          "girls": {
+            "18 & Under": {
+              "50 free": {
+                "qualifying": "23.89"
+              },
+              "100 free": {
+                "qualifying": "51.89"
+              },
+              "200 free": {
+                "qualifying": "1:52.29"
+              },
+              "500 free": {
+                "qualifying": "5:02.59"
+              },
+              "1000 free": {
+                "qualifying": "10:20.49"
+              },
+              "1650 free": {
+                "qualifying": "17:14.39"
+              },
+              "50 back": {
+                "qualifying": "26.29"
+              },
+              "100 back": {
+                "qualifying": "57.09"
+              },
+              "200 back": {
+                "qualifying": "2:04.19"
+              },
+              "50 breast": {
+                "qualifying": "29.79"
+              },
+              "100 breast": {
+                "qualifying": "1:05.49"
+              },
+              "200 breast": {
+                "qualifying": "2:22.69"
+              },
+              "50 fly": {
+                "qualifying": "25.69"
+              },
+              "100 fly": {
+                "qualifying": "56.59"
+              },
+              "200 fly": {
+                "qualifying": "2:05.39"
+              },
+              "200 im": {
+                "qualifying": "2:06.39"
+              },
+              "400 im": {
+                "qualifying": "4:30.69"
+              }
+            },
+            "19 & Over": {
+              "50 free": {
+                "qualifying": "22.99"
+              },
+              "100 free": {
+                "qualifying": "49.99"
+              },
+              "200 free": {
+                "qualifying": "1:48.19"
+              },
+              "500 free": {
+                "qualifying": "4:49.99"
+              },
+              "1000 free": {
+                "qualifying": "10:04.69"
+              },
+              "1650 free": {
+                "qualifying": "16:50.99"
+              },
+              "50 back": {
+                "qualifying": "25.19"
+              },
+              "100 back": {
+                "qualifying": "54.39"
+              },
+              "200 back": {
+                "qualifying": "1:58.19"
+              },
+              "50 breast": {
+                "qualifying": "28.79"
+              },
+              "100 breast": {
+                "qualifying": "1:02.39"
+              },
+              "200 breast": {
+                "qualifying": "2:15.39"
+              },
+              "50 fly": {
+                "qualifying": "24.69"
+              },
+              "100 fly": {
+                "qualifying": "54.09"
+              },
+              "200 fly": {
+                "qualifying": "2:00.49"
+              },
+              "200 im": {
+                "qualifying": "2:01.09"
+              },
+              "400 im": {
+                "qualifying": "4:18.79"
+              }
+            }
+          },
+          "boys": {
+            "18 & Under": {
+              "50 free": {
+                "qualifying": "21.29"
+              },
+              "100 free": {
+                "qualifying": "46.39"
+              },
+              "200 free": {
+                "qualifying": "1:41.59"
+              },
+              "500 free": {
+                "qualifying": "4:37.09"
+              },
+              "1000 free": {
+                "qualifying": "9:34.29"
+              },
+              "1650 free": {
+                "qualifying": "16:05.49"
+              },
+              "50 back": {
+                "qualifying": "23.69"
+              },
+              "100 back": {
+                "qualifying": "51.49"
+              },
+              "200 back": {
+                "qualifying": "1:52.79"
+              },
+              "50 breast": {
+                "qualifying": "26.29"
+              },
+              "100 breast": {
+                "qualifying": "57.99"
+              },
+              "200 breast": {
+                "qualifying": "2:07.99"
+              },
+              "50 fly": {
+                "qualifying": "22.89"
+              },
+              "100 fly": {
+                "qualifying": "50.59"
+              },
+              "200 fly": {
+                "qualifying": "1:53.69"
+              },
+              "200 im": {
+                "qualifying": "1:53.89"
+              },
+              "400 im": {
+                "qualifying": "4:06.99"
+              }
+            },
+            "19 & Over": {
+              "50 free": {
+                "qualifying": "20.39"
+              },
+              "100 free": {
+                "qualifying": "44.39"
+              },
+              "200 free": {
+                "qualifying": "1:37.59"
+              },
+              "500 free": {
+                "qualifying": "4:25.59"
+              },
+              "1000 free": {
+                "qualifying": "9:13.19"
+              },
+              "1650 free": {
+                "qualifying": "15:31.39"
+              },
+              "50 back": {
+                "qualifying": "22.49"
+              },
+              "100 back": {
+                "qualifying": "48.59"
+              },
+              "200 back": {
+                "qualifying": "1:46.49"
+              },
+              "50 breast": {
+                "qualifying": "25.29"
+              },
+              "100 breast": {
+                "qualifying": "54.99"
+              },
+              "200 breast": {
+                "qualifying": "2:00.39"
+              },
+              "50 fly": {
+                "qualifying": "21.99"
+              },
+              "100 fly": {
+                "qualifying": "48.19"
+              },
+              "200 fly": {
+                "qualifying": "1:47.89"
+              },
+              "200 im": {
+                "qualifying": "1:48.49"
+              },
+              "400 im": {
+                "qualifying": "3:52.69"
+              }
+            }
+          }
+        },
+        "LCM": {
+          "girls": {
+            "18 & Under": {
+              "50 free": {
+                "qualifying": "27.39"
+              },
+              "100 free": {
+                "qualifying": "59.29"
+              },
+              "200 free": {
+                "qualifying": "2:07.79"
+              },
+              "400 free": {
+                "qualifying": "4:28.79"
+              },
+              "800 free": {
+                "qualifying": "9:13.79"
+              },
+              "1500 free": {
+                "qualifying": "17:40.19"
+              },
+              "50 back": {
+                "qualifying": "30.89"
+              },
+              "100 back": {
+                "qualifying": "1:06.79"
+              },
+              "200 back": {
+                "qualifying": "2:23.99"
+              },
+              "50 breast": {
+                "qualifying": "34.79"
+              },
+              "100 breast": {
+                "qualifying": "1:15.99"
+              },
+              "200 breast": {
+                "qualifying": "2:43.39"
+              },
+              "50 fly": {
+                "qualifying": "29.49"
+              },
+              "100 fly": {
+                "qualifying": "1:04.69"
+              },
+              "200 fly": {
+                "qualifying": "2:21.89"
+              },
+              "200 im": {
+                "qualifying": "2:26.19"
+              },
+              "400 im": {
+                "qualifying": "5:07.29"
+              },
+              "4x100 free relay": {
+                "qualifying": "4:04.29"
+              },
+              "4x200 free relay": {
+                "qualifying": "8:40.89"
+              },
+              "4x100 medley relay": {
+                "qualifying": "4:33.79"
+              }
+            },
+            "19 & Over": {
+              "50 free": {
+                "qualifying": "26.59"
+              },
+              "100 free": {
+                "qualifying": "57.69"
+              },
+              "200 free": {
+                "qualifying": "2:04.99"
+              },
+              "400 free": {
+                "qualifying": "4:23.59"
+              },
+              "800 free": {
+                "qualifying": "9:06.79"
+              },
+              "1500 free": {
+                "qualifying": "17:26.79"
+              },
+              "50 back": {
+                "qualifying": "29.79"
+              },
+              "100 back": {
+                "qualifying": "1:04.29"
+              },
+              "200 back": {
+                "qualifying": "2:19.29"
+              },
+              "50 breast": {
+                "qualifying": "33.69"
+              },
+              "100 breast": {
+                "qualifying": "1:13.29"
+              },
+              "200 breast": {
+                "qualifying": "2:38.59"
+              },
+              "50 fly": {
+                "qualifying": "28.39"
+              },
+              "100 fly": {
+                "qualifying": "1:02.49"
+              },
+              "200 fly": {
+                "qualifying": "2:18.39"
+              },
+              "200 im": {
+                "qualifying": "2:21.29"
+              },
+              "400 im": {
+                "qualifying": "5:00.29"
+              }
+            }
+          },
+          "boys": {
+            "18 & Under": {
+              "50 free": {
+                "qualifying": "24.59"
+              },
+              "100 free": {
+                "qualifying": "53.59"
+              },
+              "200 free": {
+                "qualifying": "1:57.79"
+              },
+              "400 free": {
+                "qualifying": "4:09.99"
+              },
+              "800 free": {
+                "qualifying": "8:40.69"
+              },
+              "1500 free": {
+                "qualifying": "16:38.99"
+              },
+              "50 back": {
+                "qualifying": "27.89"
+              },
+              "100 back": {
+                "qualifying": "1:00.59"
+              },
+              "200 back": {
+                "qualifying": "2:11.89"
+              },
+              "50 breast": {
+                "qualifying": "30.89"
+              },
+              "100 breast": {
+                "qualifying": "1:08.19"
+              },
+              "200 breast": {
+                "qualifying": "2:29.09"
+              },
+              "50 fly": {
+                "qualifying": "26.29"
+              },
+              "100 fly": {
+                "qualifying": "57.99"
+              },
+              "200 fly": {
+                "qualifying": "2:10.19"
+              },
+              "200 im": {
+                "qualifying": "2:12.79"
+              },
+              "400 im": {
+                "qualifying": "4:42.39"
+              },
+              "4x100 free relay": {
+                "qualifying": "3:40.89"
+              },
+              "4x200 free relay": {
+                "qualifying": "8:00.49"
+              },
+              "4x100 medley relay": {
+                "qualifying": "4:05.89"
+              }
+            },
+            "19 & Over": {
+              "50 free": {
+                "qualifying": "23.79"
+              },
+              "100 free": {
+                "qualifying": "51.99"
+              },
+              "200 free": {
+                "qualifying": "1:54.09"
+              },
+              "400 free": {
+                "qualifying": "4:02.19"
+              },
+              "800 free": {
+                "qualifying": "8:23.09"
+              },
+              "1500 free": {
+                "qualifying": "16:05.09"
+              },
+              "50 back": {
+                "qualifying": "26.69"
+              },
+              "100 back": {
+                "qualifying": "58.19"
+              },
+              "200 back": {
+                "qualifying": "2:06.99"
+              },
+              "50 breast": {
+                "qualifying": "29.59"
+              },
+              "100 breast": {
+                "qualifying": "1:05.09"
+              },
+              "200 breast": {
+                "qualifying": "2:22.39"
+              },
+              "50 fly": {
+                "qualifying": "25.39"
+              },
+              "100 fly": {
+                "qualifying": "55.89"
+              },
+              "200 fly": {
+                "qualifying": "2:05.09"
+              },
+              "200 im": {
+                "qualifying": "2:07.99"
+              },
+              "400 im": {
+                "qualifying": "4:33.09"
+              }
+            }
+          }
+        }
+      }
+    },
+    "toyota_nationals": {
+      "name": "Toyota National Championships",
+      "program": "USA Swimming Toyota National Championship Series",
+      "effective": "2026 season",
+      "qualifying_period": "2025-06-01 through close of entries",
+      "eligibility": "Open to any USA Swimming Premium/Outreach member who has achieved the published time standard; no meet-wide age floor or ceiling. The '18-U Final' is a Junior Pan Pacific Championships selection sub-bracket (ages 13-18 as of Dec 31, 2026) within the meet, not an entry requirement. The standards table itself is split by age bracket (18 & Under / 19 & Over) for which cutoff applies.",
+      "document": "national-toyota-national-championships-standards-2026.pdf",
+      "url": "https://www.usaswimming.org/docs/default-source/timesdocuments/time-standards/2026/18077640025_events_2026_toyotanationalchampionships_timestandards.pdf",
+      "age_brackets": [
+        "19 & Over",
+        "18 & Under"
+      ],
+      "standards": {
+        "SCY": {
+          "girls": {
+            "19 & Over": {
+              "50 free": {
+                "qualifying": "22.19"
+              },
+              "100 free": {
+                "qualifying": "48.49"
+              },
+              "200 free": {
+                "qualifying": "1:44.99"
+              },
+              "500 free": {
+                "qualifying": "4:41.99"
+              },
+              "1000 free": {
+                "qualifying": "9:45.79"
+              },
+              "1650 free": {
+                "qualifying": "16:10.39"
+              },
+              "50 back": {
+                "qualifying": "23.99"
+              },
+              "100 back": {
+                "qualifying": "52.29"
+              },
+              "200 back": {
+                "qualifying": "1:54.09"
+              },
+              "50 breast": {
+                "qualifying": "27.39"
+              },
+              "100 breast": {
+                "qualifying": "59.99"
+              },
+              "200 breast": {
+                "qualifying": "2:10.39"
+              },
+              "50 fly": {
+                "qualifying": "23.79"
+              },
+              "100 fly": {
+                "qualifying": "52.19"
+              },
+              "200 fly": {
+                "qualifying": "1:56.09"
+              },
+              "200 im": {
+                "qualifying": "1:57.09"
+              },
+              "400 im": {
+                "qualifying": "4:11.39"
+              }
+            },
+            "18 & Under": {
+              "50 free": {
+                "qualifying": "22.79"
+              },
+              "100 free": {
+                "qualifying": "49.49"
+              },
+              "200 free": {
+                "qualifying": "1:47.19"
+              },
+              "500 free": {
+                "qualifying": "4:46.29"
+              },
+              "1000 free": {
+                "qualifying": "9:55.99"
+              },
+              "1650 free": {
+                "qualifying": "16:37.99"
+              },
+              "50 back": {
+                "qualifying": "25.09"
+              },
+              "100 back": {
+                "qualifying": "53.69"
+              },
+              "200 back": {
+                "qualifying": "1:55.69"
+              },
+              "50 breast": {
+                "qualifying": "28.69"
+              },
+              "100 breast": {
+                "qualifying": "1:01.59"
+              },
+              "200 breast": {
+                "qualifying": "2:14.29"
+              },
+              "50 fly": {
+                "qualifying": "24.29"
+              },
+              "100 fly": {
+                "qualifying": "53.29"
+              },
+              "200 fly": {
+                "qualifying": "1:59.39"
+              },
+              "200 im": {
+                "qualifying": "1:58.99"
+              },
+              "400 im": {
+                "qualifying": "4:12.69"
+              }
+            }
+          },
+          "boys": {
+            "19 & Over": {
+              "50 free": {
+                "qualifying": "19.39"
+              },
+              "100 free": {
+                "qualifying": "42.49"
+              },
+              "200 free": {
+                "qualifying": "1:33.69"
+              },
+              "500 free": {
+                "qualifying": "4:17.19"
+              },
+              "1000 free": {
+                "qualifying": "8:58.39"
+              },
+              "1650 free": {
+                "qualifying": "14:54.09"
+              },
+              "50 back": {
+                "qualifying": "21.09"
+              },
+              "100 back": {
+                "qualifying": "46.19"
+              },
+              "200 back": {
+                "qualifying": "1:41.69"
+              },
+              "50 breast": {
+                "qualifying": "23.89"
+              },
+              "100 breast": {
+                "qualifying": "52.49"
+              },
+              "200 breast": {
+                "qualifying": "1:54.59"
+              },
+              "50 fly": {
+                "qualifying": "20.89"
+              },
+              "100 fly": {
+                "qualifying": "45.99"
+              },
+              "200 fly": {
+                "qualifying": "1:43.39"
+              },
+              "200 im": {
+                "qualifying": "1:43.89"
+              },
+              "400 im": {
+                "qualifying": "3:45.19"
+              }
+            },
+            "18 & Under": {
+              "50 free": {
+                "qualifying": "20.09"
+              },
+              "100 free": {
+                "qualifying": "43.69"
+              },
+              "200 free": {
+                "qualifying": "1:36.19"
+              },
+              "500 free": {
+                "qualifying": "4:23.99"
+              },
+              "1000 free": {
+                "qualifying": "9:07.59"
+              },
+              "1650 free": {
+                "qualifying": "15:21.49"
+              },
+              "50 back": {
+                "qualifying": "22.39"
+              },
+              "100 back": {
+                "qualifying": "47.89"
+              },
+              "200 back": {
+                "qualifying": "1:44.79"
+              },
+              "50 breast": {
+                "qualifying": "25.19"
+              },
+              "100 breast": {
+                "qualifying": "53.99"
+              },
+              "200 breast": {
+                "qualifying": "1:57.99"
+              },
+              "50 fly": {
+                "qualifying": "21.89"
+              },
+              "100 fly": {
+                "qualifying": "47.49"
+              },
+              "200 fly": {
+                "qualifying": "1:45.89"
+              },
+              "200 im": {
+                "qualifying": "1:46.79"
+              },
+              "400 im": {
+                "qualifying": "3:49.79"
+              }
+            }
+          }
+        },
+        "LCM": {
+          "girls": {
+            "19 & Over": {
+              "50 free": {
+                "qualifying": "25.69"
+              },
+              "100 free": {
+                "qualifying": "55.89"
+              },
+              "200 free": {
+                "qualifying": "2:01.19"
+              },
+              "400 free": {
+                "qualifying": "4:16.89"
+              },
+              "800 free": {
+                "qualifying": "8:46.79"
+              },
+              "1500 free": {
+                "qualifying": "16:49.19"
+              },
+              "50 back": {
+                "qualifying": "28.59"
+              },
+              "100 back": {
+                "qualifying": "1:02.19"
+              },
+              "200 back": {
+                "qualifying": "2:14.59"
+              },
+              "50 breast": {
+                "qualifying": "32.29"
+              },
+              "100 breast": {
+                "qualifying": "1:10.29"
+              },
+              "200 breast": {
+                "qualifying": "2:32.39"
+              },
+              "50 fly": {
+                "qualifying": "27.59"
+              },
+              "100 fly": {
+                "qualifying": "1:00.19"
+              },
+              "200 fly": {
+                "qualifying": "2:14.59"
+              },
+              "200 im": {
+                "qualifying": "2:16.89"
+              },
+              "400 im": {
+                "qualifying": "4:51.79"
+              }
+            },
+            "18 & Under": {
+              "50 free": {
+                "qualifying": "26.19"
+              },
+              "100 free": {
+                "qualifying": "56.69"
+              },
+              "200 free": {
+                "qualifying": "2:03.19"
+              },
+              "400 free": {
+                "qualifying": "4:19.89"
+              },
+              "800 free": {
+                "qualifying": "8:57.89"
+              },
+              "1500 free": {
+                "qualifying": "17:10.79"
+              },
+              "50 back": {
+                "qualifying": "29.69"
+              },
+              "100 back": {
+                "qualifying": "1:03.19"
+              },
+              "200 back": {
+                "qualifying": "2:16.69"
+              },
+              "50 breast": {
+                "qualifying": "33.29"
+              },
+              "100 breast": {
+                "qualifying": "1:11.29"
+              },
+              "200 breast": {
+                "qualifying": "2:34.19"
+              },
+              "50 fly": {
+                "qualifying": "28.09"
+              },
+              "100 fly": {
+                "qualifying": "1:01.39"
+              },
+              "200 fly": {
+                "qualifying": "2:17.59"
+              },
+              "200 im": {
+                "qualifying": "2:18.19"
+              },
+              "400 im": {
+                "qualifying": "4:52.69"
+              }
+            }
+          },
+          "boys": {
+            "19 & Over": {
+              "50 free": {
+                "qualifying": "22.69"
+              },
+              "100 free": {
+                "qualifying": "49.69"
+              },
+              "200 free": {
+                "qualifying": "1:49.89"
+              },
+              "400 free": {
+                "qualifying": "3:55.59"
+              },
+              "800 free": {
+                "qualifying": "8:07.59"
+              },
+              "1500 free": {
+                "qualifying": "15:37.69"
+              },
+              "50 back": {
+                "qualifying": "25.49"
+              },
+              "100 back": {
+                "qualifying": "55.69"
+              },
+              "200 back": {
+                "qualifying": "2:02.09"
+              },
+              "50 breast": {
+                "qualifying": "28.29"
+              },
+              "100 breast": {
+                "qualifying": "1:02.09"
+              },
+              "200 breast": {
+                "qualifying": "2:16.09"
+              },
+              "50 fly": {
+                "qualifying": "24.39"
+              },
+              "100 fly": {
+                "qualifying": "53.49"
+              },
+              "200 fly": {
+                "qualifying": "2:00.89"
+              },
+              "200 im": {
+                "qualifying": "2:02.89"
+              },
+              "400 im": {
+                "qualifying": "4:24.69"
+              }
+            },
+            "18 & Under": {
+              "50 free": {
+                "qualifying": "23.19"
+              },
+              "100 free": {
+                "qualifying": "51.09"
+              },
+              "200 free": {
+                "qualifying": "1:52.09"
+              },
+              "400 free": {
+                "qualifying": "3:58.39"
+              },
+              "800 free": {
+                "qualifying": "8:16.99"
+              },
+              "1500 free": {
+                "qualifying": "15:52.69"
+              },
+              "50 back": {
+                "qualifying": "26.39"
+              },
+              "100 back": {
+                "qualifying": "56.89"
+              },
+              "200 back": {
+                "qualifying": "2:03.59"
+              },
+              "50 breast": {
+                "qualifying": "29.19"
+              },
+              "100 breast": {
+                "qualifying": "1:03.29"
+              },
+              "200 breast": {
+                "qualifying": "2:18.09"
+              },
+              "50 fly": {
+                "qualifying": "24.99"
+              },
+              "100 fly": {
+                "qualifying": "54.69"
+              },
+              "200 fly": {
+                "qualifying": "2:02.89"
+              },
+              "200 im": {
+                "qualifying": "2:04.69"
+              },
+              "400 im": {
+                "qualifying": "4:25.39"
+              }
+            }
+          }
+        }
+      }
+    },
+    "summer_juniors": {
+      "name": "Speedo Summer Junior National Championships",
+      "program": "USA Swimming Speedo Junior National Championship Series",
+      "effective": "2026 season",
+      "qualifying_period": "2025-06-01 through close of entries",
+      "age_ceiling": 18,
+      "bonus_age_ceiling": null,
+      "eligibility": "Meet-wide age CEILING: 'All athletes at the meet must be 18 or under on the first day of the meet' (confirmed from the 2026 meet announcement). No floor. Unlike Futures/Toyota Nationals, the standards table has no age bracket -- one flat qualifying cutoff per event/course/gender -- plus a separate Bonus Standards page for swimmers who already qualified in another event. Bonus carries no separate age restriction beyond the meet-wide ceiling.",
+      "document": "national-speedo-summer-junior-nationals-standards-2026.pdf",
+      "url": "https://www.usaswimming.org/docs/default-source/timesdocuments/time-standards/2026/2026_speedojuniornationalchampionships_timestandards.pdf",
+      "standards": {
+        "SCY": {
+          "girls": {
+            "50 free": {
+              "qualifying": "22.99",
+              "bonus": "23.89"
+            },
+            "100 free": {
+              "qualifying": "49.99",
+              "bonus": "51.89"
+            },
+            "200 free": {
+              "qualifying": "1:48.19",
+              "bonus": "1:52.29"
+            },
+            "500 free": {
+              "qualifying": "4:49.99",
+              "bonus": "5:02.59"
+            },
+            "1000 free": {
+              "qualifying": "10:04.69",
+              "bonus": "10:20.49"
+            },
+            "1650 free": {
+              "qualifying": "16:50.99",
+              "bonus": "17:14.39"
+            },
+            "50 back": {
+              "qualifying": "25.19",
+              "bonus": "26.29"
+            },
+            "100 back": {
+              "qualifying": "54.39",
+              "bonus": "57.09"
+            },
+            "200 back": {
+              "qualifying": "1:58.19",
+              "bonus": "2:04.19"
+            },
+            "50 breast": {
+              "qualifying": "28.79",
+              "bonus": "29.79"
+            },
+            "100 breast": {
+              "qualifying": "1:02.39",
+              "bonus": "1:05.49"
+            },
+            "200 breast": {
+              "qualifying": "2:15.39",
+              "bonus": "2:22.69"
+            },
+            "50 fly": {
+              "qualifying": "24.69",
+              "bonus": "25.69"
+            },
+            "100 fly": {
+              "qualifying": "54.09",
+              "bonus": "56.59"
+            },
+            "200 fly": {
+              "qualifying": "2:00.49",
+              "bonus": "2:05.39"
+            },
+            "200 im": {
+              "qualifying": "2:01.09",
+              "bonus": "2:06.39"
+            },
+            "400 im": {
+              "qualifying": "4:18.79",
+              "bonus": "4:30.69"
+            },
+            "4x100 free relay": {
+              "qualifying": "3:25.49"
+            },
+            "4x200 free relay": {
+              "qualifying": "7:28.29"
+            },
+            "4x100 medley relay": {
+              "qualifying": "3:45.59"
+            }
+          },
+          "boys": {
+            "50 free": {
+              "qualifying": "20.39",
+              "bonus": "21.29"
+            },
+            "100 free": {
+              "qualifying": "44.39",
+              "bonus": "46.39"
+            },
+            "200 free": {
+              "qualifying": "1:37.59",
+              "bonus": "1:41.59"
+            },
+            "500 free": {
+              "qualifying": "4:25.59",
+              "bonus": "4:37.09"
+            },
+            "1000 free": {
+              "qualifying": "9:13.19",
+              "bonus": "9:34.29"
+            },
+            "1650 free": {
+              "qualifying": "15:31.39",
+              "bonus": "16:05.49"
+            },
+            "50 back": {
+              "qualifying": "22.49",
+              "bonus": "23.69"
+            },
+            "100 back": {
+              "qualifying": "48.59",
+              "bonus": "51.49"
+            },
+            "200 back": {
+              "qualifying": "1:46.49",
+              "bonus": "1:52.79"
+            },
+            "50 breast": {
+              "qualifying": "25.29",
+              "bonus": "26.29"
+            },
+            "100 breast": {
+              "qualifying": "54.99",
+              "bonus": "57.99"
+            },
+            "200 breast": {
+              "qualifying": "2:00.39",
+              "bonus": "2:07.99"
+            },
+            "50 fly": {
+              "qualifying": "21.99",
+              "bonus": "22.89"
+            },
+            "100 fly": {
+              "qualifying": "48.19",
+              "bonus": "50.59"
+            },
+            "200 fly": {
+              "qualifying": "1:47.89",
+              "bonus": "1:53.69"
+            },
+            "200 im": {
+              "qualifying": "1:48.49",
+              "bonus": "1:53.89"
+            },
+            "400 im": {
+              "qualifying": "3:52.69",
+              "bonus": "4:06.99"
+            },
+            "4x100 free relay": {
+              "qualifying": "3:03.99"
+            },
+            "4x200 free relay": {
+              "qualifying": "6:45.49"
+            },
+            "4x100 medley relay": {
+              "qualifying": "3:21.39"
+            }
+          }
+        },
+        "LCM": {
+          "girls": {
+            "50 free": {
+              "qualifying": "26.59",
+              "bonus": "27.39"
+            },
+            "100 free": {
+              "qualifying": "57.69",
+              "bonus": "59.29"
+            },
+            "200 free": {
+              "qualifying": "2:04.99",
+              "bonus": "2:07.79"
+            },
+            "400 free": {
+              "qualifying": "4:23.59",
+              "bonus": "4:28.79"
+            },
+            "800 free": {
+              "qualifying": "9:06.79",
+              "bonus": "9:13.79"
+            },
+            "1500 free": {
+              "qualifying": "17:26.79",
+              "bonus": "17:40.19"
+            },
+            "50 back": {
+              "qualifying": "29.79",
+              "bonus": "30.89"
+            },
+            "100 back": {
+              "qualifying": "1:04.29",
+              "bonus": "1:06.79"
+            },
+            "200 back": {
+              "qualifying": "2:19.29",
+              "bonus": "2:23.99"
+            },
+            "50 breast": {
+              "qualifying": "33.69",
+              "bonus": "34.79"
+            },
+            "100 breast": {
+              "qualifying": "1:13.29",
+              "bonus": "1:15.99"
+            },
+            "200 breast": {
+              "qualifying": "2:38.59",
+              "bonus": "2:43.39"
+            },
+            "50 fly": {
+              "qualifying": "28.39",
+              "bonus": "29.49"
+            },
+            "100 fly": {
+              "qualifying": "1:02.49",
+              "bonus": "1:04.69"
+            },
+            "200 fly": {
+              "qualifying": "2:18.39",
+              "bonus": "2:21.89"
+            },
+            "200 im": {
+              "qualifying": "2:21.29",
+              "bonus": "2:26.19"
+            },
+            "400 im": {
+              "qualifying": "5:00.29",
+              "bonus": "5:07.29"
+            },
+            "4x50 free relay": {
+              "qualifying": "3:55.69"
+            },
+            "4x100 free relay": {
+              "qualifying": "3:55.69"
+            },
+            "4x200 free relay": {
+              "qualifying": "8:29.99"
+            },
+            "4x50 medley relay": {
+              "qualifying": "4:21.49"
+            },
+            "4x100 medley relay": {
+              "qualifying": "4:21.49"
+            }
+          },
+          "boys": {
+            "50 free": {
+              "qualifying": "23.79",
+              "bonus": "24.59"
+            },
+            "100 free": {
+              "qualifying": "51.99",
+              "bonus": "53.59"
+            },
+            "200 free": {
+              "qualifying": "1:54.09",
+              "bonus": "1:57.79"
+            },
+            "400 free": {
+              "qualifying": "4:02.19",
+              "bonus": "4:09.99"
+            },
+            "800 free": {
+              "qualifying": "8:23.09",
+              "bonus": "8:40.69"
+            },
+            "1500 free": {
+              "qualifying": "16:05.09",
+              "bonus": "16:38.99"
+            },
+            "50 back": {
+              "qualifying": "26.69",
+              "bonus": "27.89"
+            },
+            "100 back": {
+              "qualifying": "58.19",
+              "bonus": "1:00.59"
+            },
+            "200 back": {
+              "qualifying": "2:06.99",
+              "bonus": "2:11.89"
+            },
+            "50 breast": {
+              "qualifying": "29.59",
+              "bonus": "30.89"
+            },
+            "100 breast": {
+              "qualifying": "1:05.09",
+              "bonus": "1:08.19"
+            },
+            "200 breast": {
+              "qualifying": "2:22.39",
+              "bonus": "2:29.09"
+            },
+            "50 fly": {
+              "qualifying": "25.39",
+              "bonus": "26.29"
+            },
+            "100 fly": {
+              "qualifying": "55.89",
+              "bonus": "57.99"
+            },
+            "200 fly": {
+              "qualifying": "2:05.09",
+              "bonus": "2:10.19"
+            },
+            "200 im": {
+              "qualifying": "2:07.99",
+              "bonus": "2:12.79"
+            },
+            "400 im": {
+              "qualifying": "4:33.09",
+              "bonus": "4:42.39"
+            },
+            "4x50 free relay": {
+              "qualifying": "3:33.59"
+            },
+            "4x100 free relay": {
+              "qualifying": "3:33.59"
+            },
+            "4x200 free relay": {
+              "qualifying": "7:47.69"
+            },
+            "4x50 medley relay": {
+              "qualifying": "3:56.29"
+            },
+            "4x100 medley relay": {
+              "qualifying": "3:56.29"
+            }
+          }
+        }
+      }
+    },
+    "winter_juniors": {
+      "name": "Speedo Winter Junior Championships",
+      "program": "USA Swimming Speedo Junior National Championship Series",
+      "effective": "2026 season",
+      "qualifying_period": "2025-11-01 through close of entries",
+      "age_ceiling": 18,
+      "bonus_age_ceiling": null,
+      "eligibility": "Meet-wide age CEILING, same rule as Summer Juniors: 'all athletes at the meet must be 18 years old or younger on the first day of the meet' (confirmed from the 2025 meet announcement -- 2026's was not yet posted at extraction time). No floor. Flat standards table (no age bracket), consistent with only one eligible population; plus a separate Bonus tier with no additional age restriction.",
+      "document": "national-speedo-winter-junior-championships-standards-2026.csv",
+      "url": "https://www.usaswimming.org/docs/default-source/timesdocuments/time-standards/2026/11320828118_events_timestandards_2026_speedowinterjrs.pdf",
+      "source_note": "Official PDF has zero extractable text (vector-outlined glyphs). Sourced instead from swimstandards.com, an ordinary-HTML mirror of the same official standards; saved locally as a CSV fixture for reproducible offline extraction.",
+      "alternate_source_url": "https://swimstandards.com/times/2026-speedo-winter-junior-championships-time-standards",
+      "standards": {
+        "SCY": {
+          "girls": {
+            "50 free": {
+              "qualifying": "23.29",
+              "bonus": "23.89"
+            },
+            "100 free": {
+              "qualifying": "50.39",
+              "bonus": "51.89"
+            },
+            "200 free": {
+              "qualifying": "1:49.09",
+              "bonus": "1:52.29"
+            },
+            "500 free": {
+              "qualifying": "4:53.59",
+              "bonus": "5:02.59"
+            },
+            "1000 free": {
+              "qualifying": "10:11.49",
+              "bonus": "10:20.49"
+            },
+            "1650 free": {
+              "qualifying": "17:02.19",
+              "bonus": "17:14.39"
+            },
+            "100 back": {
+              "qualifying": "55.09",
+              "bonus": "57.09"
+            },
+            "200 back": {
+              "qualifying": "1:59.39",
+              "bonus": "2:04.19"
+            },
+            "100 breast": {
+              "qualifying": "1:03.09",
+              "bonus": "1:05.49"
+            },
+            "200 breast": {
+              "qualifying": "2:17.19",
+              "bonus": "2:22.69"
+            },
+            "100 fly": {
+              "qualifying": "54.69",
+              "bonus": "56.59"
+            },
+            "200 fly": {
+              "qualifying": "2:01.69",
+              "bonus": "2:05.39"
+            },
+            "200 im": {
+              "qualifying": "2:02.19",
+              "bonus": "2:06.39"
+            },
+            "400 im": {
+              "qualifying": "4:21.69",
+              "bonus": "4:30.69"
+            },
+            "4x100 free relay": {
+              "qualifying": "3:27.49"
+            },
+            "4x200 free relay": {
+              "qualifying": "7:32.79"
+            },
+            "4x100 medley relay": {
+              "qualifying": "3:47.79"
+            }
+          },
+          "boys": {
+            "50 free": {
+              "qualifying": "20.49",
+              "bonus": "21.29"
+            },
+            "100 free": {
+              "qualifying": "44.89",
+              "bonus": "46.39"
+            },
+            "200 free": {
+              "qualifying": "1:38.39",
+              "bonus": "1:41.59"
+            },
+            "500 free": {
+              "qualifying": "4:28.79",
+              "bonus": "4:37.09"
+            },
+            "1000 free": {
+              "qualifying": "9:22.69",
+              "bonus": "9:34.29"
+            },
+            "1650 free": {
+              "qualifying": "15:40.39",
+              "bonus": "16:05.49"
+            },
+            "100 back": {
+              "qualifying": "49.19",
+              "bonus": "51.49"
+            },
+            "200 back": {
+              "qualifying": "1:47.79",
+              "bonus": "1:52.79"
+            },
+            "100 breast": {
+              "qualifying": "55.49",
+              "bonus": "57.99"
+            },
+            "200 breast": {
+              "qualifying": "2:01.59",
+              "bonus": "2:07.99"
+            },
+            "100 fly": {
+              "qualifying": "48.69",
+              "bonus": "50.59"
+            },
+            "200 fly": {
+              "qualifying": "1:49.09",
+              "bonus": "1:53.69"
+            },
+            "200 im": {
+              "qualifying": "1:49.59",
+              "bonus": "1:53.89"
+            },
+            "400 im": {
+              "qualifying": "3:56.49",
+              "bonus": "4:06.99"
+            },
+            "4x100 free relay": {
+              "qualifying": "3:05.79"
+            },
+            "4x200 free relay": {
+              "qualifying": "6:49.59"
+            },
+            "4x100 medley relay": {
+              "qualifying": "3:23.39"
+            }
+          }
+        },
+        "LCM": {
+          "girls": {
+            "50 free": {
+              "qualifying": "26.89",
+              "bonus": "27.39"
+            },
+            "100 free": {
+              "qualifying": "58.19",
+              "bonus": "59.29"
+            },
+            "200 free": {
+              "qualifying": "2:04.99",
+              "bonus": "2:07.79"
+            },
+            "400 free": {
+              "qualifying": "4:26.69",
+              "bonus": "4:28.79"
+            },
+            "800 free": {
+              "qualifying": "9:06.79",
+              "bonus": "9:13.79"
+            },
+            "1500 free": {
+              "qualifying": "17:26.79",
+              "bonus": "17:40.19"
+            },
+            "100 back": {
+              "qualifying": "1:04.79",
+              "bonus": "1:06.79"
+            },
+            "200 back": {
+              "qualifying": "2:19.59",
+              "bonus": "2:23.99"
+            },
+            "100 breast": {
+              "qualifying": "1:13.79",
+              "bonus": "1:15.99"
+            },
+            "200 breast": {
+              "qualifying": "2:38.59",
+              "bonus": "2:43.39"
+            },
+            "100 fly": {
+              "qualifying": "1:02.69",
+              "bonus": "1:04.69"
+            },
+            "200 fly": {
+              "qualifying": "2:18.39",
+              "bonus": "2:21.89"
+            },
+            "200 im": {
+              "qualifying": "2:22.09",
+              "bonus": "2:26.19"
+            },
+            "400 im": {
+              "qualifying": "5:00.29",
+              "bonus": "5:07.29"
+            },
+            "4x100 free relay": {
+              "qualifying": "3:58.09"
+            },
+            "4x200 free relay": {
+              "qualifying": "8:35.09"
+            },
+            "4x100 medley relay": {
+              "qualifying": "4:24.19"
+            }
+          },
+          "boys": {
+            "50 free": {
+              "qualifying": "24.09",
+              "bonus": "24.59"
+            },
+            "100 free": {
+              "qualifying": "52.59",
+              "bonus": "53.59"
+            },
+            "200 free": {
+              "qualifying": "1:55.29",
+              "bonus": "1:57.79"
+            },
+            "400 free": {
+              "qualifying": "4:04.99",
+              "bonus": "4:09.99"
+            },
+            "800 free": {
+              "qualifying": "8:28.19",
+              "bonus": "8:40.69"
+            },
+            "1500 free": {
+              "qualifying": "16:14.79",
+              "bonus": "16:38.99"
+            },
+            "100 back": {
+              "qualifying": "58.79",
+              "bonus": "1:00.59"
+            },
+            "200 back": {
+              "qualifying": "2:08.29",
+              "bonus": "2:11.89"
+            },
+            "100 breast": {
+              "qualifying": "1:05.89",
+              "bonus": "1:08.19"
+            },
+            "200 breast": {
+              "qualifying": "2:24.09",
+              "bonus": "2:29.09"
+            },
+            "100 fly": {
+              "qualifying": "56.49",
+              "bonus": "57.99"
+            },
+            "200 fly": {
+              "qualifying": "2:06.39",
+              "bonus": "2:10.19"
+            },
+            "200 im": {
+              "qualifying": "2:09.29",
+              "bonus": "2:12.79"
+            },
+            "400 im": {
+              "qualifying": "4:35.89",
+              "bonus": "4:42.39"
+            },
+            "4x100 free relay": {
+              "qualifying": "3:35.79"
+            },
+            "4x200 free relay": {
+              "qualifying": "7:52.39"
+            },
+            "4x100 medley relay": {
+              "qualifying": "3:58.69"
+            }
+          }
+        }
+      }
+    },
+    "toyota_us_open": {
+      "name": "Toyota U.S. Open Championships",
+      "program": "USA Swimming Toyota National Championship Series",
+      "effective": "2026 season",
+      "qualifying_period": "2025-11-01 through close of entries",
+      "age_ceiling": null,
+      "bonus_age_ceiling": 18,
+      "eligibility": "NO meet-wide age floor or ceiling for the main Qualifying tier (confirmed from the 2025 meet announcement -- 2026's was not yet posted at extraction time). Unlike every other meet here, its Bonus tier IS age-restricted on its own: the source page's own text reads 'Toyota US Open time standards and 18&U bonus standards', so Bonus requires age<=18 even though Qualifying does not.",
+      "document": "national-toyota-us-open-standards-2026.csv",
+      "url": "https://www.usaswimming.org/docs/default-source/timesdocuments/time-standards/2026/timestandards_2026_toyotausopen.pdf",
+      "source_note": "Official PDF has zero extractable text (vector-outlined glyphs). Sourced instead from swimstandards.com, an ordinary-HTML mirror of the same official standards; saved locally as a CSV fixture for reproducible offline extraction. The site's own 2025-vs-2026 comparison confirms every Qualifying-tier value is unchanged from 2025 (Bonus tier has a handful of small changes).",
+      "alternate_source_url": "https://swimstandards.com/times/2026-toyota-us-open-time-standards",
+      "standards": {
+        "SCY": {
+          "girls": {
+            "50 free": {
+              "qualifying": "22.49",
+              "bonus": "22.99"
+            },
+            "100 free": {
+              "qualifying": "48.99",
+              "bonus": "49.99"
+            },
+            "200 free": {
+              "qualifying": "1:45.99",
+              "bonus": "1:48.19"
+            },
+            "500 free": {
+              "qualifying": "4:44.49",
+              "bonus": "4:49.99"
+            },
+            "1000 free": {
+              "qualifying": "9:53.19",
+              "bonus": "10:04.69"
+            },
+            "1650 free": {
+              "qualifying": "16:24.29",
+              "bonus": "16:50.99"
+            },
+            "50 back": {
+              "qualifying": "24.39",
+              "bonus": "25.09"
+            },
+            "100 back": {
+              "qualifying": "52.99",
+              "bonus": "54.39"
+            },
+            "200 back": {
+              "qualifying": "1:55.39",
+              "bonus": "1:58.19"
+            },
+            "50 breast": {
+              "qualifying": "27.99",
+              "bonus": "28.49"
+            },
+            "100 breast": {
+              "qualifying": "1:00.79",
+              "bonus": "1:02.39"
+            },
+            "200 breast": {
+              "qualifying": "2:11.99",
+              "bonus": "2:15.39"
+            },
+            "50 fly": {
+              "qualifying": "24.09",
+              "bonus": "24.69"
+            },
+            "100 fly": {
+              "qualifying": "52.79",
+              "bonus": "54.09"
+            },
+            "200 fly": {
+              "qualifying": "1:57.49",
+              "bonus": "2:00.49"
+            },
+            "200 im": {
+              "qualifying": "1:58.39",
+              "bonus": "2:01.09"
+            },
+            "400 im": {
+              "qualifying": "4:13.69",
+              "bonus": "4:18.79"
+            }
+          },
+          "boys": {
+            "50 free": {
+              "qualifying": "19.69",
+              "bonus": "20.39"
+            },
+            "100 free": {
+              "qualifying": "43.09",
+              "bonus": "44.39"
+            },
+            "200 free": {
+              "qualifying": "1:34.99",
+              "bonus": "1:37.59"
+            },
+            "500 free": {
+              "qualifying": "4:19.89",
+              "bonus": "4:25.59"
+            },
+            "1000 free": {
+              "qualifying": "9:04.79",
+              "bonus": "9:13.19"
+            },
+            "1650 free": {
+              "qualifying": "15:07.99",
+              "bonus": "15:31.39"
+            },
+            "50 back": {
+              "qualifying": "21.49",
+              "bonus": "22.29"
+            },
+            "100 back": {
+              "qualifying": "46.99",
+              "bonus": "48.59"
+            },
+            "200 back": {
+              "qualifying": "1:43.29",
+              "bonus": "1:46.49"
+            },
+            "50 breast": {
+              "qualifying": "24.39",
+              "bonus": "25.09"
+            },
+            "100 breast": {
+              "qualifying": "53.29",
+              "bonus": "54.99"
+            },
+            "200 breast": {
+              "qualifying": "1:56.39",
+              "bonus": "2:00.39"
+            },
+            "50 fly": {
+              "qualifying": "21.19",
+              "bonus": "21.89"
+            },
+            "100 fly": {
+              "qualifying": "46.69",
+              "bonus": "48.19"
+            },
+            "200 fly": {
+              "qualifying": "1:44.79",
+              "bonus": "1:47.89"
+            },
+            "200 im": {
+              "qualifying": "1:45.39",
+              "bonus": "1:48.49"
+            },
+            "400 im": {
+              "qualifying": "3:47.69",
+              "bonus": "3:52.69"
+            }
+          }
+        },
+        "LCM": {
+          "girls": {
+            "50 free": {
+              "qualifying": "26.19",
+              "bonus": "26.59"
+            },
+            "100 free": {
+              "qualifying": "56.79",
+              "bonus": "57.69"
+            },
+            "200 free": {
+              "qualifying": "2:03.09",
+              "bonus": "2:04.99"
+            },
+            "400 free": {
+              "qualifying": "4:20.29",
+              "bonus": "4:23.59"
+            },
+            "800 free": {
+              "qualifying": "8:56.79",
+              "bonus": "9:06.79"
+            },
+            "1500 free": {
+              "qualifying": "17:07.99",
+              "bonus": "17:26.79"
+            },
+            "50 back": {
+              "qualifying": "29.19",
+              "bonus": "29.69"
+            },
+            "100 back": {
+              "qualifying": "1:03.29",
+              "bonus": "1:04.29"
+            },
+            "200 back": {
+              "qualifying": "2:16.99",
+              "bonus": "2:19.29"
+            },
+            "50 breast": {
+              "qualifying": "33.19",
+              "bonus": "33.69"
+            },
+            "100 breast": {
+              "qualifying": "1:11.79",
+              "bonus": "1:13.29"
+            },
+            "200 breast": {
+              "qualifying": "2:35.49",
+              "bonus": "2:38.59"
+            },
+            "50 fly": {
+              "qualifying": "28.19",
+              "bonus": "28.39"
+            },
+            "100 fly": {
+              "qualifying": "1:01.39",
+              "bonus": "1:02.49"
+            },
+            "200 fly": {
+              "qualifying": "2:16.49",
+              "bonus": "2:18.39"
+            },
+            "200 im": {
+              "qualifying": "2:19.09",
+              "bonus": "2:21.29"
+            },
+            "400 im": {
+              "qualifying": "4:56.09",
+              "bonus": "5:00.29"
+            }
+          },
+          "boys": {
+            "50 free": {
+              "qualifying": "23.29",
+              "bonus": "23.79"
+            },
+            "100 free": {
+              "qualifying": "50.89",
+              "bonus": "51.99"
+            },
+            "200 free": {
+              "qualifying": "1:51.99",
+              "bonus": "1:54.09"
+            },
+            "400 free": {
+              "qualifying": "3:59.09",
+              "bonus": "4:02.19"
+            },
+            "800 free": {
+              "qualifying": "8:15.39",
+              "bonus": "8:23.09"
+            },
+            "1500 free": {
+              "qualifying": "15:51.39",
+              "bonus": "16:05.09"
+            },
+            "50 back": {
+              "qualifying": "26.09",
+              "bonus": "26.69"
+            },
+            "100 back": {
+              "qualifying": "56.89",
+              "bonus": "58.19"
+            },
+            "200 back": {
+              "qualifying": "2:04.59",
+              "bonus": "2:06.99"
+            },
+            "50 breast": {
+              "qualifying": "29.19",
+              "bonus": "29.59"
+            },
+            "100 breast": {
+              "qualifying": "1:03.69",
+              "bonus": "1:05.09"
+            },
+            "200 breast": {
+              "qualifying": "2:19.39",
+              "bonus": "2:22.39"
+            },
+            "50 fly": {
+              "qualifying": "24.89",
+              "bonus": "25.39"
+            },
+            "100 fly": {
+              "qualifying": "54.69",
+              "bonus": "55.89"
+            },
+            "200 fly": {
+              "qualifying": "2:02.99",
+              "bonus": "2:05.09"
+            },
+            "200 im": {
+              "qualifying": "2:05.49",
+              "bonus": "2:07.99"
+            },
+            "400 im": {
+              "qualifying": "4:28.89",
+              "bonus": "4:33.09"
+            }
+          }
+        }
+      }
+    }
+  }
+}
