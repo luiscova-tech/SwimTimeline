@@ -357,6 +357,18 @@ _attributed_urls = {source.get("url") for source in SOURCES}
 SOURCES.extend(source for source in ADVANCED_SOURCES if source.get("url") not in _attributed_urls)
 
 
+# The LSCs this app has qualifying-time standards configured for. Every AZSI/Sectional gate below
+# keys off this one set (rather than scattered "== AZ" literals), and team-code auto-detection asks
+# the same question through has_lsc_standards(), so wiring up a new LSC means adding its code here
+# plus its catalogs -- not hunting down individual checks.
+LSC_WITH_STANDARDS = frozenset({"AZ"})
+
+
+def has_lsc_standards(state: str | None) -> bool:
+    """True when `state` names an LSC this app has configured AZSI/Sectional standards for."""
+    return bool(state) and state.strip().upper() in LSC_WITH_STANDARDS
+
+
 def motivational_standards(
     course: str | None, gender: str | None, band: str | None, event_key: str
 ) -> dict[str, str] | None:
@@ -568,9 +580,9 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
     # so azsi_standard() returns None, and the Senior lookup supplies the cut instead. Both share
     # the {state, regional} shape, so the summary logic below is identical; only the label band
     # differs ("Senior" vs the age band).
-    azsi = azsi_standard(course, gender, band, event_key) if state.upper() == "AZ" else None
+    azsi = azsi_standard(course, gender, band, event_key) if has_lsc_standards(state) else None
     azsi_band_label = band
-    if azsi is None and state.upper() == "AZ" and is_senior_age(swimmer_age):
+    if azsi is None and has_lsc_standards(state) and is_senior_age(swimmer_age):
         azsi = azsi_senior_standard(course, gender, event_key)
         azsi_band_label = "Senior"
     if azsi and "state" in azsi and "regional" in azsi:
@@ -607,7 +619,7 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
     # line because Sectionals sit a tier above LSC; the two meets are named individually so they
     # never collapse into a generic "Sectional". Left off the confidence line to keep it stable.
     sectional_summary: str | None = None
-    if state.upper() == "AZ":
+    if has_lsc_standards(state):
         sectional_summary = sectional_summary_line(course, gender, event_key, seed_seconds)
 
     # National elite layer: ANY state/LSC (not Arizona-scoped, unlike AZSI/Sectional above) --
@@ -651,7 +663,7 @@ def advanced_ladder_rungs(
         if secs is not None:
             rungs.append((name, cell["qualifying"], secs))
 
-    if state and state.upper() == "AZ":
+    if has_lsc_standards(state):
         for meet in SECTIONAL_MEETS:
             add(meet["name"], meet["standards"].get(course, {}).get(gender, {}).get(event_key))
 

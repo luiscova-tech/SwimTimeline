@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pypdf import PdfReader
 
 from .ics import build_ics
-from .standards import SOURCES, lookup
+from .standards import SOURCES, has_lsc_standards, lookup
 
 
 DEFAULT_TZ = "America/Phoenix"
@@ -102,6 +102,21 @@ def resolve_meet_timezone(state: str | None = None, explicit_timezone: str | Non
             continue
         return candidate
     return DEFAULT_TZ
+
+
+def lsc_from_team_code(team: str | None) -> str | None:
+    """Pull the swimmer's 2-letter LSC out of a parsed psych-sheet team code, or None.
+
+    USA Swimming team codes carry the LSC as a 2-letter token: as a "CLUB-LSC" suffix on local
+    meets (MAC-AZ, AASC-AZ, GM-AZ) or standing alone on zone/all-star sheets (AZ, SR). It is the
+    trailing 2-letter token, so we scan from the end and take the first one -- a longer club
+    abbreviation ahead of it is skipped. A bare club code with no LSC (e.g. "MAC") yields None, so
+    the caller auto-detects nothing and the swimmer falls through exactly as a blank field does.
+    """
+    for token in reversed(re.split(r"[^A-Za-z0-9]+", (team or "").strip())):
+        if re.fullmatch(r"[A-Za-z]{2}", token):
+            return token.upper()
+    return None
 
 
 @dataclass
@@ -1627,7 +1642,12 @@ def build_swim_events(
         timeline = timeline_for_timing_rule(entry, primary_timeline, final_timeline, rule)
         if not timeline:
             continue
-        standard = lookup(entry.event_name, entry.seed_time, state=state, age=entry.age)
+        # Precedence: an explicitly entered State/LSC always wins; only when it is blank do we fall
+        # back to the LSC parsed from this swimmer's own team code. Detection is per entry, so a
+        # combined family calendar (and even a single lookup that fuzzy-matches swimmers from
+        # different LSCs) resolves each swimmer against their own code, never one shared value.
+        effective_state = state if state.strip() else (lsc_from_team_code(entry.team) or state)
+        standard = lookup(entry.event_name, entry.seed_time, state=effective_state, age=entry.age)
         final_note = finals_note(entry, timeline, final_timeline, rule)
         checkin = checkin_note(entry.event_number, flyer_text)
         swim_events.append(
@@ -2247,7 +2267,10 @@ def analyze_uploads(
             relay_entries,
             relays,
             relay_warnings,
-            name_warnings + estimate_warnings + timeline_source_warnings(timeline_events),
+            name_warnings
+            + estimate_warnings
+            + timeline_source_warnings(timeline_events)
+            + auto_detect_state_warnings(state, entries),
         ),
     }
 
@@ -2310,6 +2333,28 @@ def summarize_relay(relay_event: RelayEvent) -> dict:
         "checkin_note": None,
         "sort_start": relay_event.timeline.start.isoformat(timespec="seconds"),
     }
+
+
+def auto_detect_state_warnings(state: str, entries: list[PsychEntry]) -> list[str]:
+    """One note when a blank State/LSC field was filled in from the swimmers' own team codes.
+
+    Only fires for LSCs the app actually has standards for (has_lsc_standards): those are the cases
+    where auto-detection changes what the family sees, so the note explains why AZSI/Sectional lines
+    appeared without them typing anything. A non-supported code (or no detectable LSC) produces the
+    same output as before, so there is nothing to announce.
+    """
+    if state.strip():
+        return []
+    detected = sorted(
+        {lsc for entry in entries if (lsc := lsc_from_team_code(entry.team)) and has_lsc_standards(lsc)}
+    )
+    if not detected:
+        return []
+    label = ", ".join(detected)
+    return [
+        f"State/LSC was blank, so it was auto-detected as {label} from the team code on your "
+        f"entries — that's what surfaces the {label} qualifying-time lines. Type a State/LSC to override."
+    ]
 
 
 def build_warnings(
