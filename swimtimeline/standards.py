@@ -412,6 +412,53 @@ def azsi_senior_standard(
     )
 
 
+# The next AZSI band above a given one, for the "also meets the next band" bonus check. Age Group
+# steps within its own three-band table (10 & under -> 11-12 -> 13-14); 13-14 then crosses into the
+# separately-shaped, band-less Senior catalog -- a different lookup (azsi_senior_standard), not
+# another row in the same table -- so this is NOT a uniform "+1 band" step. Senior itself has nothing
+# above it within this app's 18-and-under benchmark scope.
+AZSI_NEXT_BAND = {
+    "10 & under": "11-12",
+    "11-12": "13-14",
+    "13-14": "Senior",
+}
+
+
+def azsi_next_band_standard(
+    course: str | None, gender: str | None, band_label: str | None, event_key: str
+) -> tuple[str | None, dict[str, str] | None]:
+    """The AZSI cut one band up from ``band_label`` for the same event, as (next_label, cell).
+
+    Returns (None, None) when there is no next band -- Senior (the top), or any unmapped label. The
+    13-14 -> Senior step reads the flat, band-less Senior catalog rather than the Age Group table,
+    so callers get the right cut without knowing the two datasets are shaped differently.
+    """
+    next_label = AZSI_NEXT_BAND.get(band_label or "")
+    if next_label is None:
+        return None, None
+    if next_label == "Senior":
+        return next_label, azsi_senior_standard(course, gender, event_key)
+    return next_label, azsi_standard(course, gender, next_label, event_key)
+
+
+def azsi_next_band_state_bonus(
+    course: str | None, gender: str | None, band_label: str | None, event_key: str, seed_seconds: float
+) -> str | None:
+    """A note that the swimmer also clears the next age band's (faster) State cut, or None.
+
+    Only meaningful once the swimmer has met their own band's State cut -- the caller gates on that
+    -- since the next band's standard is always faster; beating it too is a genuine bonus. None when
+    there is no next band, no cut configured there, or the seed does not beat it.
+    """
+    next_label, cell = azsi_next_band_standard(course, gender, band_label, event_key)
+    if not cell or "state" not in cell:
+        return None
+    next_state = parse_time(cell["state"])
+    if next_state is None or seed_seconds > next_state:
+        return None
+    return f"also meets {next_label} State standard ({cell['state']})"
+
+
 def sectional_summary_line(
     course: str | None, gender: str | None, event_key: str, seed_seconds: float
 ) -> str | None:
@@ -596,6 +643,16 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
             # not just redundant, showing it would misstate an eligibility the swimmer no longer
             # has.
             lsc_summary = f"{azsi_label}: State met; State {azsi['state']}"
+            # Bonus: having met their own State cut, is the swimmer already under the next age
+            # band's (faster) State cut too? Only checked here, in the State-met branch, so it never
+            # adds noise for a swimmer still chasing their own band. azsi_band_label carries the
+            # current band ("10 & under"/"11-12"/"13-14"/"Senior"); a Senior swimmer has no next
+            # band and gets nothing.
+            next_band_bonus = azsi_next_band_state_bonus(
+                course, gender, azsi_band_label, event_key, seed_seconds
+            )
+            if next_band_bonus:
+                lsc_summary = f"{lsc_summary}; {next_band_bonus}"
         elif regional_cut is not None and seed_seconds <= regional_cut:
             lsc_summary = f"{azsi_label}: Regional met; State target {azsi['state']}, Regional {azsi['regional']}"
         else:

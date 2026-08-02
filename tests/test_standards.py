@@ -52,7 +52,10 @@ class AzsiSeniorBoundaryTest(unittest.TestCase):
     def test_age_14_still_resolves_to_age_group_unchanged(self):
         result = lookup("Girls 13-14 100 LC Meter Freestyle", "1:02.00", state="AZ", age="14")
         self.assertIn("AZSI 13-14 Girls LCM", result.lsc_summary)
-        self.assertNotIn("Senior", result.lsc_summary)
+        # A 14-year-old is classified into the Age Group 13-14 band, never the Senior catalog. (The
+        # summary may still mention Senior in the trailing "also meets the next band" bonus clause --
+        # that is the 13-14 -> Senior lookahead, not this swimmer's own classification.)
+        self.assertNotIn("AZSI Senior", result.lsc_summary)
         self.assertIn("AZSI verified", result.confidence_summary)
 
     def test_age_15_resolves_to_senior(self):
