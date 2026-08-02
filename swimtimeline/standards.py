@@ -619,19 +619,12 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
 
 
 def next_advanced_target(event_key: str, seed_seconds: float) -> str | None:
-    remaining: list[dict[str, str]] = []
     for row in ADVANCED_LADDER.get(event_key, []):
         cut = parse_time(row["time"])
         if cut is not None and seed_seconds > cut:
-            remaining.append(row)
-    if remaining:
-        next_row = remaining[0]
-        then_rows = remaining[1:5]
-        summary = f"Beyond AAAA: next {next_row['name']} {next_row['time']}"
-        if then_rows:
-            then = ", ".join(f"{row['name']} {row['time']}" for row in then_rows)
-            summary = f"{summary}; then {then}"
-        return summary
+            # Just the next unmet rung, matching every other benchmark line's "next X" pattern
+            # (e.g. "AA; next AAA 39.09") -- not the whole remaining ladder.
+            return f"Beyond AAAA: next {row['name']} {row['time']}"
     if event_key in ADVANCED_LADDER:
         return "Advanced standards loaded; swimmer has met all configured targets"
     return "Advanced cuts beyond AAAA are not configured for this event yet"

@@ -206,5 +206,36 @@ class SectionalLookupTest(unittest.TestCase):
         self.assertEqual(result.usa_summary, "USA-S: could not determine gender from the event name")
 
 
+class BeyondAAAAAdvancedSummaryTest(unittest.TestCase):
+    """Once USA-S hits AAAA, advanced_summary shows only the single next unmet national
+    standard -- the same "just the next rung" pattern used everywhere else (e.g. "AA; next AAA
+    39.09") -- not the whole remaining ladder with a trailing "then ..." list.
+    """
+
+    def test_shows_only_the_next_rung_with_no_trailing_then_list(self):
+        # Girls LCM 100 Free at AAAA: next rung is Speedo Sectionals 1:00.69.
+        result = lookup("Girls 11-12 100 LC Meter Freestyle", "1:03.41", state="AZ", age="12")
+
+        self.assertEqual(result.usa_summary, "USA-S 11-12 Girls LCM: AAAA")
+        self.assertEqual(result.advanced_summary, "Beyond AAAA: next Speedo Sectionals 1:00.69")
+        self.assertNotIn("then", result.advanced_summary)
+
+    def test_all_three_wzag_cova_aaaa_events_show_a_single_rung(self):
+        # Regression pin for the 2026 WZAG Boise psych-sheet verification session: Cova's three
+        # AAAA events (100 Free, 400 Free, 50 Free) must each show exactly one "Beyond AAAA: next
+        # ..." line, with nothing after it.
+        combos = [
+            ("Girls 11-12 100 LC Meter Freestyle", "1:03.41", "Beyond AAAA: next Speedo Sectionals 1:00.69"),
+            ("Girls 11-12 400 LC Meter Freestyle", "4:54.19", "Beyond AAAA: next Speedo Sectionals 4:35.29"),
+            ("Girls 11-12 50 LC Meter Freestyle", "28.62", "Beyond AAAA: next Speedo Sectionals 28.09"),
+        ]
+        for event_name, seed_time, expected in combos:
+            result = lookup(event_name, seed_time, state="AZ", age="12")
+            where = f"{event_name} seed={seed_time}"
+            self.assertEqual(result.usa_summary, "USA-S 11-12 Girls LCM: AAAA", where)
+            self.assertEqual(result.advanced_summary, expected, where)
+            self.assertNotIn("then", result.advanced_summary, where)
+
+
 if __name__ == "__main__":
     unittest.main()
