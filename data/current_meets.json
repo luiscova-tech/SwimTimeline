@@ -10,15 +10,16 @@
       "expires_at": "2026-08-10",
       "state": "ID",
       "timezone": "America/Boise",
-      "status": "documents-pending",
-      "last_updated": "2026-07-29",
+      "venue": "Idaho Central Aquatic Center, 3575 S. Findley Ave., Boise, ID 83705",
+      "status": "ready",
+      "last_updated": "2026-08-02",
       "featured": true,
       "featured_until": "2026-08-10",
       "featured_label": "Next featured meet",
-      "featured_note": "Meet flyer and event order are loaded. Psych sheet and projected/final timeline are still needed before calendar generation.",
+      "featured_note": "All documents are loaded and calendar generation is available. Session times come from the pre-meet projected timeline and may shift.",
       "rules_summary": [
         "Prelims/finals meet in long course meters.",
-        "Projected timeline is TBA at the General Meeting.",
+        "Projected session timeline is loaded; heat times are pre-meet estimates and may shift at the General Meeting.",
         "Some distance events swim all but the fastest seeded heat after prelims; fastest seeded heat swims in finals.",
         "Relays are timed finals and all relay heats swim in finals.",
         "Circle seeding applies to selected prelim events."
@@ -26,15 +27,15 @@
       "files": {
         "flyer": "meets/2026-wzag-championships-boise/input/Sanctioned_2026 WZAG Championships - Boise (v5.pdf",
         "event_order": "meets/2026-wzag-championships-boise/input/2026 WZAG Championships - Event Order.pdf",
-        "psych": null,
-        "timeline": null,
+        "psych": "meets/2026-wzag-championships-boise/input/wzag psych sheet v3.pdf",
+        "timeline": "meets/2026-wzag-championships-boise/input/wzag timelines v4.pdf",
         "relay": null
       },
       "documents": [
         "Meet flyer",
         "Event order",
-        "Psych/heat sheet pending",
-        "Timeline pending"
+        "Psych/heat sheet",
+        "Projected timeline"
       ]
     },
     {
@@ -141,6 +142,7 @@
       "expires_at": "2026-06-15",
       "state": "FL",
       "timezone": "America/New_York",
+      "venue": "Selby Aquatic Center, Sarasota, FL",
       "status": "ready",
       "files": {
         "flyer": "meets/2026-shark-open/input/2026-shark-open-flyer.pdf",

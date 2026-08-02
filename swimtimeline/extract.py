@@ -1104,23 +1104,16 @@ def normalize_pdf_time(value: str, meridiem: str) -> str:
     return f"{hour:02d}:{minute:02d}"
 
 
-def infer_facility(session_name: str) -> str:
-    lower = session_name.lower()
-    if "final" in lower or "sr" in lower or "senior" in lower:
-        return "Skyline Aquatic Center"
-    if "ag" in lower or "age group" in lower:
-        return "Kino Aquatic Complex"
-    return "Meet facility"
-
-
 def session_is_finals(session_name: str) -> bool:
     lower = session_name.lower()
     return "final" in lower and "prelim" not in lower and "distance" not in lower
 
 
-def parse_timeline(timeline_pdf: Path, flyer_text: str = "") -> tuple[str, dict[int, SessionInfo], list[TimelineEvent]]:
+def parse_timeline(
+    timeline_pdf: Path, flyer_text: str = "", meet_venue: str | None = None
+) -> tuple[str, dict[int, SessionInfo], list[TimelineEvent]]:
     cache_key = pdf_cache_key(timeline_pdf)
-    return cached_timeline(*cache_key, flyer_text)
+    return cached_timeline(*cache_key, flyer_text, meet_venue)
 
 
 @lru_cache(maxsize=48)
@@ -1129,6 +1122,7 @@ def cached_timeline(
     mtime_ns: int,
     size: int,
     flyer_text: str = "",
+    meet_venue: str | None = None,
 ) -> tuple[str, dict[int, SessionInfo], list[TimelineEvent]]:
     del mtime_ns, size
     timeline_pdf = Path(path)
@@ -1176,7 +1170,11 @@ def cached_timeline(
                 start_time = normalize_time_string(day_match.group(2))
                 flyer_session = flyer_sessions.get(number, {})
                 warmup = flyer_session.get("warmup_time") or time_minus_minutes(start_time, 60)
-                facility = flyer_session.get("facility") or flyer_location or infer_facility(name)
+                # Facility comes from the meet's OWN documents (flyer session line or "Meet
+                # Location:" line) first, then the meet record's explicit venue. Never guessed
+                # from the session name -- a "Finals" session is not evidence of any venue, and
+                # guessing produced a fixed Arizona address on non-AZ meets (see meet_venue docs).
+                facility = flyer_session.get("facility") or flyer_location or meet_venue
                 current_session = SessionInfo(
                     number=number,
                     name=name,
@@ -1221,21 +1219,21 @@ def cached_timeline(
         events.extend(page_events)
 
     if not events:
-        packet_sessions, packet_events = parse_meet_packet_schedule(text, meet_name)
+        packet_sessions, packet_events = parse_meet_packet_schedule(text, meet_name, meet_venue)
         if packet_events:
             return meet_name, packet_sessions, packet_events
 
     return meet_name, sessions, events
 
 
-def parse_meet_packet_schedule(text: str, meet_name: str) -> tuple[dict[int, SessionInfo], list[TimelineEvent]]:
+def parse_meet_packet_schedule(text: str, meet_name: str, meet_venue: str | None = None) -> tuple[dict[int, SessionInfo], list[TimelineEvent]]:
     sessions: dict[int, SessionInfo] = {}
     events_by_session: dict[int, list[tuple[int, str]]] = {}
     current_session: SessionInfo | None = None
     current_warmup: str | None = None
     current_start: str | None = None
     next_session_number = 1
-    facility = packet_facility(text)
+    facility = packet_facility(text) or meet_venue
 
     day_header = re.compile(
         r"^Day\s+(\d+):\s+([A-Za-z]+),\s+([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})\s*(?:-|–|—)\s*(.+?Session)\s*$",
@@ -1566,9 +1564,13 @@ def event_name_is_timed_final(event_name: str) -> bool:
 
 
 def location_for_session(session: SessionInfo | TimelineEvent) -> str:
+    # `facility` is only ever set from the meet's own data now (parsed from its flyer/timeline,
+    # or the meet record's explicit venue) -- never guessed from the session name. When nothing
+    # is known we return the neutral "Meet facility" rather than assert a specific wrong address.
     facility = getattr(session, "facility", None)
-    if facility is None and hasattr(session, "session_name"):
-        facility = infer_facility(session.session_name)
+    # Expand the short Kino/Skyline names that the Arizona flyers print to their full addresses.
+    # This only fires when the facility was genuinely parsed as one of those AZ venues (e.g. the
+    # Narwhal Invite), so it cannot leak an AZ address onto a meet held elsewhere.
     if facility and "kino" in facility.lower():
         return "Kino Aquatic Complex, 848 N. Horne, Mesa, AZ 85203"
     if facility and "skyline" in facility.lower():
@@ -1694,10 +1696,6 @@ def finals_note(
     if timeline.round_name.lower().startswith("finals") or "distance" in lower_session:
         return "Timed final; no separate finals swim."
     return "No separate finals event found in the timeline."
-
-
-def location_for_session_name(session_name: str) -> str:
-    return "Skyline" if "final" in session_name.lower() or "sr" in session_name.lower() else "Kino"
 
 
 def checkin_note(event_number: int, flyer_text: str = "") -> str | None:
@@ -2117,10 +2115,11 @@ def analyze_uploads(
     modes: Iterable[str] = ("daily",),
     estimate_heat_lanes: bool = False,
     meet_timezone: str | None = None,
+    meet_venue: str | None = None,
 ) -> dict:
     resolved_timezone = meet_timezone or resolve_meet_timezone(state)
     flyer_text = "\n".join(extract_text_pages(flyer_pdf)) if flyer_pdf else ""
-    meet_name, sessions, timeline_events = parse_timeline(timeline_pdf, flyer_text=flyer_text)
+    meet_name, sessions, timeline_events = parse_timeline(timeline_pdf, flyer_text=flyer_text, meet_venue=meet_venue)
     entries, page_counts, name_warnings = extract_psych_entries(psych_pdf, swimmer_name)
     relay_entries, relay_warnings = extract_relay_entries(relay_pdf, swimmer_name)
     internal_relay_entries, internal_relay_warnings = extract_internal_relay_entries(internal_relay_sources, swimmer_name)

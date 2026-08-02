@@ -177,6 +177,10 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         # Timezone must come from the meet's own venue, not the swimmer/LSC
         # state above (a traveling swimmer may enter their home LSC there).
         meet_timezone = resolve_meet_timezone(state=meet.get("state"), explicit_timezone=meet.get("timezone"))
+        # Venue likewise comes from the meet record. It is the fallback the timeline parser uses
+        # when the meet's own flyer/timeline PDFs don't name a facility, so a non-AZ meet no
+        # longer inherits a hardcoded Arizona address. None -> "Meet facility" (never a wrong one).
+        meet_venue = meet.get("venue") or None
         files = meet.get("files", {})
         flyer_path = resolve_repo_file(files.get("flyer"), required=False, label="Meet Flyer")
         psych_path = resolve_repo_file(files.get("psych"), required=True, label="Psych Sheet or Heat Sheet")
@@ -199,6 +203,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             combine_family=combine_family,
             estimate_heat_lanes=estimate_heat_lanes,
             meet_timezone=meet_timezone,
+            meet_venue=meet_venue,
         )
         result["run_id"] = run_id
         result["current_meet_id"] = meet_id
@@ -467,6 +472,7 @@ def analyze_swimmer_set(
     combine_family: bool,
     estimate_heat_lanes: bool,
     meet_timezone: str | None = None,
+    meet_venue: str | None = None,
 ) -> dict:
     if len(swimmer_names) == 1:
         return analyze_uploads(
@@ -481,6 +487,7 @@ def analyze_swimmer_set(
             modes=modes,
             estimate_heat_lanes=estimate_heat_lanes,
             meet_timezone=meet_timezone,
+            meet_venue=meet_venue,
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -504,6 +511,7 @@ def analyze_swimmer_set(
             modes=modes,
             estimate_heat_lanes=estimate_heat_lanes,
             meet_timezone=meet_timezone,
+            meet_venue=meet_venue,
         )
         result["output_subdir"] = subdir_name
         result["files"] = {key: f"{subdir_name}/{name}" for key, name in result["files"].items()}
