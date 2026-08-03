@@ -507,20 +507,29 @@ def levenshtein(left: str, right: str) -> int:
     return previous[-1]
 
 
+def single_indel(left: str, right: str) -> bool:
+    """True when the two strings differ by exactly one inserted or deleted character (a dropped or
+    doubled letter -- the common typo shape, e.g. 'mil'/'mila', 'rosetti'/'rossetti').
+
+    Deliberately EXCLUDES same-length single substitutions: those too often distinguish two real,
+    different swimmers ('Marco'/'Mario', 'Prima'/'Priya', 'Amy'/'Andy'), so treating them as a typo
+    silently merged distinct people. Verified against the full WZAG psych sheet: indel-only matching
+    produces zero different-swimmer collisions while still catching real dropped/doubled-letter typos.
+    """
+    return abs(len(left) - len(right)) == 1 and levenshtein(left, right) == 1
+
+
 def close_name_pair(query: tuple[str, str], candidate: tuple[str, str]) -> bool:
     query_first, query_last = query
     candidate_first, candidate_last = candidate
-    if query_first == candidate_first and levenshtein(query_last, candidate_last) <= 1:
+    # One name component must match exactly and the other differ by a single indel. This is tighter
+    # than the old rule (which allowed a substitution on one half, or a first-letters-match +
+    # edit-distance-2 fallback) -- both of those merged distinct real swimmers.
+    if query_first == candidate_first and single_indel(query_last, candidate_last):
         return True
-    if query_last == candidate_last and levenshtein(query_first, candidate_first) <= 1:
+    if query_last == candidate_last and single_indel(query_first, candidate_first):
         return True
-    full_query = f"{query_first}{query_last}"
-    full_candidate = f"{candidate_first}{candidate_last}"
-    return (
-        query_first[:1] == candidate_first[:1]
-        and query_last[:1] == candidate_last[:1]
-        and levenshtein(full_query, full_candidate) <= 2
-    )
+    return False
 
 
 def make_name_patterns(swimmer_name: str) -> list[re.Pattern[str]]:
@@ -874,16 +883,59 @@ def extract_psych_entries(psych_pdf: Path, swimmer_name: str) -> tuple[list[Psyc
         return entries, page_counts, []
 
     entries, page_counts = collect_psych_entries(pages, fragments, patterns, query_pairs, allow_fuzzy=True)
-    warnings: list[str] = []
-    if entries:
-        matched_names = sorted({entry.matched_name for entry in entries if entry.matched_name})
-        if matched_names:
-            warnings.append(
-                "No exact swimmer-name match was found. Used high-confidence match: "
-                + ", ".join(matched_names)
-                + "."
-            )
+    return resolve_fuzzy_match(swimmer_name, entries, page_counts)
+
+
+def resolve_fuzzy_match(
+    swimmer_name: str, entries: list[PsychEntry], page_counts: list[dict]
+) -> tuple[list[PsychEntry], list[dict], list[str]]:
+    """Decide what a fuzzy (no-exact-match) fallback should return.
+
+    If the fuzzy pass matched more than one DIFFERENT swimmer, refuse: merging their events under
+    one calendar (labeled with just the first swimmer's name -- see resolved_swimmer_name) would
+    silently combine strangers, so surface the ambiguity and ask for a more specific name instead.
+    A single resolved swimmer passes through with a high-confidence notice.
+    """
+    if not entries:
+        return entries, page_counts, []
+    if len(distinct_swimmer_pairs(entries)) > 1:
+        candidates = sorted({display_first_last(e.matched_name) or e.matched_name for e in entries})
+        return [], [], [
+            f"'{swimmer_name}' closely matches more than one swimmer ({', '.join(candidates)}). "
+            "No exact match was found; please search a more specific name (include the first name)."
+        ]
+    matched_names = sorted({entry.matched_name for entry in entries if entry.matched_name})
+    warnings = (
+        ["No exact swimmer-name match was found. Used high-confidence match: " + ", ".join(matched_names) + "."]
+        if matched_names
+        else []
+    )
     return entries, page_counts, warnings
+
+
+def distinct_swimmer_pairs(entries: list[PsychEntry]) -> set[tuple[str, str]]:
+    """The set of distinct (first, last) swimmers among matched entries, by normalized name. One
+    real swimmer can appear as several psych rows ('Cova, Mila B', 'Cova, Mila WZAG') that all
+    normalize to a single pair; more than one pair means the query resolved to different people."""
+    pairs: set[tuple[str, str]] = set()
+    for entry in entries:
+        matched = name_pairs(entry.matched_name)
+        if matched:
+            pairs.add(matched[0])
+    return pairs
+
+
+def resolved_relay_query(swimmer_name: str, entries: list[PsychEntry]) -> str:
+    """The name to hand to relay matching. Individual events match by substring/regex, so a
+    last-name-only query ('Cova') still finds the right PsychEntry -- but relay matching hashes a
+    full (first, last) pair, which a partial query cannot produce (name_pairs('Cova') == []). When
+    the found entries resolve to exactly ONE swimmer, use that swimmer's authoritative full name so
+    relays resolve too. When the query is ambiguous (several distinct swimmers) or found nothing,
+    fall back to the raw query -- never guess one of several swimmers."""
+    pairs = distinct_swimmer_pairs(entries)
+    if len(pairs) == 1 and entries:
+        return entries[0].matched_name or swimmer_name
+    return swimmer_name
 
 
 def extract_relay_entries(relay_pdf: Path | None, swimmer_name: str) -> tuple[list[RelayEntry], list[str]]:
@@ -2688,8 +2740,13 @@ def analyze_uploads(
     flyer_text = "\n".join(extract_text_pages(flyer_pdf)) if flyer_pdf else ""
     meet_name, sessions, timeline_events = parse_timeline(timeline_pdf, flyer_text=flyer_text, meet_venue=meet_venue)
     entries, page_counts, name_warnings = extract_psych_entries(psych_pdf, swimmer_name)
-    relay_entries, relay_warnings = extract_relay_entries(relay_pdf, swimmer_name)
-    internal_relay_entries, internal_relay_warnings = extract_internal_relay_entries(internal_relay_sources, swimmer_name)
+    # Relay matching hashes a full (first, last) pair, so a last-name-only query would find the
+    # individual events (substring match) but no relays. Resolve the swimmer's full name from the
+    # matched entries first, so a partial-but-unambiguous search gets relays too (ambiguous queries
+    # fall back to the raw query and simply do not resolve relays -- never guess one swimmer).
+    relay_query = resolved_relay_query(swimmer_name, entries)
+    relay_entries, relay_warnings = extract_relay_entries(relay_pdf, relay_query)
+    internal_relay_entries, internal_relay_warnings = extract_internal_relay_entries(internal_relay_sources, relay_query)
     relay_entries = dedupe_relay_entries([*relay_entries, *internal_relay_entries])
     relay_warnings.extend(internal_relay_warnings)
     # Tentative "team entered, leg unknown" relays from the psych sheet's own team-level rows -- the

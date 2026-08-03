@@ -11,7 +11,7 @@
     "Roster names are stored as salted hashes only; the website should not display relay swimmer names.",
     "Relay lineups can change; families should confirm assignments with their coach.",
     "Relays flagged lineup_pending include a swimmer who withdrew after entries; the coach's replacement was not yet published.",
-    "Two legs (a withdrawn swimmer and a relay-only swimmer) are absent from the psych sheet, so their leg is recorded with no matchable hash."
+    "Names were resolved against the psych sheet (exact, then a unique fuzzy match within the Arizona same-age slice, e.g. Rosetti -> Rossetti). A swimmer absent from the psych sheet (a withdrawal) is recorded with no matchable hash."
   ],
   "entries": [
     {
@@ -71,7 +71,9 @@
           "leg": 3
         },
         {
-          "hashes": [],
+          "hashes": [
+            "29aad64f8efa72a8aad650bddf8f46f69db95c8546c8dcc98518566e4779cdc6"
+          ],
           "leg": 4
         }
       ],
@@ -118,7 +120,9 @@
       "page": 1,
       "swimmers": [
         {
-          "hashes": [],
+          "hashes": [
+            "29aad64f8efa72a8aad650bddf8f46f69db95c8546c8dcc98518566e4779cdc6"
+          ],
           "leg": 1
         },
         {
@@ -220,7 +224,9 @@
           "leg": 1
         },
         {
-          "hashes": [],
+          "hashes": [
+            "29aad64f8efa72a8aad650bddf8f46f69db95c8546c8dcc98518566e4779cdc6"
+          ],
           "leg": 2
         },
         {
@@ -317,7 +323,9 @@
           "leg": 1
         },
         {
-          "hashes": [],
+          "hashes": [
+            "29aad64f8efa72a8aad650bddf8f46f69db95c8546c8dcc98518566e4779cdc6"
+          ],
           "leg": 2
         },
         {
