@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
 from functools import lru_cache
@@ -16,7 +17,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pypdf import PdfReader
 
 from .ics import build_ics
-from .standards import SOURCES, has_lsc_standards, lookup
+from .standards import SOURCES, event_gender, has_lsc_standards, lookup, parse_age
 
 
 DEFAULT_TZ = "America/Phoenix"
@@ -119,6 +120,174 @@ def lsc_from_team_code(team: str | None) -> str | None:
     return None
 
 
+# USA Swimming LSC code -> the team display name that zone/all-star psych sheets print in place of a
+# club code. A club meet prints the swimmer's own "CLUB-LSC" code on relay rows (MAC-AZ); a zone meet
+# like WZAG groups athletes by LSC and prints the LSC's name ("Arizona"). This map is consulted only
+# to match a swimmer to their OWN LSC's team-level relay rows -- an LSC missing here (or a name that
+# does not match) simply yields no tentative team relay, never a false match, so the map degrades
+# safely and can be extended as new zone meets appear. Western Zone LSCs (the ones that appear in the
+# WZAG fixtures) are covered; names are the full canonical form so a column-truncated row still
+# prefix-matches.
+LSC_TEAM_NAMES = {
+    "AZ": "Arizona",
+    "PC": "Pacific",
+    "PN": "Pacific Northwest",
+    "SN": "Sierra Nevada Swimming",
+    "SR": "Snake River",
+    "CO": "Colorado",
+    "OR": "Oregon",
+    "UT": "Utah",
+    "NM": "New Mexico",
+    "SI": "San Diego-Imperial",
+    "CC": "Central California",
+    "IE": "Inland Empire",
+    "HI": "Hawaii",
+    "MT": "Montana",
+    "AK": "Alaska",
+    "WY": "Wyoming",
+}
+
+
+def _normalize_team_token(value: str) -> str:
+    """Fold a team/LSC string to comparable form: lowercase, alphanumerics only (drops the spaces,
+    hyphens, and punctuation that differ between 'San Diego-Imperial' and a printed 'San Diego Imperi')."""
+    return re.sub(r"[^a-z0-9]", "", (value or "").lower())
+
+
+def relay_team_matches_swimmer(relay_team: str, swimmer_team: str) -> bool:
+    """True when a team-level relay row belongs to the searched swimmer's own team.
+
+    Two meet styles, told apart by the swimmer's own parsed team code:
+      * club meet -- the swimmer's code is "CLUB-LSC" (e.g. MAC-AZ) and relay rows print the same
+        code; an exact club-LSC match is required, so a different Arizona club (GM-AZ) never matches.
+      * zone/all-star meet -- the swimmer's code is a bare LSC (e.g. AZ) and relay rows print the
+        LSC's display name ("Arizona"); the LSC code or that name matches, normalized and
+        prefix-aware so a column-truncated "Sierra Nevada Sw" still matches "Sierra Nevada Swimming".
+    """
+    swimmer_code = (swimmer_team or "").strip().upper()
+    relay_token = _normalize_team_token(relay_team)
+    if not swimmer_code or not relay_token:
+        return False
+    lsc = lsc_from_team_code(swimmer_team)
+    is_bare_lsc = bool(lsc) and swimmer_code == lsc
+    if not is_bare_lsc:
+        return _normalize_team_token(swimmer_team) == relay_token
+    if relay_token == _normalize_team_token(lsc):
+        return True
+    name = LSC_TEAM_NAMES.get(lsc)
+    if not name:
+        return False
+    norm_name = _normalize_team_token(name)
+    # Exact, or the row is a truncation of the full name (>= 8 chars so short codes must match
+    # exactly -- "Pacific" never swallowed by "Pacific Northwest").
+    return relay_token == norm_name or (len(relay_token) >= 8 and norm_name.startswith(relay_token))
+
+
+def relay_age_eligible(event_name: str, age: int | None) -> bool:
+    """Whether a swimmer of ``age`` could swim a relay of this event group ("12 & Under", "13-14",
+    "15 & Over"). Unknown/open groups do not exclude. Age unknown never excludes."""
+    if age is None:
+        return True
+    text = event_name.lower()
+    match = re.search(r"(\d{1,2})\s*&\s*(?:under|younger)", text)
+    if match:
+        return age <= int(match.group(1))
+    match = re.search(r"(\d{1,2})\s*&\s*(?:over|older)", text)
+    if match:
+        return age >= int(match.group(1))
+    match = re.search(r"\b(\d{1,2})\s*-\s*(\d{1,2})\b", text)
+    if match:
+        return int(match.group(1)) <= age <= int(match.group(2))
+    return True
+
+
+def relay_gender_eligible(event_name: str, gender: str | None) -> bool:
+    """Whether a swimmer of ``gender`` could swim this relay. A Mixed relay (no gender word) admits
+    both; a Girls/Women or Boys/Men relay admits only that gender. Unknown swimmer gender never
+    excludes."""
+    relay_gender = event_gender(event_name)
+    return relay_gender is None or gender is None or relay_gender == gender
+
+
+# A team-level relay entry row on a psych sheet: "A 2:18.00Arizona16" (zone: LSC name) or
+# "A 2:05.74MAC-AZ8" (club: club-LSC code), optionally with a "W54"/"M56" gender-group prefix
+# ("A 2:18.50W54MAC-AZ4"). Groups: relay letter, seed, optional prefix, team, trailing rank.
+TEAM_RELAY_ROW = re.compile(
+    r"^(?P<label>[A-Z])\s+(?P<seed>\d+(?::\d+)?\.\d+)(?P<prefix>[WMX]\d+)?"
+    r"(?P<team>[A-Za-z][A-Za-z .&'/-]*?)(?P<rank>\d+)$"
+)
+
+
+def extract_team_relay_entries(
+    psych_pdf: Path, swimmer_team: str, swimmer_age: int | None, swimmer_gender: str | None
+) -> list[RelayEntry]:
+    """Tentative "your team is entered, leg unknown" relays read from the psych sheet's team-level
+    relay rows -- the middle ground when no leg-naming source exists for an event.
+
+    One entry per relay event the swimmer's OWN team is entered in and the swimmer is age/gender
+    eligible for. Never names a roster (there is none in this data) and never asserts a specific
+    relay letter or leg -- it only says the team is entered, so the caller renders it tentative.
+    """
+    if not swimmer_team:
+        return []
+    pages = extract_text_pages(psych_pdf)
+    event_header_re = re.compile(r"(?:#|Event)\s*(\d+)\s+(.+)$", re.IGNORECASE)
+    seen_events: set[int] = set()
+    entries: list[RelayEntry] = []
+    current: tuple[int, str] | None = None
+    for page_number, text in enumerate(pages, start=1):
+        for raw_line in text.splitlines():
+            line = normalize_space(raw_line)
+            header = event_header_re.match(line)
+            if header:
+                current = (int(header.group(1)), normalize_event_header_name(header.group(2)))
+                continue
+            if current is None:
+                continue
+            event_number, event_name = current
+            if "relay" not in event_name.lower() or event_number in seen_events:
+                continue
+            row = TEAM_RELAY_ROW.match(line)
+            if row is None or not relay_team_matches_swimmer(row.group("team"), swimmer_team):
+                continue
+            if not (relay_age_eligible(event_name, swimmer_age) and relay_gender_eligible(event_name, swimmer_gender)):
+                continue
+            seen_events.add(event_number)
+            entries.append(
+                RelayEntry(
+                    event_number=event_number,
+                    event_name=event_name,
+                    relay_label="",
+                    entry_time="",
+                    leg=0,
+                    page=page_number,
+                    source_line=(
+                        f"Psych sheet: {row.group('team').strip()} is entered in this relay event; "
+                        "individual swimmers are not listed."
+                    ),
+                    source_label="Psych sheet (team entry)",
+                    is_team_entry=True,
+                )
+            )
+    return entries
+
+
+def swimmer_relay_identity(entries: list[PsychEntry]) -> tuple[str, int | None, str | None]:
+    """The swimmer's own (team code, age, gender), read from their matched individual psych entries,
+    for matching team-level relay rows. Returns ('', None, None) when no individual events matched.
+
+    The team code carries the granularity that relay matching needs -- a bare LSC ("AZ") at a zone
+    meet vs a club-LSC ("MAC-AZ") at a club meet -- so it is taken verbatim, not reduced to its LSC.
+    """
+    if not entries:
+        return "", None, None
+    teams = Counter(entry.team for entry in entries if entry.team)
+    swimmer_team = teams.most_common(1)[0][0] if teams else ""
+    age = next((parse_age(entry.age) for entry in entries if parse_age(entry.age) is not None), None)
+    gender = next((event_gender(entry.event_name) for entry in entries if event_gender(entry.event_name)), None)
+    return swimmer_team, age, gender
+
+
 @dataclass
 class Fragment:
     page: int
@@ -211,6 +380,10 @@ class RelayEntry:
     source_line: str
     source_label: str = "Relay document"
     is_private_source: bool = False
+    # True for the "team entered, leg unknown" state: read from the psych sheet's team-level relay
+    # rows (no roster, no specific leg), surfaced as a tentative calendar entry. Confirmed-leg
+    # relays (a named relay PDF or private roster add-on) always take precedence over these.
+    is_team_entry: bool = False
 
 
 @dataclass
@@ -1865,44 +2038,82 @@ def build_detailed_payload(
     for relay_event in sorted(relays, key=lambda item: item.timeline.start):
         relay = relay_event.relay
         timeline = relay_event.timeline
-        lines = [
+        common_head = [
             swimmer_name,
             short_name,
             "",
             f"Day: {meet_day_text(timeline.date, day_numbers.get(timeline.date, 1))}",
             f"Session: #{timeline.session_number} - {timeline.session_name}",
-            f"Pool/course: {location_for_session(timeline)}; relay document lists entry as {relay.entry_time[-1:] if relay.entry_time else 'provided'}",
-            "",
-            f"Relay: #{relay.event_number} - {relay.event_name}",
-            "Format: Timed final relay",
-            f"Team: {relay.relay_label}",
-            f"Entry time: {relay.entry_time}",
-            f"Leg: {relay.leg}",
-            f"Timeline event window: {display_window(timeline.start, timeline.end)}",
-            "",
-            "Important:",
-            "- Relay lineup and timing may change; confirm with coach or official postings.",
-            "- Timeline-derived relay windows are estimates.",
-            *(["- " + PROJECTED_TIMELINE_NOTE] if timeline_projected else []),
-            "",
-            f"Finals: {relay_event.finals_note}",
-            "",
-            "Benchmarks: n/a for relay calendar event.",
-            "",
-            "Source verification:",
-            f"{relay.source_label}: page {relay.page}; swimmer match verified without displaying roster names.",
-            f"Timeline: event #{relay.event_number}",
-            "Psych sheet source: n/a for relay assignment",
         ]
+        if relay.is_team_entry:
+            # Tentative: the swimmer's team is entered in this relay, but no leg-naming source
+            # confirmed the swimmer on it. Never asserts a relay letter, entry time, or leg -- only
+            # that the team is entered -- and is always STATUS:TENTATIVE (relay lineups shift at any
+            # meet, projected timeline or not).
+            lines = [
+                *common_head,
+                f"Pool/course: {location_for_session(timeline)}",
+                "",
+                f"Relay: #{relay.event_number} - {relay.event_name}",
+                "Format: Timed final relay",
+                "Status: TENTATIVE - your team is entered; specific swimmers and leg are not listed.",
+                f"Timeline event window: {display_window(timeline.start, timeline.end)}",
+                "",
+                "Important:",
+                "- Your team is entered in this relay, but relay lineups are set by the coach and",
+                "  change often. Confirm whether and where the swimmer is swimming with the coach.",
+                "- Timeline-derived relay windows are estimates.",
+                *(["- " + PROJECTED_TIMELINE_NOTE] if timeline_projected else []),
+                "",
+                f"Finals: {relay_event.finals_note}",
+                "",
+                "Benchmarks: n/a for relay calendar event.",
+                "",
+                "Source verification:",
+                f"{relay.source_label}: {relay.source_line}",
+                f"Timeline: event #{relay.event_number}",
+            ]
+            uid_suffix = f"relay-team-{relay.event_number}"
+        else:
+            lines = [
+                *common_head,
+                f"Pool/course: {location_for_session(timeline)}; relay document lists entry as {relay.entry_time[-1:] if relay.entry_time else 'provided'}",
+                "",
+                f"Relay: #{relay.event_number} - {relay.event_name}",
+                "Format: Timed final relay",
+                f"Team: {relay.relay_label}",
+                f"Entry time: {relay.entry_time}",
+                f"Leg: {relay.leg}",
+                f"Timeline event window: {display_window(timeline.start, timeline.end)}",
+                "",
+                "Important:",
+                "- Relay lineup and timing may change; confirm with coach or official postings.",
+                "- Timeline-derived relay windows are estimates.",
+                *(["- " + PROJECTED_TIMELINE_NOTE] if timeline_projected else []),
+                "",
+                f"Finals: {relay_event.finals_note}",
+                "",
+                "Benchmarks: n/a for relay calendar event.",
+                "",
+                "Source verification:",
+                f"{relay.source_label}: page {relay.page}; swimmer match verified without displaying roster names.",
+                f"Timeline: event #{relay.event_number}",
+                "Psych sheet source: n/a for relay assignment",
+            ]
+            uid_suffix = f"relay-{relay.event_number}-{relay.relay_label.lower().replace(' ', '-')}"
         events.append(
             {
-                "uid": f"{meet_id}-{swimmer_slug}-relay-{relay.event_number}-{relay.relay_label.lower().replace(' ', '-')}@swimtimeline",
-                "title": f"{swimmer_name} - Relay {relay.event_number}: {event_short_name(relay.event_name)}",
+                "uid": f"{meet_id}-{swimmer_slug}-{uid_suffix}@swimtimeline",
+                "title": (
+                    f"{swimmer_name} - Relay {relay.event_number} (team entered): {event_short_name(relay.event_name)}"
+                    if relay.is_team_entry
+                    else f"{swimmer_name} - Relay {relay.event_number}: {event_short_name(relay.event_name)}"
+                ),
                 "start": timeline.start.isoformat(timespec="seconds"),
                 "end": timeline.end.isoformat(timespec="seconds"),
                 "location": location_for_session(timeline),
                 "description_lines": lines,
-                "status": event_status,
+                "status": "TENTATIVE" if (relay.is_team_entry or timeline_projected) else "CONFIRMED",
             }
         )
     events.sort(key=lambda event: event["start"])
@@ -1981,9 +2192,14 @@ def build_daily_payload(
         for item in day_items:
             if isinstance(item, RelayEvent):
                 relay = item.relay
-                lines.append(
-                    f"#{relay.event_number} Relay - {event_short_name(relay.event_name)} | timed final relay | {relay.relay_label}, leg {relay.leg} | {display_window(item.timeline.start, item.timeline.end)} estimated"
-                )
+                if relay.is_team_entry:
+                    lines.append(
+                        f"#{relay.event_number} Relay - {event_short_name(relay.event_name)} | tentative: team entered, leg TBD | confirm with coach | {display_window(item.timeline.start, item.timeline.end)} estimated"
+                    )
+                else:
+                    lines.append(
+                        f"#{relay.event_number} Relay - {event_short_name(relay.event_name)} | timed final relay | {relay.relay_label}, leg {relay.leg} | {display_window(item.timeline.start, item.timeline.end)} estimated"
+                    )
             else:
                 lines.append(
                     f"#{item.psych.event_number} {event_short_name(item.psych.event_name)} | {event_format_label(item)} | {entry_seed_summary(item.psych)} | {display_window(item.timeline.start, item.timeline.end)}"
@@ -2148,17 +2364,23 @@ def build_audit(
         lines.append(
             f"| {swim.timeline.date.strftime('%A')} | {psych.event_number} | {psych.event_name} | {event_format_label(swim)} | {psych.seed_time} | {position} | {psych.page} | {entry_column_display(psych.column)} | {entry_source_label(psych)} |"
         )
-    lines.extend(["", "## Verified Relays", ""])
+    lines.extend(["", "## Relays", ""])
     if relays:
-        lines.append("| Day | Event # | Relay Event | Relay | Entry Time | Leg | Page |")
-        lines.append("| --- | ---: | --- | --- | --- | ---: | ---: |")
+        lines.append("| Day | Event # | Relay Event | Status | Relay | Entry Time | Leg | Page |")
+        lines.append("| --- | ---: | --- | --- | --- | --- | ---: | ---: |")
         for relay_event in relays:
             relay = relay_event.relay
+            if relay.is_team_entry:
+                status, label, entry, leg = "Tentative (team entered)", "--", "--", "--"
+            else:
+                status, label, entry, leg = "Confirmed leg", relay.relay_label, relay.entry_time, str(relay.leg)
             lines.append(
-                f"| {relay_event.timeline.date.strftime('%A')} | {relay.event_number} | {relay.event_name} | {relay.relay_label} | {relay.entry_time} | {relay.leg} | {relay.page} |"
+                f"| {relay_event.timeline.date.strftime('%A')} | {relay.event_number} | {relay.event_name} | {status} | {label} | {entry} | {leg} | {relay.page} |"
             )
     else:
-        lines.append("No verified relays found.")
+        lines.append("No relays found.")
+    confirmed_count = sum(1 for item in relays if not item.relay.is_team_entry)
+    tentative_count = len(relays) - confirmed_count
     lines.extend(
         [
             "",
@@ -2168,9 +2390,11 @@ def build_audit(
             "",
             f"Total verified events found: {len(swims)}",
             "",
-            f"Total verified relays found: {len(relays)}",
+            f"Total relays found: {len(relays)} ({confirmed_count} confirmed leg, {tentative_count} tentative team entry)",
             "",
-            "No relay events are included unless a relay document explicitly names the swimmer or a selected private relay add-on matches the swimmer.",
+            "Confirmed-leg relays require a relay document that names the swimmer or a matching private "
+            "relay add-on. Tentative relays are events the swimmer's own team is entered in (from the "
+            "psych sheet's team-level rows); the specific swimmers and leg are not listed -- confirm with the coach.",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -2199,6 +2423,22 @@ def analyze_uploads(
     internal_relay_entries, internal_relay_warnings = extract_internal_relay_entries(internal_relay_sources, swimmer_name)
     relay_entries = dedupe_relay_entries([*relay_entries, *internal_relay_entries])
     relay_warnings.extend(internal_relay_warnings)
+    # Tentative "team entered, leg unknown" relays from the psych sheet's own team-level rows -- the
+    # middle ground when no leg-naming source covered an event. Precedence: a leg-confirmed relay
+    # always wins, so drop any tentative whose event already has a confirmed entry (never show both).
+    swimmer_team, swimmer_age, swimmer_gender = swimmer_relay_identity(entries)
+    confirmed_relay_events = {relay.event_number for relay in relay_entries}
+    team_relay_entries = [
+        entry
+        for entry in extract_team_relay_entries(psych_pdf, swimmer_team, swimmer_age, swimmer_gender)
+        if entry.event_number not in confirmed_relay_events
+    ]
+    relay_entries = [*relay_entries, *team_relay_entries]
+    if team_relay_entries:
+        relay_warnings.append(
+            f"{len(team_relay_entries)} relay(s) list your team entered but no confirmed lineup was "
+            "provided; these appear as tentative. Confirm relay assignments with your coach."
+        )
     assign_days(entries, timeline_events)
     estimate_warnings = estimate_heat_lanes_for_entries(entries, timeline_events, flyer_text) if estimate_heat_lanes else []
     swims = build_swim_events(entries, timeline_events, state=state, flyer_text=flyer_text)
@@ -2251,7 +2491,10 @@ def analyze_uploads(
         "swimmer": output_swimmer_name,
         "requested_swimmer": swimmer_name,
         "verified_event_count": len(swims),
-        "verified_relay_count": len(relays),
+        # "verified" counts only leg-confirmed relays; tentative team entries are reported separately
+        # so the confirmed count keeps its meaning.
+        "verified_relay_count": sum(1 for relay in relays if not relay.relay.is_team_entry),
+        "tentative_relay_count": sum(1 for relay in relays if relay.relay.is_team_entry),
         "psych_match_pages": page_counts,
         "events": [summarize_swim(swim) for swim in swims],
         "relays": [summarize_relay(relay) for relay in relays],
@@ -2321,7 +2564,11 @@ def summarize_relay(relay_event: RelayEvent) -> dict:
         "seed_time": relay.entry_time,
         "seed_place": None,
         "relay_label": relay.relay_label,
-        "leg": relay.leg,
+        # A tentative team entry knows no specific leg (leg is null, not 0), and is flagged so the UI
+        # can render it distinctly from a confirmed leg assignment.
+        "leg": None if relay.is_team_entry else relay.leg,
+        "is_team_entry": relay.is_team_entry,
+        "relay_status": "tentative" if relay.is_team_entry else "confirmed",
         "day": relay_event.timeline.date.strftime("%A"),
         "window": display_window(relay_event.timeline.start, relay_event.timeline.end),
         "page": relay.page,
@@ -2329,7 +2576,7 @@ def summarize_relay(relay_event: RelayEvent) -> dict:
         "source_document": relay.source_label,
         "benchmarks": {"usa": "n/a for relay", "lsc": "n/a for relay", "sectional": None, "national": None, "advanced": None, "confidence": "Standards confidence: n/a for relay"},
         "finals_note": relay_event.finals_note,
-        "event_format": "Timed final relay",
+        "event_format": "Relay: team entered, leg TBD" if relay.is_team_entry else "Timed final relay",
         "checkin_note": None,
         "sort_start": relay_event.timeline.start.isoformat(timespec="seconds"),
     }

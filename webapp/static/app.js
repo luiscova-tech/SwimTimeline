@@ -525,7 +525,9 @@ function renderResult(payload) {
   for (const swim of items) {
     const row = document.createElement("tr");
     const seedCell = swim.type === "relay"
-      ? `${escapeHtml(swim.seed_time)}<br>${escapeHtml(swim.relay_label || "Relay")}, leg ${escapeHtml(swim.leg || "")}`
+      ? (swim.is_team_entry
+          ? `<em>Tentative</em><br>team entered — confirm with coach`
+          : `${escapeHtml(swim.seed_time)}<br>${escapeHtml(swim.relay_label || "Relay")}, leg ${escapeHtml(swim.leg || "")}`)
       : seedDetails(swim);
     const sourceCell = swim.type === "relay"
       ? `page ${swim.page}<br>${escapeHtml(swim.source_document || "relay document")}`

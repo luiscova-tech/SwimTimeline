@@ -68,10 +68,15 @@ class ProjectedTimelineTest(unittest.TestCase):
             self.assertIn(NOTE_FRAGMENT, ics, name)
 
     def test_caveat_count_matches_event_count_in_detailed(self):
-        # Stein swims 6 individual events; each detailed VEVENT gets its own caveat + TENTATIVE.
+        # On a projected timeline EVERY detailed VEVENT -- Stein's individual events and any
+        # tentative "team entered" relays alike -- gets its own STATUS:TENTATIVE and projection
+        # caveat. Count against the VEVENT total rather than a hard-coded number so the invariant
+        # holds as the relay feature adds entries.
         ics = unfolded_ics(self.out, "detailed")
-        self.assertEqual(ics.count("STATUS:TENTATIVE"), 6)
-        self.assertEqual(ics.count(NOTE_FRAGMENT), 6)
+        vevent_count = ics.count("BEGIN:VEVENT")
+        self.assertGreaterEqual(vevent_count, 6)  # at least her 6 individual events
+        self.assertEqual(ics.count("STATUS:TENTATIVE"), vevent_count)
+        self.assertEqual(ics.count(NOTE_FRAGMENT), vevent_count)
 
 
 class FinalTimelineTest(unittest.TestCase):
