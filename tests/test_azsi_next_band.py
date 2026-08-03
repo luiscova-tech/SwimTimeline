@@ -52,7 +52,7 @@ class NextBandBonusFiresPerTransitionTest(unittest.TestCase):
         result = lookup("Boys 10 & Under 50 LC Meter Butterfly", "35.82", state="AZ", age="10")
         self.assertEqual(
             result.lsc_summary,
-            "AZSI 10 & under Boys LCM: State met; State 44.29; also meets 11-12 State standard (36.39)",
+            "AZSI 10 & under Boys LCM: State met; also meets 11-12 State standard (36.39)",
         )
 
     def test_11_12_to_13_14(self):
@@ -60,7 +60,7 @@ class NextBandBonusFiresPerTransitionTest(unittest.TestCase):
         result = lookup("Girls 11-12 50 LC Meter Freestyle", "28.62", state="AZ", age="12")
         self.assertEqual(
             result.lsc_summary,
-            "AZSI 11-12 Girls LCM: State met; State 31.99; also meets 13-14 State standard (30.19)",
+            "AZSI 11-12 Girls LCM: State met; also meets 13-14 State standard (30.19)",
         )
 
     def test_13_14_to_senior(self):
@@ -69,7 +69,7 @@ class NextBandBonusFiresPerTransitionTest(unittest.TestCase):
         result = lookup("Girls 13-14 50 LC Meter Freestyle", "28.27", state="AZ", age="13")
         self.assertEqual(
             result.lsc_summary,
-            "AZSI 13-14 Girls LCM: State met; State 30.19; also meets Senior State standard (29.59)",
+            "AZSI 13-14 Girls LCM: State met; also meets Senior State standard (29.59)",
         )
 
 
@@ -86,7 +86,7 @@ class NextBandBonusGatingTest(unittest.TestCase):
     def test_state_met_but_next_band_not_met_has_no_bonus_line(self):
         # 31.00 <= 11-12 State 31.99 (own met) but > 13-14 State 30.19 (next not met).
         result = lookup("Girls 11-12 50 LC Meter Freestyle", "31.00", state="AZ", age="12")
-        self.assertEqual(result.lsc_summary, "AZSI 11-12 Girls LCM: State met; State 31.99")
+        self.assertEqual(result.lsc_summary, "AZSI 11-12 Girls LCM: State met")
         self.assertNotIn("also meets", result.lsc_summary)
 
     def test_senior_swimmer_has_no_next_band(self):

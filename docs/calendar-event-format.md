@@ -161,8 +161,7 @@ B/A finals if top 16 in age group. Finals session starts 5:30 PM.
 
 Benchmarks:
 USA-S {age} Girls LCM: achieved {tier}; next {next_tier} at {next_standard_time}
-AZSI 11-12 Girls LCM: State met; State {state_time}
-Standards confidence: USA-S verified, AZSI verified
+AZSI 11-12 Girls LCM: State met
 
 Source verification:
 Psych sheet: page 4, middle column
@@ -170,13 +169,22 @@ Timeline: event #31
 Relay source: n/a
 ```
 
+A met tier never restates the cutoff it beat -- "met" alone carries everything actionable, the
+same convention the Motivational line uses (AAAA never re-prints the AAAA cut). Numbers appear
+only for genuinely unmet targets and for the next-age-band bonus clause (new information, e.g.
+`State met; also meets 13-14 State standard (30.19)`).
+
 If the swimmer has not yet met the State cut, the AZSI line instead reads
-`AZSI 11-12 Girls LCM: Regional met; State target {state_time}, Regional {regional_time}`
-(Regional cut met) or `AZSI 11-12 Girls LCM: target State {state_time}, Regional {regional_time}`
-(neither cut met). Regional only ever appears in those two cases. Once State is met, Arizona's
-own eligibility rule removes Regional eligibility for that event (the swimmer swims up to State
-instead), so the Regional value is omitted entirely -- not just redundant -- rather than shown
+`AZSI 11-12 Girls LCM: Regional met; State target {state_time}`
+(Regional cut met -- its beaten value is not restated; the unmet State target keeps its number)
+or `AZSI 11-12 Girls LCM: target State {state_time}, Regional {regional_time}`
+(neither cut met). Regional's value only ever appears in that last case. Once State is met,
+Arizona's own eligibility rule removes Regional eligibility for that event (the swimmer swims up
+to State instead), so Regional is omitted entirely -- not just redundant -- rather than shown
 alongside a "State met" result.
+
+There is no standalone "Standards confidence" line when every layer resolved; it appears only to
+flag genuine gaps (e.g. `Standards confidence: LSC not configured`).
 
 The benchmark line should include only the nearest useful standards, not the entire table. A good default is:
 

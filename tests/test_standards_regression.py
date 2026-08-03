@@ -472,6 +472,15 @@ class NationalLookupTest(unittest.TestCase):
         self.assertIn("TYR Futures Championships (18 & Under)", result.national_summary)
         self.assertIn("Toyota National Championships (18 & Under)", result.national_summary)
 
+    def test_age_bracket_met_shows_no_cutoff_restatement(self):
+        from swimtimeline.standards import lookup
+
+        # TYR Futures Girls 18 & Under SCY 50 Free cut is 23.89; a 23.00 seed has met it. Same
+        # convention as AZSI/Sectional: "met" alone, no restated value.
+        result = lookup("Girls 17-18 50 Yard Freestyle", "23.00", state="CA", age="18")
+        segment = meet_segment(result.national_summary, "TYR Futures Championships (18 & Under)")
+        self.assertEqual(segment, "TYR Futures Championships (18 & Under): met")
+
     def test_age_19_resolves_to_19_and_over_bracket(self):
         from swimtimeline.standards import lookup
 
@@ -500,20 +509,22 @@ class NationalLookupTest(unittest.TestCase):
     def test_summer_juniors_qualifying_met_suppresses_bonus(self):
         from swimtimeline.standards import lookup
 
-        # SCY Girls 50 Free: qualifying 22.99, bonus 23.89. A 22.50 seed meets qualifying.
+        # SCY Girls 50 Free: qualifying 22.99, bonus 23.89. A 22.50 seed meets qualifying. A met
+        # tier is never restated -- "Qualifying met" alone, same convention as AZSI.
         result = lookup("Girls 17-18 50 Yard Freestyle", "22.50", state="CA", age="17")
         segment = meet_segment(result.national_summary, "Speedo Summer Junior National Championships")
-        self.assertEqual(segment, "Speedo Summer Junior National Championships: Qualifying met; Qualifying 22.99")
+        self.assertEqual(segment, "Speedo Summer Junior National Championships: Qualifying met")
 
     def test_summer_juniors_bonus_met_shows_both_values(self):
         from swimtimeline.standards import lookup
 
-        # A 23.50 seed misses qualifying (22.99) but meets bonus (23.89).
+        # A 23.50 seed misses qualifying (22.99) but meets bonus (23.89). Bonus's own beaten value
+        # is dropped; the still-unmet Qualifying target keeps its number.
         result = lookup("Girls 17-18 50 Yard Freestyle", "23.50", state="CA", age="17")
         segment = meet_segment(result.national_summary, "Speedo Summer Junior National Championships")
         self.assertEqual(
             segment,
-            "Speedo Summer Junior National Championships: Bonus met; Qualifying target 22.99, Bonus 23.89",
+            "Speedo Summer Junior National Championships: Bonus met; Qualifying target 22.99",
         )
 
     def test_winter_juniors_shares_summer_juniors_ceiling(self):
@@ -535,7 +546,7 @@ class NationalLookupTest(unittest.TestCase):
         nineteen = lookup("Women 50 Yard Freestyle", "22.80", state="CA", age="19")
         seventeen_segment = meet_segment(seventeen.national_summary, "Toyota U.S. Open Championships")
         nineteen_segment = meet_segment(nineteen.national_summary, "Toyota U.S. Open Championships")
-        self.assertEqual(seventeen_segment, "Toyota U.S. Open Championships: Bonus met; Qualifying target 22.49, Bonus 22.99")
+        self.assertEqual(seventeen_segment, "Toyota U.S. Open Championships: Bonus met; Qualifying target 22.49")
         self.assertEqual(nineteen_segment, "Toyota U.S. Open Championships: target Qualifying 22.49")
 
     def test_us_open_qualifying_still_shown_for_age_19(self):

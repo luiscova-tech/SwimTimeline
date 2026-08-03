@@ -177,7 +177,11 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             raise ValueError("At least one swimmer name is required.")
 
         meet = resolve_current_meet(meet_id)
-        state = str(payload.get("state") or meet.get("state") or "").strip().upper()
+        # The State/LSC field is the SWIMMER's LSC, so a blank stays blank -- build_swim_events then
+        # auto-detects each swimmer's LSC from their own parsed team code. The meet record's "state"
+        # is the VENUE's state (WZAG is in ID while its AZ swimmers need AZSI); substituting it here
+        # used to masquerade as an explicitly-entered LSC and block auto-detection entirely.
+        state = str(payload.get("state") or "").strip().upper()
         # Timezone must come from the meet's own venue, not the swimmer/LSC
         # state above (a traveling swimmer may enter their home LSC there).
         meet_timezone = resolve_meet_timezone(state=meet.get("state"), explicit_timezone=meet.get("timezone"))

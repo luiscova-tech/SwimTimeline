@@ -63,12 +63,10 @@ class AzsiSeniorBoundaryTest(unittest.TestCase):
 
     def test_age_15_resolves_to_senior(self):
         result = lookup("Girls 15-16 100 LC Meter Freestyle", "1:02.00", state="AZ", age="15")
-        # State cut for Girls Senior LCM 100 free is 1:03.69; a 1:02.00 seed has met it. Regional
-        # is suppressed once State is met (see AzsiRegionalSuppressionTest below).
-        self.assertEqual(
-            result.lsc_summary,
-            "AZSI Senior Girls LCM: State met; State 1:03.69",
-        )
+        # Girls Senior LCM 100 free State cut is 1:03.69; a 1:02.00 seed has met it. "met" carries
+        # no cutoff restatement (Motivational's convention), and Regional is suppressed once State
+        # is met (see AzsiRegionalSuppressionTest below).
+        self.assertEqual(result.lsc_summary, "AZSI Senior Girls LCM: State met")
         self.assertEqual(result.confidence_summary, "")
 
     def test_age_18_still_resolves_to_senior(self):
@@ -81,28 +79,31 @@ class AzsiRegionalSuppressionTest(unittest.TestCase):
     eligibility for that event entirely (the swimmer swims up to State). Showing a Regional value
     once State is met would misstate an eligibility the swimmer no longer has, so lookup() drops
     the Regional value/target from lsc_summary in that case -- not just a display preference.
-    When State is NOT met, Regional continues to show exactly as before (met or target).
+    When State is NOT met, Regional continues to show: as an unmet target with its number, or as
+    "Regional met" (no cutoff restatement -- met tiers never re-print the beaten cut).
     Covers both the Age Group and Senior AZSI catalogs, which share this summary logic.
     """
 
     def test_state_met_suppresses_regional_entirely_age_group(self):
         # Girls 11-12 LCM 50 Breast: State cut 42.79, Regional 51.99. A 39.50 seed meets State.
+        # A met tier shows no cutoff restatement -- "State met" alone.
         result = lookup("Girls 11-12 50 LC Meter Breaststroke", "39.50", state="AZ", age="12")
-        self.assertEqual(result.lsc_summary, "AZSI 11-12 Girls LCM: State met; State 42.79")
+        self.assertEqual(result.lsc_summary, "AZSI 11-12 Girls LCM: State met")
         self.assertNotIn("Regional", result.lsc_summary)
 
     def test_state_met_suppresses_regional_entirely_senior(self):
         # Girls Senior LCM 100 Free: State cut 1:03.69, Regional 1:19.19. A 1:02.00 seed meets State.
         result = lookup("Girls 15-16 100 LC Meter Freestyle", "1:02.00", state="AZ", age="15")
-        self.assertEqual(result.lsc_summary, "AZSI Senior Girls LCM: State met; State 1:03.69")
+        self.assertEqual(result.lsc_summary, "AZSI Senior Girls LCM: State met")
         self.assertNotIn("Regional", result.lsc_summary)
 
-    def test_regional_met_but_not_state_still_shows_regional(self):
+    def test_regional_met_but_not_state_still_shows_the_unmet_state_target(self):
         # Same event/cuts as above: a 45.00 seed misses State (42.79) but meets Regional (51.99).
+        # The met Regional cutoff is not restated; the genuinely unmet State target keeps its number.
         result = lookup("Girls 11-12 50 LC Meter Breaststroke", "45.00", state="AZ", age="12")
         self.assertEqual(
             result.lsc_summary,
-            "AZSI 11-12 Girls LCM: Regional met; State target 42.79, Regional 51.99",
+            "AZSI 11-12 Girls LCM: Regional met; State target 42.79",
         )
 
     def test_neither_met_still_shows_both_as_targets(self):
@@ -155,10 +156,23 @@ class SectionalLookupTest(unittest.TestCase):
     """
 
     def test_names_both_meets_individually_when_both_offer_the_event(self):
+        # A met cut is never restated -- same convention as AZSI ("met", not "met 24.99").
         result = lookup("Girls 15-16 50 Yard Freestyle", "24.50", state="AZ", age="16")
-        self.assertIsNotNone(result.sectional_summary)
-        self.assertIn("Four Corners Spring Speedo Sectional: met 24.99", result.sectional_summary)
-        self.assertIn("Western Region Summer Speedo Sectional: met 24.99", result.sectional_summary)
+        self.assertEqual(
+            result.sectional_summary,
+            "Sectional Girls SCY -- Four Corners Spring Speedo Sectional: met; Western Region Summer Speedo Sectional: met",
+        )
+
+    def test_real_wzag_stein_event_shows_met_with_no_cutoff_restatement(self):
+        # Regression pin against real WZAG data: Stein, Layla (age 13) swims Girls 13-14 50 LCM
+        # Free at 28.27, beating both Sectional meets' 28.44 cut. Neither meet restates the value.
+        # (Cova's own real WZAG events are all still targets -- she has not beaten a Sectional cut
+        # yet -- so Stein is the real swimmer whose data exercises this "met" branch.)
+        result = lookup("Girls 13-14 50 LC Meter Freestyle", "28.27", state="AZ", age="13")
+        self.assertEqual(
+            result.sectional_summary,
+            "Sectional Girls LCM -- Four Corners Spring Speedo Sectional: met; Western Region Summer Speedo Sectional: met",
+        )
 
     def test_target_when_seed_is_slower_than_the_cut(self):
         result = lookup("Girls 15-16 50 Yard Freestyle", "26.00", state="AZ", age="16")
@@ -176,7 +190,7 @@ class SectionalLookupTest(unittest.TestCase):
         # while the AZSI Age Group LSC line stays on its own 13-14 band.
         result = lookup("Girls 13-14 50 Yard Freestyle", "24.50", state="AZ", age="14")
         self.assertIsNotNone(result.sectional_summary)
-        self.assertIn("Four Corners Spring Speedo Sectional: met 24.99", result.sectional_summary)
+        self.assertIn("Four Corners Spring Speedo Sectional: met", result.sectional_summary)
         self.assertIn("AZSI 13-14 Girls SCY", result.lsc_summary)
 
     def test_age_open_above_the_motivational_range_still_gets_sectional(self):
@@ -184,7 +198,7 @@ class SectionalLookupTest(unittest.TestCase):
         # swimmer who met the time still sees the target -- the only benchmark that applies.
         result = lookup("Girls 15-16 50 Yard Freestyle", "24.50", state="AZ", age="19")
         self.assertIsNotNone(result.sectional_summary)
-        self.assertIn("Western Region Summer Speedo Sectional: met 24.99", result.sectional_summary)
+        self.assertIn("Western Region Summer Speedo Sectional: met", result.sectional_summary)
         self.assertEqual(result.lsc_summary, "LSC: standards not configured for this state/event")
 
     def test_sectional_shows_even_when_age_is_unknown(self):

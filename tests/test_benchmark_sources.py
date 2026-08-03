@@ -84,6 +84,33 @@ class ReducedConfidenceLineTest(unittest.TestCase):
         # ...and the gap is also on the line itself, unchanged.
         self.assertIn("not configured", result.lsc_summary)
 
+    def test_every_resolution_combination_is_reduced_consistently(self):
+        # The reduction must hold across every reachable combination, not just one showcase case:
+        # (USA-S ok, LSC ok) / (ok, gap) / (gap, gap) / unparseable seed. In no combination may a
+        # redundant "verified" (or the old advanced buckets) reappear.
+        cases = {
+            "fully resolved": (
+                lookup("Girls 11-12 50 LC Meter Freestyle", "28.62", state="AZ", age="12"),
+                "",
+            ),
+            "partial gap (USA-S ok, LSC not configured)": (
+                lookup("Girls 11-12 50 LC Meter Freestyle", "28.62", state="CA", age="12"),
+                "Standards confidence: LSC not configured",
+            ),
+            "fully gap (age 19 falls off both catalogs)": (
+                lookup("Women 100 LC Meter Freestyle", "1:00.00", state="AZ", age="19"),
+                "Standards confidence: USA-S not configured, LSC not configured",
+            ),
+            "seed not parseable": (
+                lookup("Girls 11-12 50 LC Meter Freestyle", "NT", state="AZ", age="12"),
+                "Standards confidence: not calculated",
+            ),
+        }
+        for label, (result, expected) in cases.items():
+            self.assertEqual(result.confidence_summary, expected, label)
+            self.assertNotIn("verified", result.confidence_summary, label)
+            self.assertNotIn("advanced", result.confidence_summary, label)
+
 
 class PlainTextSurfaceTest(unittest.TestCase):
     def test_ics_helper_appends_url_as_plain_text(self):

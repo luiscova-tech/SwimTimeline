@@ -524,8 +524,9 @@ def sectional_summary_line(
         cut = parse_time(cell["qualifying"])
         if cut is None:
             continue
-        status = "met" if seed_seconds <= cut else "target"
-        parts.append(f"{meet['name']}: {status} {cell['qualifying']}")
+        # Same convention as AZSI: a met cut is never restated (no redundant "met" number); an
+        # unmet cut keeps its number as the genuine target.
+        parts.append(f"{meet['name']}: met" if seed_seconds <= cut else f"{meet['name']}: target {cell['qualifying']}")
     if not parts:
         return None
     return f"Sectional {gender_label} {course} -- " + "; ".join(parts)
@@ -573,8 +574,12 @@ def national_summary_line(
             cut = parse_time(cell["qualifying"])
             if cut is None:
                 continue
-            status = "met" if seed_seconds <= cut else "target"
-            parts.append(f"{meet['name']} ({bracket}): {status} {cell['qualifying']}")
+            # Same convention as AZSI/Sectional: drop the number on a met cut, keep it as the
+            # genuine target when unmet.
+            if seed_seconds <= cut:
+                parts.append(f"{meet['name']} ({bracket}): met")
+            else:
+                parts.append(f"{meet['name']} ({bracket}): target {cell['qualifying']}")
         else:
             age_ceiling = meet.get("age_ceiling")
             if age_ceiling is not None and age is not None and age > age_ceiling:
@@ -588,12 +593,13 @@ def national_summary_line(
             )
             qualifying_cut = parse_time(cell["qualifying"])
             bonus_cut = parse_time(cell["bonus"]) if bonus_allowed else None
+            # Same convention as AZSI/Sectional throughout: a met tier's own value is never
+            # restated; an unmet tier (Qualifying still ahead of a Bonus-only swimmer) keeps its
+            # number as the genuine target.
             if qualifying_cut is not None and seed_seconds <= qualifying_cut:
-                parts.append(f"{meet['name']}: Qualifying met; Qualifying {cell['qualifying']}")
+                parts.append(f"{meet['name']}: Qualifying met")
             elif bonus_cut is not None and seed_seconds <= bonus_cut:
-                parts.append(
-                    f"{meet['name']}: Bonus met; Qualifying target {cell['qualifying']}, Bonus {cell['bonus']}"
-                )
+                parts.append(f"{meet['name']}: Bonus met; Qualifying target {cell['qualifying']}")
             elif bonus_allowed:
                 parts.append(
                     f"{meet['name']}: target Qualifying {cell['qualifying']}, Bonus {cell['bonus']}"
@@ -694,7 +700,10 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
             # entirely (the swimmer swims up to State), so the Regional value is dropped here --
             # not just redundant, showing it would misstate an eligibility the swimmer no longer
             # has.
-            lsc_summary = f"{azsi_label}: State met; State {azsi['state']}"
+            # "met" already says everything actionable -- restating the beaten cutoff is noise, the
+            # same convention Motivational uses (AAAA never re-prints the AAAA cut). Numbers appear
+            # only for genuinely unmet targets, plus the next-band bonus below (new information).
+            lsc_summary = f"{azsi_label}: State met"
             # Bonus: having met their own State cut, is the swimmer already under the next age
             # band's (faster) State cut too? Only checked here, in the State-met branch, so it never
             # adds noise for a swimmer still chasing their own band. azsi_band_label carries the
@@ -706,7 +715,9 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
             if next_band_bonus:
                 lsc_summary = f"{lsc_summary}; {next_band_bonus}"
         elif regional_cut is not None and seed_seconds <= regional_cut:
-            lsc_summary = f"{azsi_label}: Regional met; State target {azsi['state']}, Regional {azsi['regional']}"
+            # Same convention: Regional's beaten cutoff is dropped; the unmet State target keeps its
+            # number because that is the goal still ahead of the swimmer.
+            lsc_summary = f"{azsi_label}: Regional met; State target {azsi['state']}"
         else:
             lsc_summary = f"{azsi_label}: target State {azsi['state']}, Regional {azsi['regional']}"
     else:

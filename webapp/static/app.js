@@ -320,7 +320,10 @@ function statusLabel(status) {
 
 async function analyzeCurrentMeet(meet, card) {
   const swimmerNames = getSwimmerNames();
-  const state = form.elements.state.value.trim() || meet.state || "";
+  // Send only what the parent actually typed: the field is the swimmer's LSC, not the meet's venue
+  // state. A blank lets the backend auto-detect each swimmer's LSC from their own team code;
+  // substituting meet.state (e.g. "ID" for a Boise meet full of AZ swimmers) blocked that.
+  const state = form.elements.state.value.trim();
   const modes = new FormData(form).getAll("modes");
   if (!swimmerNames.length) {
     setStatus("At least one swimmer name is required.", "error");
