@@ -1955,6 +1955,7 @@ def build_swim_events(
                     "national": standard.national_summary,
                     "advanced": standard.advanced_summary,
                     "confidence": standard.confidence_summary,
+                    "sources": standard.sources,
                 },
                 finals_note=final_note,
                 checkin_note=checkin,
@@ -2123,16 +2124,17 @@ def build_detailed_payload(
         )
         if swim.checkin_note:
             lines.append(f"Check-in: {swim.checkin_note}")
+        benchmark_sources = swim.benchmarks.get("sources") or {}
         lines.extend(
             [
                 "",
                 "Benchmarks:",
-                swim.benchmarks["usa"] or "USA-S: n/a",
-                swim.benchmarks["lsc"] or "LSC: n/a",
+                benchmark_line_with_sources(swim.benchmarks["usa"] or "USA-S: n/a", benchmark_sources.get("usa")),
+                benchmark_line_with_sources(swim.benchmarks["lsc"] or "LSC: n/a", benchmark_sources.get("lsc")),
             ]
         )
         if swim.benchmarks.get("advanced"):
-            lines.append(swim.benchmarks["advanced"] or "")
+            lines.append(benchmark_line_with_sources(swim.benchmarks["advanced"], benchmark_sources.get("advanced")))
         if swim.benchmarks.get("confidence"):
             lines.append(swim.benchmarks["confidence"] or "")
         lines.extend(
@@ -2538,11 +2540,13 @@ def build_daily_payload(
         for item in day_items:
             if isinstance(item, RelayEvent):
                 continue
-            benchmark = item.benchmarks["usa"] or "USA-S: n/a"
-            lsc = item.benchmarks["lsc"] or "LSC: n/a"
+            item_sources = item.benchmarks.get("sources") or {}
+            benchmark = benchmark_line_with_sources(item.benchmarks["usa"] or "USA-S: n/a", item_sources.get("usa"))
+            lsc = benchmark_line_with_sources(item.benchmarks["lsc"] or "LSC: n/a", item_sources.get("lsc"))
             lines.append(f"#{item.psych.event_number} {benchmark} | {lsc}")
             if item.benchmarks.get("advanced"):
-                lines.append(f"#{item.psych.event_number} {item.benchmarks['advanced']}")
+                advanced = benchmark_line_with_sources(item.benchmarks["advanced"], item_sources.get("advanced"))
+                lines.append(f"#{item.psych.event_number} {advanced}")
             if item.benchmarks.get("confidence"):
                 lines.append(f"#{item.psych.event_number} {item.benchmarks['confidence']}")
         if any(isinstance(item, RelayEvent) for item in day_items):
@@ -2869,6 +2873,18 @@ def serialize_session(session: SessionInfo) -> dict:
     return data
 
 
+def benchmark_line_with_sources(text: str, sources_for_line: list[dict] | None) -> str:
+    """Append a plain-text source URL to a benchmark line for non-HTML surfaces (.ics descriptions).
+
+    The web table linkifies the label itself from the same source data; plain text can't carry a
+    clickable link, so the URL is appended so the number stays checkable against its document.
+    """
+    if not text or not sources_for_line:
+        return text
+    urls = [source["url"] for source in sources_for_line if source.get("url")]
+    return f"{text} (source: {'; '.join(urls)})" if urls else text
+
+
 def summarize_swim(swim: SwimEvent) -> dict:
     return {
         "type": "individual",
@@ -2918,7 +2934,7 @@ def summarize_relay(relay_event: RelayEvent) -> dict:
         "page": relay.page,
         "column": relay.source_label,
         "source_document": relay.source_label,
-        "benchmarks": {"usa": "n/a for relay", "lsc": "n/a for relay", "sectional": None, "national": None, "advanced": None, "confidence": "Standards confidence: n/a for relay"},
+        "benchmarks": {"usa": "n/a for relay", "lsc": "n/a for relay", "sectional": None, "national": None, "advanced": None, "confidence": "Standards confidence: n/a for relay", "sources": {}},
         "finals_note": relay_event.finals_note,
         "event_format": (
             "Relay: team entered, leg TBD" if relay.is_team_entry

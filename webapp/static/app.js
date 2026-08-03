@@ -549,7 +549,7 @@ function renderResult(payload) {
       <td data-col="event" data-label="Event">${swimmerChip(swim, payload)}<strong>#${swim.event_number}${swim.type === "relay" ? " Relay" : ""}</strong>${escapeHtml(swim.event_name)}<br>${escapeHtml(swim.event_format || "")}</td>
       <td data-col="seed" data-label="${escapeHtml(seedLabel)}">${seedCell}</td>
       <td data-col="window" data-label="Window">${escapeHtml(swim.window)}</td>
-      <td data-col="benchmark" data-label="Benchmark">${escapeHtml(swim.benchmarks.usa || "")}<br>${escapeHtml(swim.benchmarks.lsc || "")}${advancedLine(swim)}</td>
+      <td data-col="benchmark" data-label="Benchmark">${benchmarkLine(swim.benchmarks.usa, swim, "usa")}<br>${benchmarkLine(swim.benchmarks.lsc, swim, "lsc")}${advancedLine(swim)}</td>
       <td data-col="source" data-label="Source">${sourceCell}</td>
     `;
     eventsBody.appendChild(row);
@@ -627,15 +627,35 @@ async function publishCurrentMeet() {
   }
 }
 
+// Turn each standard's label into a checkable link to its source document. The backend supplies,
+// per benchmark line, a list of {label, url} where label is an exact substring of the line text;
+// we escape everything, then swap the escaped label for an <a> so the number stays plain text and
+// only the label (e.g. "USA-S 11-12 Girls LCM", "Four Corners...") becomes a link.
+function linkifyBenchmark(text, sources) {
+  let html = escapeHtml(text || "");
+  for (const source of sources || []) {
+    if (!source.url || !source.label) continue;
+    const escapedLabel = escapeHtml(source.label);
+    const anchor = `<a href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer">${escapedLabel}</a>`;
+    html = html.replace(escapedLabel, () => anchor); // function replacer: no $ special-casing
+  }
+  return html;
+}
+
+function benchmarkLine(text, swim, lineName) {
+  const sources = (swim.benchmarks.sources || {})[lineName];
+  return linkifyBenchmark(text, sources);
+}
+
 function advancedLine(swim) {
-  const lines = [];
+  let html = "";
   if (swim.benchmarks.advanced) {
-    lines.push(swim.benchmarks.advanced);
+    html += `<br>${benchmarkLine(swim.benchmarks.advanced, swim, "advanced")}`;
   }
   if (swim.benchmarks.confidence) {
-    lines.push(swim.benchmarks.confidence);
+    html += `<br>${escapeHtml(swim.benchmarks.confidence)}`;
   }
-  return lines.map((line) => `<br>${escapeHtml(line)}`).join("");
+  return html;
 }
 
 function seedDetails(swim) {

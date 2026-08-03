@@ -13,7 +13,7 @@ post-AAAA "Beyond AAAA" ladder is built from the AZ Sectional + national dataset
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import re
@@ -117,6 +117,11 @@ class StandardResult:
     # National elite targets (Futures, Toyota Nationals, Summer Juniors), any state/LSC. None
     # when out of scope (Summer Juniors' 18-and-under ceiling, or the event has no national cut).
     national_summary: str | None = None
+    # Per-line source links so the display can turn each standard's label into a checkable link to
+    # the document that specific number came from. Keyed by line name (usa/lsc/sectional/national/
+    # advanced); each value is a list of {"label": <exact substring of that line>, "url": <source>}.
+    # A display surface linkifies (web) or appends the URL as plain text (.ics) for whatever it shows.
+    sources: dict[str, list[dict[str, str]]] = field(default_factory=dict)
 
 
 def parse_time(value: str) -> float | None:
@@ -275,7 +280,12 @@ def load_sectional_meets(path: Path = SECTIONAL_STANDARDS_PATH) -> list[dict]:
     data = json.loads(path.read_text(encoding="utf-8"))
     meets = []
     for key, meet in data.get("meets", {}).items():
-        meets.append({"key": key, "name": meet.get("name", key), "standards": meet.get("standards", {})})
+        meets.append({
+            "key": key,
+            "name": meet.get("name", key),
+            "standards": meet.get("standards", {}),
+            "url": meet.get("url"),
+        })
     return meets
 
 
@@ -302,8 +312,16 @@ def load_national_meets(path: Path = NATIONAL_STANDARDS_PATH) -> list[dict]:
             "standards": meet.get("standards", {}),
             "age_ceiling": meet.get("age_ceiling"),
             "bonus_age_ceiling": meet.get("bonus_age_ceiling"),
+            "url": meet.get("url"),
         })
     return meets
+
+
+def load_source_url(path: Path) -> str | None:
+    """The source document/page URL recorded in a dataset's own JSON `source` metadata."""
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8")).get("source", {}).get("url")
 
 
 def load_advanced_sources(path: Path = ADVANCED_STANDARDS_PATH) -> list[dict]:
@@ -355,6 +373,33 @@ ADVANCED_SOURCES = load_advanced_sources()
 # the Futures/Junior/Toyota PDFs, so extending blindly printed duplicate lines in the sources report.
 _attributed_urls = {source.get("url") for source in SOURCES}
 SOURCES.extend(source for source in ADVANCED_SOURCES if source.get("url") not in _attributed_urls)
+
+# Source URLs read from each dataset's own JSON `source` metadata, used to make every displayed
+# standard label a checkable link to the document that number came from. Motivational and AZSI
+# record a single source URL; the AZSI datasets point at the azswimming standards page (the specific
+# State/Regional PDFs are recorded only as filenames there). Sectional/national record a full URL
+# per meet, so those are keyed by meet name.
+MOTIVATIONAL_SOURCE_URL = load_source_url(MOTIVATIONAL_STANDARDS_PATH)
+AZSI_SOURCE_URL = load_source_url(AZSI_STANDARDS_PATH)
+AZSI_SENIOR_SOURCE_URL = load_source_url(AZSI_SENIOR_STANDARDS_PATH)
+MEET_URL_BY_NAME = {
+    meet["name"]: meet["url"]
+    for meet in [*SECTIONAL_MEETS, *NATIONAL_MEETS]
+    if meet.get("url")
+}
+
+
+def meet_sources_in(text: str | None) -> list[dict[str, str]]:
+    """Source links for every sectional/national meet whose name appears in a summary line. Meet
+    names are full and distinct (none is a substring of another), so a simple containment check
+    resolves the exact meets that contributed to this line."""
+    if not text:
+        return []
+    return [
+        {"label": name, "url": url}
+        for name, url in MEET_URL_BY_NAME.items()
+        if name in text
+    ]
 
 
 # The LSCs this app has qualifying-time standards configured for. Every AZSI/Sectional gate below
@@ -598,12 +643,17 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
         )
 
     usa_standards = motivational_standards(course, gender, band, event_key)
-    confidence_parts: list[str] = []
+    # Only genuine gaps go on the confidence line now (a "verified" restatement is redundant with the
+    # summary lines themselves, which already show the met tier / cut). Empty -> no line at all.
+    gap_parts: list[str] = []
     advanced_summary: str | None = None
+    sources: dict[str, list[dict[str, str]]] = {}
 
     if usa_standards:
         gender_label = "Girls" if gender == "girls" else "Boys"
         source_label = f"USA-S {band} {gender_label} {course}"
+        if MOTIVATIONAL_SOURCE_URL:
+            sources["usa"] = [{"label": source_label, "url": MOTIVATIONAL_SOURCE_URL}]
         tier, next_tier = achieved_tier(seed_seconds, usa_standards)
         if tier:
             if next_tier:
@@ -616,10 +666,9 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
                     )
         else:
             usa_summary = f"{source_label}: below B; B target {usa_standards['B']}"
-        confidence_parts.append("USA-S verified")
     else:
         usa_summary = unconfigured_reason(gender, course, band)
-        confidence_parts.append("USA-S not configured")
+        gap_parts.append("USA-S not configured")
 
     # Arizona LSC layer: AZ only. Age Group bands (10 & under, 11-12, 13-14) cover ages 14 and
     # under; the flat Senior catalog covers ages 15-18 (is_senior_age). Age Group is tried first
@@ -635,6 +684,9 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
     if azsi and "state" in azsi and "regional" in azsi:
         gender_label = "Girls" if gender == "girls" else "Boys"
         azsi_label = f"AZSI {azsi_band_label} {gender_label} {course}"
+        azsi_url = AZSI_SENIOR_SOURCE_URL if azsi_band_label == "Senior" else AZSI_SOURCE_URL
+        if azsi_url:
+            sources["lsc"] = [{"label": azsi_label, "url": azsi_url}]
         state_cut = parse_time(azsi["state"])
         regional_cut = parse_time(azsi["regional"])
         if state_cut is not None and seed_seconds <= state_cut:
@@ -657,15 +709,9 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
             lsc_summary = f"{azsi_label}: Regional met; State target {azsi['state']}, Regional {azsi['regional']}"
         else:
             lsc_summary = f"{azsi_label}: target State {azsi['state']}, Regional {azsi['regional']}"
-        confidence_parts.append("AZSI verified")
     else:
         lsc_summary = "LSC: standards not configured for this state/event"
-        confidence_parts.append("LSC not configured")
-
-    if advanced_summary and advanced_summary.startswith("Beyond AAAA"):
-        confidence_parts.append("advanced verified")
-    elif advanced_summary:
-        confidence_parts.append("advanced partial")
+        gap_parts.append("LSC not configured")
 
     # Speedo Sectional layer: AZ only, AGE-OPEN. The Four Corners Spring and Western Region Summer
     # meet flyers both define eligibility as "open to all athletes who ... have met the appropriate
@@ -685,14 +731,30 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
     # bracket; each flat-plus-bonus meet carries its own age_ceiling/bonus_age_ceiling), not here.
     national_summary = national_summary_line(course, gender, event_key, seed_seconds, swimmer_age)
 
+    # Per-meet source links for every line that names a meet (sectional/national, and the advanced
+    # "Beyond AAAA" line, which cites the sectional/national meet its next target belongs to).
+    for line_name, summary in (
+        ("sectional", sectional_summary),
+        ("national", national_summary),
+        ("advanced", advanced_summary),
+    ):
+        meet_sources = meet_sources_in(summary)
+        if meet_sources:
+            sources[line_name] = meet_sources
+
+    # Confidence line reduced to genuine gaps only; when everything resolved it is omitted entirely
+    # rather than restating the obvious ("verified").
+    confidence_summary = f"Standards confidence: {', '.join(gap_parts)}" if gap_parts else ""
+
     return StandardResult(
         event_key,
         usa_summary,
         lsc_summary,
         advanced_summary,
-        f"Standards confidence: {', '.join(confidence_parts)}",
+        confidence_summary,
         sectional_summary,
         national_summary,
+        sources,
     )
 
 

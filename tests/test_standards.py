@@ -10,7 +10,9 @@ class StandardsLookupTest(unittest.TestCase):
         self.assertEqual(result.event_key, "50 breast")
         self.assertEqual(result.usa_summary, "USA-S 11-12 Girls LCM: AA; next AAA 39.09")
         self.assertIn("AZSI 11-12 Girls LCM", result.lsc_summary)
-        self.assertEqual(result.confidence_summary, "Standards confidence: USA-S verified, AZSI verified")
+        # Everything resolved -> the confidence line is omitted entirely (no redundant "verified"
+        # restatement; the tiers/cuts on the summary lines above already show what was checked).
+        self.assertEqual(result.confidence_summary, "")
 
     def test_age_11_and_12_share_the_11_12_band(self):
         # Single-age tables are gone: 11 and 12 now both resolve to the 11-12 age group.
@@ -56,7 +58,8 @@ class AzsiSeniorBoundaryTest(unittest.TestCase):
         # summary may still mention Senior in the trailing "also meets the next band" bonus clause --
         # that is the 13-14 -> Senior lookahead, not this swimmer's own classification.)
         self.assertNotIn("AZSI Senior", result.lsc_summary)
-        self.assertIn("AZSI verified", result.confidence_summary)
+        # AZSI resolved -> no gap note, so the confidence line is empty (not "AZSI verified").
+        self.assertEqual(result.confidence_summary, "")
 
     def test_age_15_resolves_to_senior(self):
         result = lookup("Girls 15-16 100 LC Meter Freestyle", "1:02.00", state="AZ", age="15")
@@ -66,7 +69,7 @@ class AzsiSeniorBoundaryTest(unittest.TestCase):
             result.lsc_summary,
             "AZSI Senior Girls LCM: State met; State 1:03.69",
         )
-        self.assertIn("AZSI verified", result.confidence_summary)
+        self.assertEqual(result.confidence_summary, "")
 
     def test_age_18_still_resolves_to_senior(self):
         result = lookup("Boys 17-18 50 Yard Freestyle", "24.00", state="AZ", age="18")
@@ -252,11 +255,14 @@ class BeyondAAAAAdvancedSummaryTest(unittest.TestCase):
         result = lookup("Girls 11-12 50 LC Meter Freestyle", "28.20", state="AZ", age="12")
         self.assertEqual(result.advanced_summary, "Beyond AAAA: next TYR Futures Championships 27.39")
 
-    def test_beyond_aaaa_string_drives_the_advanced_verified_confidence_bucket(self):
-        # lookup() classifies the confidence tag off the "Beyond AAAA" prefix; pin that coupling so
-        # a future reword of the summary can't silently drop it to "advanced partial".
+    def test_beyond_aaaa_advanced_summary_carries_the_signal_not_a_confidence_bucket(self):
+        # The "Beyond AAAA" state now lives entirely on the advanced_summary line; the confidence
+        # line no longer restates it (the redundant "advanced verified"/"advanced partial" buckets
+        # were removed). Pin that the advanced line still carries the prefix and confidence stays clean.
         result = lookup("Girls 11-12 50 LC Meter Freestyle", "28.62", state="AZ", age="12")
-        self.assertIn("advanced verified", result.confidence_summary)
+        self.assertTrue(result.advanced_summary.startswith("Beyond AAAA"))
+        self.assertEqual(result.confidence_summary, "")
+        self.assertNotIn("advanced", result.confidence_summary)
 
     def test_two_national_meets_sharing_a_cut_are_named_together(self):
         # A 26.30 seed sits between rungs where Toyota Nationals and U.S. Open both list 26.19;
@@ -267,12 +273,12 @@ class BeyondAAAAAdvancedSummaryTest(unittest.TestCase):
             "Beyond AAAA: next Toyota National Championships / Toyota U.S. Open Championships 26.19",
         )
 
-    def test_beating_every_rung_reports_met_all_and_drops_to_advanced_partial(self):
-        # Faster than the hardest configured cut: distinct "met all" message, and the confidence
-        # bucket falls to "advanced partial" (it no longer starts with "Beyond AAAA").
+    def test_beating_every_rung_reports_met_all_on_the_advanced_line(self):
+        # Faster than the hardest configured cut: the distinct "met all" message stays on the
+        # advanced_summary line; there is no separate confidence bucket for it anymore.
         result = lookup("Girls 11-12 50 LC Meter Freestyle", "20.00", state="AZ", age="12")
         self.assertEqual(result.advanced_summary, "Advanced standards loaded; swimmer has met all configured targets")
-        self.assertIn("advanced partial", result.confidence_summary)
+        self.assertEqual(result.confidence_summary, "")
 
     def test_non_az_swimmer_gets_national_rungs_only_no_az_sectional(self):
         # The AZ Sectional rung is Arizona-only; a non-AZ swimmer's ladder is national-only, so
