@@ -30,13 +30,15 @@
         "event_order": "meets/2026-wzag-championships-boise/input/2026 WZAG Championships - Event Order.pdf",
         "psych": "meets/2026-wzag-championships-boise/input/wzag psych sheet v3.pdf",
         "timeline": "meets/2026-wzag-championships-boise/input/wzag timelines v4.pdf",
-        "relay": null
+        "relay": null,
+        "warmup": "meets/2026-wzag-championships-boise/input/wzag warm-up assignments.pdf"
       },
       "documents": [
         "Meet flyer",
         "Event order",
         "Psych/heat sheet",
-        "Timeline"
+        "Timeline",
+        "Warm-up assignments"
       ]
     },
     {

@@ -33,6 +33,7 @@ UPLOAD_FIELD_LABELS = {
     "psych_pdf": "Psych Sheet or Heat Sheet",
     "timeline_pdf": "Timeline",
     "relay_pdf": "Relay Doc",
+    "warmup_pdf": "Warm-up Assignments",
 }
 sys.path.insert(0, str(ROOT))
 
@@ -118,6 +119,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         psych_path = save_upload(form, "psych_pdf", upload_dir, required=True)
         timeline_path = save_upload(form, "timeline_pdf", upload_dir, required=True)
         relay_path = save_upload(form, "relay_pdf", upload_dir, required=False)
+        warmup_path = save_upload(form, "warmup_pdf", upload_dir, required=False)
 
         result = analyze_swimmer_set(
             flyer_path=flyer_path,
@@ -131,6 +133,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             modes=modes,
             combine_family=combine_family,
             estimate_heat_lanes=estimate_heat_lanes,
+            warmup_path=warmup_path,
         )
         result["run_id"] = run_id
         result["relay_status"] = "uploaded_and_parsed" if relay_path else "not_uploaded"
@@ -153,6 +156,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
                     "psych": relative_path(psych_path),
                     "timeline": relative_path(timeline_path),
                     "relay": relative_path(relay_path),
+                    "warmup": relative_path(warmup_path),
                 },
             },
         )
@@ -191,6 +195,10 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         timeline_path = resolve_repo_file(files.get("timeline"), required=True, label="Timeline")
         relay_path = resolve_repo_file(files.get("relay"), required=False, label="Relay Doc")
         internal_relay_sources = resolve_current_meet_relay_sources(meet, relay_option_ids)
+        # Warm-up assignments doc (per-team/day matrix) and/or a universal warm-up window scalar,
+        # both optional and both threaded like the other per-meet config.
+        warmup_path = resolve_repo_file(files.get("warmup"), required=False, label="Warm-up Assignments")
+        meet_warmup_window = meet.get("warmup_window") or None
 
         run_id = f"{int(time.time())}-{uuid4().hex[:8]}"
         output_dir = RUNS_DIR / run_id / "outputs"
@@ -209,6 +217,8 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             meet_timezone=meet_timezone,
             meet_venue=meet_venue,
             timeline_projected=timeline_projected,
+            warmup_path=warmup_path,
+            meet_warmup_window=meet_warmup_window,
         )
         result["run_id"] = run_id
         result["current_meet_id"] = meet_id
@@ -254,6 +264,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             "psych": copy_hosted_upload(uploads.get("psych"), target_dir, label="Psych Sheet or Heat Sheet"),
             "timeline": copy_hosted_upload(uploads.get("timeline"), target_dir, label="Timeline"),
             "relay": copy_hosted_upload(uploads.get("relay"), target_dir, label="Relay Doc"),
+            "warmup": copy_hosted_upload(uploads.get("warmup"), target_dir, label="Warm-up Assignments"),
         }
         if not files["psych"] or not files["timeline"]:
             raise ValueError("A psych sheet and timeline are required before saving to Current Meets.")
@@ -479,6 +490,8 @@ def analyze_swimmer_set(
     meet_timezone: str | None = None,
     meet_venue: str | None = None,
     timeline_projected: bool = False,
+    warmup_path: Path | None = None,
+    meet_warmup_window: str | None = None,
 ) -> dict:
     if len(swimmer_names) == 1:
         return analyze_uploads(
@@ -495,6 +508,8 @@ def analyze_swimmer_set(
             meet_timezone=meet_timezone,
             meet_venue=meet_venue,
             timeline_projected=timeline_projected,
+            warmup_pdf=warmup_path,
+            meet_warmup_window=meet_warmup_window,
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -520,6 +535,8 @@ def analyze_swimmer_set(
             meet_timezone=meet_timezone,
             meet_venue=meet_venue,
             timeline_projected=timeline_projected,
+            warmup_pdf=warmup_path,
+            meet_warmup_window=meet_warmup_window,
         )
         result["output_subdir"] = subdir_name
         result["files"] = {key: f"{subdir_name}/{name}" for key, name in result["files"].items()}

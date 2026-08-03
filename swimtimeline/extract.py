@@ -2124,6 +2124,180 @@ def build_detailed_payload(
     }
 
 
+# ---------------------------------------------------------------------------
+# Warm-up windows (first line of the daily calendar), two independent sources:
+#
+#   (1) COMPLEX -- a per-meet warm-up-assignments PDF (parse_warmup_assignments): a per-day,
+#       per-team prelim matrix plus a universal finals window. A swimmer's window resolves by their
+#       own LSC x day-of-week x session type (prelims vs finals). This is the zone-meet case (WZAG).
+#   (2) SIMPLE -- one universal window per meet (a manually set field, or a flyer-stated range),
+#       shown the same on every day.
+#
+# The complex doc wins when it resolves a window for the swimmer; the simple window is the fallback.
+# A meet with NEITHER yields no warm-up first line at all -- the daily calendar simply omits it, and
+# the existing per-session "Warm-up:" line (flyer-derived, or a start-minus-60 estimate) is shown
+# instead, exactly as before. NOTE: the per-session line already surfaces flyer-stated warm-up times
+# for meets whose flyer parses (e.g. AZ State); this feature adds an *authoritative window* on top.
+# ---------------------------------------------------------------------------
+
+# The warm-up doc abbreviates teams its own way (PAC, PNS, SNS, SRS, SDI, ...) -- neither the LSC
+# code (PC, PN, SN, SR, SI) nor the psych display name. Resolve to the 2-letter LSC so a swimmer
+# matched via lsc_from_team_code() lines up: exact code, a suffix-"S" form (PNS->PN, SRS->SR, ...),
+# or one of two irregulars. An unrecognized token resolves to None and is ignored.
+WARMUP_TOKEN_ALIASES = {"PAC": "PC", "SDI": "SI"}
+
+WARMUP_DAY_HEADER = re.compile(
+    r"^(?P<day>Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b.*\bPreliminary",
+    re.IGNORECASE,
+)
+WARMUP_TIME_ROW = re.compile(
+    r"^(?P<start>\d{1,2}:\d{2}\s*[ap]\.?m\.?)\s*[‐-―\-]\s*"
+    r"(?P<end>\d{1,2}:\d{2}\s*[ap]\.?m\.?)\s+(?P<rest>\S.*)$",
+    re.IGNORECASE,
+)
+
+
+def warmup_token_to_lsc(token: str) -> str | None:
+    cleaned = re.sub(r"[^A-Za-z]", "", token).upper()
+    if not cleaned:
+        return None
+    if cleaned in LSC_TEAM_NAMES:
+        return cleaned
+    if cleaned.endswith("S") and cleaned[:-1] in LSC_TEAM_NAMES:
+        return cleaned[:-1]
+    return WARMUP_TOKEN_ALIASES.get(cleaned)
+
+
+def _clock_minutes(clock: str) -> int:
+    hour, minute = parse_clock(clock)
+    return hour * 60 + minute
+
+
+def parse_warmup_assignments(warmup_pdf: Path | None) -> dict | None:
+    """Parse a warm-up-assignments PDF into
+    {'prelim': {weekday: {lsc: (start_clock, end_clock)}}, 'finals': (start_clock, end_clock) | None}.
+
+    Prelim windows vary by day-of-week AND team; the 'ALL Finals Sessions' section is universal
+    (its lane tokens are equipment labels, not teams), so only its overall time span is kept.
+    Returns None when there is no file or nothing parseable.
+    """
+    if warmup_pdf is None:
+        return None
+    text = "\n".join(extract_text_pages(warmup_pdf))
+    prelim: dict[str, dict[str, tuple[str, str]]] = {}
+    finals_bounds: list[tuple[str, str]] = []
+    mode: tuple[str, str | None] | None = None
+    for raw in text.splitlines():
+        line = normalize_space(raw)
+        if not line:
+            continue
+        day_header = WARMUP_DAY_HEADER.match(line)
+        if day_header:
+            weekday = day_header.group("day").title()
+            mode = ("prelim", weekday)
+            prelim.setdefault(weekday, {})
+            continue
+        if (
+            re.search(r"\bFinals?\b", line, re.IGNORECASE)
+            and "Preliminary" not in line
+            and not WARMUP_TIME_ROW.match(line)
+        ):
+            mode = ("finals", None)
+            continue
+        row = WARMUP_TIME_ROW.match(line)
+        if row is None or mode is None:
+            continue
+        start, end = row.group("start"), row.group("end")
+        if mode[0] == "finals":
+            finals_bounds.append((start, end))
+            continue
+        weekday = mode[1]
+        for token in row.group("rest").split():
+            for part in token.split("/"):  # combined lanes like "AK/SRS" list two teams
+                lsc = warmup_token_to_lsc(part)
+                if lsc:
+                    prelim[weekday].setdefault(lsc, (start, end))
+    finals = None
+    if finals_bounds:
+        start = min((b[0] for b in finals_bounds), key=_clock_minutes)
+        end = max((b[1] for b in finals_bounds), key=_clock_minutes)
+        finals = (start, end)
+    if not any(prelim.values()) and finals is None:
+        return None
+    return {"prelim": prelim, "finals": finals}
+
+
+FLYER_WARMUP_WINDOW = re.compile(
+    r"warm[\s-]*up[^0-9]{0,20}(?P<s>\d{1,2}:\d{2})\s*(?P<sap>[ap]\.?m\.?)?\s*(?:[‐-―\-]|to)\s*"
+    r"(?P<e>\d{1,2}:\d{2})\s*(?P<eap>[ap]\.?m\.?)",
+    re.IGNORECASE,
+)
+
+
+def extract_flyer_warmup_window(flyer_text: str) -> str | None:
+    """Best-effort: a single universal warm-up window stated as an explicit range in the flyer
+    (e.g. 'warm-up 5:45-6:30 PM'). The end time must carry AM/PM; the start borrows it when it does
+    not. Returns None when no clear RANGE is present -- it deliberately does not fire on the
+    per-session 'Warm-up: 7:00 am, Meet Start: 8:30 am' lines (a single time, no range), which
+    parse_flyer_sessions already handles. The manual field is used when this finds nothing.
+    """
+    match = FLYER_WARMUP_WINDOW.search(flyer_text or "")
+    if not match:
+        return None
+    ref = date(2000, 1, 1)
+    end_ap = match.group("eap")
+    start = f"{match.group('s')} {match.group('sap') or end_ap}"
+    end = f"{match.group('e')} {end_ap}"
+    return display_window(combine_date_time(ref, start), combine_date_time(ref, end))
+
+
+def _format_warmup_window(start: str, end: str, qualifier: str) -> dict:
+    ref = date(2000, 1, 1)
+    display = display_window(combine_date_time(ref, start), combine_date_time(ref, end))
+    return {"display": display, "start_clock": start, "end_clock": end, "qualifier": qualifier}
+
+
+def _simple_warmup_window(window: str) -> dict:
+    """A manually set / flyer-extracted universal window string, shown verbatim; the first parsed
+    clock (if any) seeds the calendar's arrive-by time."""
+    times = re.findall(r"\d{1,2}:\d{2}\s*[ap]\.?m\.?", window, re.IGNORECASE)
+    return {
+        "display": window.strip(),
+        "start_clock": times[0] if times else None,
+        "end_clock": times[1] if len(times) > 1 else None,
+        "qualifier": "",
+    }
+
+
+def build_warmup_resolver(warmup_pdf: Path | None, universal_window: str | None, swimmer_team: str):
+    """A resolver fn(day, is_finals) -> warm-up dict | None for one swimmer, or None if no data.
+
+    Precedence: the per-team/day doc window (matched by the swimmer's own LSC) wins; a universal
+    window is the fallback; otherwise None.
+    """
+    parsed = parse_warmup_assignments(warmup_pdf)
+    if not (parsed or universal_window):
+        return None
+    lsc = lsc_from_team_code(swimmer_team)
+
+    def resolve(day: date, is_finals: bool) -> dict | None:
+        if parsed:
+            if is_finals and parsed["finals"]:
+                start, end = parsed["finals"]
+                return _format_warmup_window(start, end, "finals")
+            if not is_finals and lsc:
+                weekday = day.strftime("%A")
+                window = parsed["prelim"].get(weekday, {}).get(lsc)
+                if window:
+                    start, end = window
+                    return _format_warmup_window(start, end, f"{lsc} · {weekday} prelims")
+        if universal_window:
+            return _simple_warmup_window(universal_window)
+        return None
+
+    return resolve
+
+
 def build_daily_payload(
     meet_id: str,
     meet_name: str,
@@ -2134,6 +2308,7 @@ def build_daily_payload(
     sessions: dict[int, SessionInfo],
     timezone: str = DEFAULT_TZ,
     timeline_projected: bool = False,
+    warmup_resolver=None,
 ) -> dict:
     events: list[dict] = []
     event_status = "TENTATIVE" if timeline_projected else "CONFIRMED"
@@ -2158,6 +2333,17 @@ def build_daily_payload(
             if session
             else first.timeline.start
         )
+        # Authoritative warm-up window (per-team/day doc, or a universal meet window) for this day's
+        # FIRST session -- its type (prelims vs finals) drives which window applies. When present it
+        # becomes the calendar's arrive-by time and the prominent first line, replacing the derived
+        # per-session estimate below. Absent -> the estimate stays and no window line is shown.
+        warmup_hit = (
+            warmup_resolver(day, session_is_finals(first.timeline.session_name))
+            if warmup_resolver is not None
+            else None
+        )
+        if warmup_hit and warmup_hit.get("start_clock"):
+            session_warmup = combine_date_time(day, warmup_hit["start_clock"])
         calendar_start = session_warmup
         checkin_lines: list[str] = []
         for item in day_items:
@@ -2173,13 +2359,21 @@ def build_daily_payload(
             )
             calendar_start = min(calendar_start, checkin_time)
 
+        # The header is always exactly 9 lines so build_weekend_payload's description_lines[9:] slice
+        # stays correct: an authoritative window adds a first line AND drops the derived "Warm-up:"
+        # line; with no window, there is no first line but the derived line stays. Net 9 either way.
+        warmup_first_line = None
+        if warmup_hit:
+            qualifier = warmup_hit.get("qualifier")
+            warmup_first_line = f"Warm-up: {warmup_hit['display']}" + (f" ({qualifier})" if qualifier else "")
         lines = [
+            *( [warmup_first_line] if warmup_first_line else [] ),
             swimmer_name,
             short_name,
             "",
             f"Day: {meet_day_text(day, day_number)}",
             f"Session: #{first.timeline.session_number} - {first.timeline.session_name}",
-            f"Warm-up: {display_time(session_warmup)}",
+            *( [] if warmup_first_line else [f"Warm-up: {display_time(session_warmup)}"] ),
             f"Meet start: {display_time(session_start)}",
             f"Pool/course: {location_for_session(first.timeline)}; entry sheet lists events as LC Meter",
             "",
@@ -2265,11 +2459,12 @@ def build_weekend_payload(
     sessions: dict[int, SessionInfo],
     timezone: str = DEFAULT_TZ,
     timeline_projected: bool = False,
+    warmup_resolver=None,
 ) -> dict:
     swimmer_slug = swimmer_uid_part(swimmer_name)
     daily = build_daily_payload(
         meet_id, meet_name, short_name, swimmer_name, swims, relays, sessions,
-        timezone=timezone, timeline_projected=timeline_projected,
+        timezone=timezone, timeline_projected=timeline_projected, warmup_resolver=warmup_resolver,
     )["events"]
     if not daily:
         return {"calendar": {"name": f"{swimmer_name} - {short_name} Weekend", "timezone": timezone}, "events": []}
@@ -2414,6 +2609,8 @@ def analyze_uploads(
     meet_timezone: str | None = None,
     meet_venue: str | None = None,
     timeline_projected: bool = False,
+    warmup_pdf: Path | None = None,
+    meet_warmup_window: str | None = None,
 ) -> dict:
     resolved_timezone = meet_timezone or resolve_meet_timezone(state)
     flyer_text = "\n".join(extract_text_pages(flyer_pdf)) if flyer_pdf else ""
@@ -2443,6 +2640,13 @@ def analyze_uploads(
     estimate_warnings = estimate_heat_lanes_for_entries(entries, timeline_events, flyer_text) if estimate_heat_lanes else []
     swims = build_swim_events(entries, timeline_events, state=state, flyer_text=flyer_text)
     relays = build_relay_events(relay_entries, timeline_events, flyer_text=flyer_text)
+    # Warm-up first line: the per-team/day assignments doc (complex) wins, else a universal window
+    # from the meet field or a flyer-stated range (simple). Keyed off the swimmer's own team code.
+    warmup_resolver = build_warmup_resolver(
+        warmup_pdf,
+        meet_warmup_window or extract_flyer_warmup_window(flyer_text),
+        swimmer_team,
+    )
     short_name = short_meet_name(meet_name)
     meet_id = slugify(meet_name)
     output_swimmer_name = resolved_swimmer_name(swimmer_name, entries)
@@ -2459,6 +2663,7 @@ def analyze_uploads(
             sessions,
             timezone=resolved_timezone,
             timeline_projected=timeline_projected,
+            warmup_resolver=warmup_resolver,
         )
     if "weekend" in selected_modes:
         selected_payloads["weekend"] = build_weekend_payload(
@@ -2471,6 +2676,7 @@ def analyze_uploads(
             sessions,
             timezone=resolved_timezone,
             timeline_projected=timeline_projected,
+            warmup_resolver=warmup_resolver,
         )
     if "detailed" in selected_modes:
         selected_payloads["detailed"] = build_detailed_payload(
