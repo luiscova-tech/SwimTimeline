@@ -464,9 +464,14 @@ function renderResult(payload) {
   lastPayload = payload;
   meetNameEl.textContent = payload.meet.name;
   const swimmerCount = payload.family ? (payload.swimmers || []).length : 1;
-  summaryEl.textContent = payload.family
-    ? `${payload.verified_event_count} verified individual events and ${payload.verified_relay_count || 0} verified relays for ${swimmerCount} swimmers`
-    : `${payload.verified_event_count} verified individual events and ${payload.verified_relay_count || 0} verified relays for ${payload.swimmer}`;
+  const confirmedRelays = payload.verified_relay_count || 0;
+  const tentativeRelays = payload.tentative_relay_count || 0;
+  const who = payload.family ? `${swimmerCount} swimmers` : payload.swimmer;
+  // When tentative relays exist, spell out confirmed vs tentative so the header never reads "0
+  // relays" while the table below lists tentative ones. Otherwise keep the original phrasing.
+  summaryEl.textContent = tentativeRelays > 0
+    ? `${payload.verified_event_count} verified individual events, ${confirmedRelays} confirmed relays, ${tentativeRelays} tentative relays for ${who}`
+    : `${payload.verified_event_count} verified individual events and ${confirmedRelays} verified relays for ${who}`;
   downloadsEl.innerHTML = "";
   warningsEl.innerHTML = "";
   eventsBody.innerHTML = "";
@@ -483,10 +488,17 @@ function renderResult(payload) {
   const resultCalendarLabel = payload.family
     ? (familyCalendarCount ? "Combined calendars" : "Individual calendars")
     : "Calendar files";
+  // When tentative relays exist, split the single "Relays" card into "Confirmed Relays" +
+  // "Tentative Relays" so a glance at the top can never read "no relays" while the table lists
+  // tentative ones. With none, keep the original single "Relays" card unchanged.
+  const relayCards = tentativeRelays > 0
+    ? `<div><strong>${confirmedRelays}</strong><span>Confirmed relays</span></div>
+    <div><strong>${tentativeRelays}</strong><span>Tentative relays</span></div>`
+    : `<div><strong>${confirmedRelays}</strong><span>Relays</span></div>`;
   resultStatsEl.innerHTML = `
     <div><strong>${swimmerCount}</strong><span>Swimmers</span></div>
     <div><strong>${payload.verified_event_count}</strong><span>Individual events</span></div>
-    <div><strong>${payload.verified_relay_count || 0}</strong><span>Relays</span></div>
+    ${relayCards}
     <div><strong>${resultCalendarCount}</strong><span>${resultCalendarLabel}</span></div>
   `;
 

@@ -384,6 +384,10 @@ class RelayEntry:
     # rows (no roster, no specific leg), surfaced as a tentative calendar entry. Confirmed-leg
     # relays (a named relay PDF or private roster add-on) always take precedence over these.
     is_team_entry: bool = False
+    # True when the roster source marked this relay's lineup as pending a change (e.g. a listed
+    # swimmer withdrew and the replacement was not yet published). Confirmed, but flagged as subject
+    # to change so it is never presented as settled as the rest.
+    lineup_pending: bool = False
 
 
 @dataclass
@@ -990,11 +994,20 @@ def extract_internal_relay_entries(relay_sources: Iterable[Path] | None, swimmer
         salt = str(data.get("salt") or "")
         query_hashes = relay_hashes_for_swimmer(salt, swimmer_name)
         matched_count = 0
+        pending_matched = 0
         for row in data.get("entries", []):
             matched_leg = matching_relay_leg(row.get("swimmers", []), query_hashes)
             if matched_leg is None:
                 continue
             matched_count += 1
+            lineup_pending = bool(row.get("lineup_pending"))
+            if lineup_pending:
+                pending_matched += 1
+            note = (
+                f"{label}: swimmer match verified without displaying roster names."
+                if not lineup_pending
+                else f"{label}: swimmer match verified; this relay's lineup is pending a change, confirm with the coach."
+            )
             relays.append(
                 RelayEntry(
                     event_number=int(row["event_number"]),
@@ -1003,16 +1016,71 @@ def extract_internal_relay_entries(relay_sources: Iterable[Path] | None, swimmer
                     entry_time=str(row["entry_time"]),
                     leg=matched_leg,
                     page=int(row.get("page") or 0),
-                    source_line=f"{label}: swimmer match verified without displaying roster names.",
+                    source_line=note,
                     source_label=label,
                     is_private_source=True,
+                    lineup_pending=lineup_pending,
                 )
             )
         if matched_count:
             warnings.append(f"{label} selected. Relay lineups may change; confirm final assignments with coach or official postings.")
         else:
             warnings.append(f"{label} selected, but no relay rows matched the swimmer name.")
+        if pending_matched:
+            warnings.append(
+                f"{pending_matched} of your relays are flagged as pending a lineup change (a listed "
+                "swimmer withdrew); confirm the final lineup with your coach."
+            )
     return dedupe_relay_entries(relays), warnings
+
+
+def relay_roster_event_numbers(
+    relay_pdf: Path | None, internal_relay_sources: Iterable[Path] | None
+) -> set[int]:
+    """Every event number for which a real roster (a named relay PDF or a private roster add-on)
+    enumerates a lineup -- regardless of which swimmer is being searched.
+
+    A roster proves exactly who is on an event, so once one covers an event the team-entered
+    tentative heuristic must be suppressed there for EVERY swimmer, not only those who happen to
+    match a leg. That is what this set feeds.
+    """
+    covered: set[int] = set()
+    for source in internal_relay_sources or []:
+        try:
+            data = json.loads(Path(source).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for row in data.get("entries", []):
+            try:
+                covered.add(int(row["event_number"]))
+            except (KeyError, TypeError, ValueError):
+                continue
+    if relay_pdf is not None:
+        covered |= relay_pdf_event_numbers(relay_pdf)
+    return covered
+
+
+def relay_pdf_event_numbers(relay_pdf: Path) -> set[int]:
+    """Event numbers a relay PDF enumerates a lineup for (any event with at least one named leg),
+    independent of the searched swimmer -- the PDF analogue of the roster-coverage set."""
+    pages = extract_text_pages(relay_pdf)
+    relay_header = re.compile(
+        r"^(?P<event>\d+)[A-Z]?\s+\d+\s+\d+\s+[A-Z]+\s+[A-Z]\s+.+?Relay",
+        re.IGNORECASE,
+    )
+    swimmer_line = re.compile(r"^(?:<=\S+\s+)*[1-8]\.\s+.+$")
+    covered: set[int] = set()
+    current_event: int | None = None
+    for text in pages:
+        for raw_line in text.splitlines():
+            line = normalize_space(raw_line)
+            header = relay_header.match(line)
+            if header:
+                current_event = int(header.group("event"))
+                continue
+            if current_event is not None and swimmer_line.match(line):
+                covered.add(current_event)
+    return covered
 
 
 def matching_relay_leg(swimmers: object, query_hashes: set[str]) -> int | None:
@@ -2080,13 +2148,16 @@ def build_detailed_payload(
                 f"Pool/course: {location_for_session(timeline)}; relay document lists entry as {relay.entry_time[-1:] if relay.entry_time else 'provided'}",
                 "",
                 f"Relay: #{relay.event_number} - {relay.event_name}",
-                "Format: Timed final relay",
+                "Format: Timed final relay" + (" (lineup pending a change)" if relay.lineup_pending else ""),
                 f"Team: {relay.relay_label}",
                 f"Entry time: {relay.entry_time}",
                 f"Leg: {relay.leg}",
                 f"Timeline event window: {display_window(timeline.start, timeline.end)}",
                 "",
                 "Important:",
+                *(["- This relay's lineup is pending a change (a listed swimmer withdrew and the "
+                   "replacement was not yet published); confirm the final lineup with your coach."]
+                  if relay.lineup_pending else []),
                 "- Relay lineup and timing may change; confirm with coach or official postings.",
                 "- Timeline-derived relay windows are estimates.",
                 *(["- " + PROJECTED_TIMELINE_NOTE] if timeline_projected else []),
@@ -2391,8 +2462,9 @@ def build_daily_payload(
                         f"#{relay.event_number} Relay - {event_short_name(relay.event_name)} | tentative: team entered, leg TBD | confirm with coach | {display_window(item.timeline.start, item.timeline.end)} estimated"
                     )
                 else:
+                    pending = " | lineup pending, confirm with coach" if relay.lineup_pending else ""
                     lines.append(
-                        f"#{relay.event_number} Relay - {event_short_name(relay.event_name)} | timed final relay | {relay.relay_label}, leg {relay.leg} | {display_window(item.timeline.start, item.timeline.end)} estimated"
+                        f"#{relay.event_number} Relay - {event_short_name(relay.event_name)} | timed final relay | {relay.relay_label}, leg {relay.leg}{pending} | {display_window(item.timeline.start, item.timeline.end)} estimated"
                     )
             else:
                 lines.append(
@@ -2621,14 +2693,18 @@ def analyze_uploads(
     relay_entries = dedupe_relay_entries([*relay_entries, *internal_relay_entries])
     relay_warnings.extend(internal_relay_warnings)
     # Tentative "team entered, leg unknown" relays from the psych sheet's own team-level rows -- the
-    # middle ground when no leg-naming source covered an event. Precedence: a leg-confirmed relay
-    # always wins, so drop any tentative whose event already has a confirmed entry (never show both).
+    # middle ground when no leg-naming source covered an event. Precedence: a real roster proves who
+    # is actually on an event, so tentative matching is suppressed for EVERY event any roster covers
+    # -- not merely the events THIS swimmer was confirmed on. Otherwise a swimmer whose team is
+    # entered but who is not on the published lineup would still get a false "team entered" tentative
+    # for an event the roster already settled.
     swimmer_team, swimmer_age, swimmer_gender = swimmer_relay_identity(entries)
-    confirmed_relay_events = {relay.event_number for relay in relay_entries}
+    roster_covered_events = relay_roster_event_numbers(relay_pdf, internal_relay_sources)
+    suppressed_relay_events = roster_covered_events | {relay.event_number for relay in relay_entries}
     team_relay_entries = [
         entry
         for entry in extract_team_relay_entries(psych_pdf, swimmer_team, swimmer_age, swimmer_gender)
-        if entry.event_number not in confirmed_relay_events
+        if entry.event_number not in suppressed_relay_events
     ]
     relay_entries = [*relay_entries, *team_relay_entries]
     if team_relay_entries:
@@ -2774,7 +2850,12 @@ def summarize_relay(relay_event: RelayEvent) -> dict:
         # can render it distinctly from a confirmed leg assignment.
         "leg": None if relay.is_team_entry else relay.leg,
         "is_team_entry": relay.is_team_entry,
-        "relay_status": "tentative" if relay.is_team_entry else "confirmed",
+        # A confirmed leg whose lineup the roster flagged as pending a change is distinct from both a
+        # settled confirmed relay and a tentative team entry.
+        "relay_status": (
+            "tentative" if relay.is_team_entry else ("confirmed_pending" if relay.lineup_pending else "confirmed")
+        ),
+        "lineup_pending": relay.lineup_pending,
         "day": relay_event.timeline.date.strftime("%A"),
         "window": display_window(relay_event.timeline.start, relay_event.timeline.end),
         "page": relay.page,
@@ -2782,7 +2863,10 @@ def summarize_relay(relay_event: RelayEvent) -> dict:
         "source_document": relay.source_label,
         "benchmarks": {"usa": "n/a for relay", "lsc": "n/a for relay", "sectional": None, "national": None, "advanced": None, "confidence": "Standards confidence: n/a for relay"},
         "finals_note": relay_event.finals_note,
-        "event_format": "Relay: team entered, leg TBD" if relay.is_team_entry else "Timed final relay",
+        "event_format": (
+            "Relay: team entered, leg TBD" if relay.is_team_entry
+            else ("Timed final relay (lineup pending)" if relay.lineup_pending else "Timed final relay")
+        ),
         "checkin_note": None,
         "sort_start": relay_event.timeline.start.isoformat(timespec="seconds"),
     }

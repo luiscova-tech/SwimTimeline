@@ -562,12 +562,14 @@ def analyze_swimmer_set(
                 "requested_name": result.get("requested_swimmer"),
                 "verified_event_count": result.get("verified_event_count", 0),
                 "verified_relay_count": result.get("verified_relay_count", 0),
+                "tentative_relay_count": result.get("tentative_relay_count", 0),
                 "files": result.get("files", {}),
             }
             for result in individual_results
         ],
         "verified_event_count": sum(int(result.get("verified_event_count", 0)) for result in individual_results),
         "verified_relay_count": sum(int(result.get("verified_relay_count", 0)) for result in individual_results),
+        "tentative_relay_count": sum(int(result.get("tentative_relay_count", 0)) for result in individual_results),
         "psych_match_pages": [],
         "events": combined_items,
         "relays": [],

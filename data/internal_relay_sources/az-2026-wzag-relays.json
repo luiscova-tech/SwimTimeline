@@ -1,0 +1,403 @@
+{
+  "id": "az-2026-wzag-relays",
+  "label": "Include Arizona relay lineup",
+  "club": "AZ",
+  "meet_ids": [
+    "2026-wzag-championships-boise"
+  ],
+  "source_label": "Arizona relay lineup add-on",
+  "salt": "swimtimeline-az-wzag-2026-relays-v1",
+  "notes": [
+    "Roster names are stored as salted hashes only; the website should not display relay swimmer names.",
+    "Relay lineups can change; families should confirm assignments with their coach.",
+    "Relays flagged lineup_pending include a swimmer who withdrew after entries; the coach's replacement was not yet published.",
+    "Two legs (a withdrawn swimmer and a relay-only swimmer) are absent from the psych sheet, so their leg is recorded with no matchable hash."
+  ],
+  "entries": [
+    {
+      "event_number": 23,
+      "event_name": "Mixed 10 & Under 200 LC Meter Freestyle Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:18.00",
+      "page": 1,
+      "swimmers": [
+        {
+          "hashes": [
+            "eaa891c7078edd0b30c7943401f36ae5ee9e645e9aba4dbf9aa6f42ad55f05c3"
+          ],
+          "leg": 1
+        },
+        {
+          "hashes": [
+            "31974a332a437add4254698ab1faae3f1a2b2f6e47fb375949ac95f5345adec2"
+          ],
+          "leg": 2
+        },
+        {
+          "hashes": [
+            "38d1b32125f694be014c2d431fa29a1a32ca6f23b02e3023c7c5b97d866107b1"
+          ],
+          "leg": 3
+        },
+        {
+          "hashes": [
+            "45c36870df899b52858714b6194ac18c36785d57f87bbff992630904e7984481"
+          ],
+          "leg": 4
+        }
+      ]
+    },
+    {
+      "event_number": 24,
+      "event_name": "Mixed 12 & Under 200 LC Meter Freestyle Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:04.00",
+      "page": 1,
+      "swimmers": [
+        {
+          "hashes": [],
+          "leg": 1
+        },
+        {
+          "hashes": [
+            "b551dde3a2720822a5096b0bf74d3eeef7713c7d401fda99c7d340e7a3e85db8"
+          ],
+          "leg": 2
+        },
+        {
+          "hashes": [
+            "6f99073d3791474543bc252cf543afe368fdce6da7e157409938e3f7eb8eab57"
+          ],
+          "leg": 3
+        },
+        {
+          "hashes": [],
+          "leg": 4
+        }
+      ],
+      "lineup_pending": true
+    },
+    {
+      "event_number": 25,
+      "event_name": "Mixed 14 & Under 200 LC Meter Freestyle Relay",
+      "relay_label": "Relay A",
+      "entry_time": "1:59.40",
+      "page": 1,
+      "swimmers": [
+        {
+          "hashes": [
+            "3fa463c892bc285aecf1cbf628355f35fa63d8b397c557232010e9596ebf20f4"
+          ],
+          "leg": 1
+        },
+        {
+          "hashes": [
+            "534cb63121edc9736be8713aee76c34a6bd1062b0373c6fd88bab75ffe1767fa"
+          ],
+          "leg": 2
+        },
+        {
+          "hashes": [
+            "90858fa4f99f32350e8b55685a4af090c546ad78c115008b1c0cce2f43490efb"
+          ],
+          "leg": 3
+        },
+        {
+          "hashes": [
+            "66c1d85dd0d30fbc471bf8ce851dc4b1c5d41d2a2c326353c2820e3cbd77af6b"
+          ],
+          "leg": 4
+        }
+      ]
+    },
+    {
+      "event_number": 50,
+      "event_name": "Girls 12 & Under 200 LC Meter Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:20.90",
+      "page": 1,
+      "swimmers": [
+        {
+          "hashes": [],
+          "leg": 1
+        },
+        {
+          "hashes": [
+            "90858fa4f99f32350e8b55685a4af090c546ad78c115008b1c0cce2f43490efb"
+          ],
+          "leg": 2
+        },
+        {
+          "hashes": [
+            "c377d2df8a1674649fa470a68b2073a1f99f9a2c585b8c3efcddeb7e4b9b535c"
+          ],
+          "leg": 3
+        },
+        {
+          "hashes": [
+            "b551dde3a2720822a5096b0bf74d3eeef7713c7d401fda99c7d340e7a3e85db8"
+          ],
+          "leg": 4
+        }
+      ]
+    },
+    {
+      "event_number": 51,
+      "event_name": "Boys 12 & Under 200 LC Meter Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:23.90",
+      "page": 1,
+      "swimmers": [
+        {
+          "hashes": [
+            "6f99073d3791474543bc252cf543afe368fdce6da7e157409938e3f7eb8eab57"
+          ],
+          "leg": 1
+        },
+        {
+          "hashes": [],
+          "leg": 2
+        },
+        {
+          "hashes": [
+            "31974a332a437add4254698ab1faae3f1a2b2f6e47fb375949ac95f5345adec2"
+          ],
+          "leg": 3
+        },
+        {
+          "hashes": [
+            "534cb63121edc9736be8713aee76c34a6bd1062b0373c6fd88bab75ffe1767fa"
+          ],
+          "leg": 4
+        }
+      ],
+      "lineup_pending": true
+    },
+    {
+      "event_number": 52,
+      "event_name": "Girls 14 & Under 200 LC Meter Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:17.90",
+      "page": 1,
+      "swimmers": [
+        {
+          "hashes": [
+            "3fa463c892bc285aecf1cbf628355f35fa63d8b397c557232010e9596ebf20f4"
+          ],
+          "leg": 1
+        },
+        {
+          "hashes": [
+            "aedcd4133268d00d9cf5264e58282ce04a9cb43c0a5c2e6cf7e10a27959c0a6d"
+          ],
+          "leg": 2
+        },
+        {
+          "hashes": [
+            "38d1b32125f694be014c2d431fa29a1a32ca6f23b02e3023c7c5b97d866107b1"
+          ],
+          "leg": 3
+        },
+        {
+          "hashes": [
+            "4b280c2be3f6b21f08904cc74b83d5d08e853f650d4ed49b8999d47c69e2f5d2"
+          ],
+          "leg": 4
+        }
+      ]
+    },
+    {
+      "event_number": 74,
+      "event_name": "Mixed 10 & Under 200 LC Meter Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:31.60",
+      "page": 1,
+      "swimmers": [
+        {
+          "hashes": [
+            "31974a332a437add4254698ab1faae3f1a2b2f6e47fb375949ac95f5345adec2"
+          ],
+          "leg": 1
+        },
+        {
+          "hashes": [],
+          "leg": 2
+        },
+        {
+          "hashes": [
+            "38d1b32125f694be014c2d431fa29a1a32ca6f23b02e3023c7c5b97d866107b1"
+          ],
+          "leg": 3
+        },
+        {
+          "hashes": [
+            "45c36870df899b52858714b6194ac18c36785d57f87bbff992630904e7984481"
+          ],
+          "leg": 4
+        }
+      ]
+    },
+    {
+      "event_number": 75,
+      "event_name": "Mixed 12 & Under 200 LC Meter Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:18.90",
+      "page": 1,
+      "swimmers": [
+        {
+          "hashes": [
+            "6f99073d3791474543bc252cf543afe368fdce6da7e157409938e3f7eb8eab57"
+          ],
+          "leg": 1
+        },
+        {
+          "hashes": [
+            "90858fa4f99f32350e8b55685a4af090c546ad78c115008b1c0cce2f43490efb"
+          ],
+          "leg": 2
+        },
+        {
+          "hashes": [
+            "c377d2df8a1674649fa470a68b2073a1f99f9a2c585b8c3efcddeb7e4b9b535c"
+          ],
+          "leg": 3
+        },
+        {
+          "hashes": [
+            "b551dde3a2720822a5096b0bf74d3eeef7713c7d401fda99c7d340e7a3e85db8"
+          ],
+          "leg": 4
+        }
+      ]
+    },
+    {
+      "event_number": 76,
+      "event_name": "Mixed 14 & Under 200 LC Meter Medley Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:10.90",
+      "page": 1,
+      "swimmers": [
+        {
+          "hashes": [
+            "3fa463c892bc285aecf1cbf628355f35fa63d8b397c557232010e9596ebf20f4"
+          ],
+          "leg": 1
+        },
+        {
+          "hashes": [
+            "66c1d85dd0d30fbc471bf8ce851dc4b1c5d41d2a2c326353c2820e3cbd77af6b"
+          ],
+          "leg": 2
+        },
+        {
+          "hashes": [
+            "aedcd4133268d00d9cf5264e58282ce04a9cb43c0a5c2e6cf7e10a27959c0a6d"
+          ],
+          "leg": 3
+        },
+        {
+          "hashes": [
+            "4b280c2be3f6b21f08904cc74b83d5d08e853f650d4ed49b8999d47c69e2f5d2"
+          ],
+          "leg": 4
+        }
+      ]
+    },
+    {
+      "event_number": 99,
+      "event_name": "Girls 12 & Under 200 LC Meter Freestyle Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:02.50",
+      "page": 1,
+      "swimmers": [
+        {
+          "hashes": [
+            "90858fa4f99f32350e8b55685a4af090c546ad78c115008b1c0cce2f43490efb"
+          ],
+          "leg": 1
+        },
+        {
+          "hashes": [],
+          "leg": 2
+        },
+        {
+          "hashes": [
+            "b551dde3a2720822a5096b0bf74d3eeef7713c7d401fda99c7d340e7a3e85db8"
+          ],
+          "leg": 3
+        },
+        {
+          "hashes": [
+            "c377d2df8a1674649fa470a68b2073a1f99f9a2c585b8c3efcddeb7e4b9b535c"
+          ],
+          "leg": 4
+        }
+      ]
+    },
+    {
+      "event_number": 100,
+      "event_name": "Boys 12 & Under 200 LC Meter Freestyle Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:05.40",
+      "page": 1,
+      "swimmers": [
+        {
+          "hashes": [
+            "6f99073d3791474543bc252cf543afe368fdce6da7e157409938e3f7eb8eab57"
+          ],
+          "leg": 1
+        },
+        {
+          "hashes": [
+            "31974a332a437add4254698ab1faae3f1a2b2f6e47fb375949ac95f5345adec2"
+          ],
+          "leg": 2
+        },
+        {
+          "hashes": [],
+          "leg": 3
+        },
+        {
+          "hashes": [
+            "534cb63121edc9736be8713aee76c34a6bd1062b0373c6fd88bab75ffe1767fa"
+          ],
+          "leg": 4
+        }
+      ],
+      "lineup_pending": true
+    },
+    {
+      "event_number": 101,
+      "event_name": "Girls 14 & Under 200 LC Meter Freestyle Relay",
+      "relay_label": "Relay A",
+      "entry_time": "2:04.20",
+      "page": 1,
+      "swimmers": [
+        {
+          "hashes": [
+            "3fa463c892bc285aecf1cbf628355f35fa63d8b397c557232010e9596ebf20f4"
+          ],
+          "leg": 1
+        },
+        {
+          "hashes": [
+            "38d1b32125f694be014c2d431fa29a1a32ca6f23b02e3023c7c5b97d866107b1"
+          ],
+          "leg": 2
+        },
+        {
+          "hashes": [
+            "aedcd4133268d00d9cf5264e58282ce04a9cb43c0a5c2e6cf7e10a27959c0a6d"
+          ],
+          "leg": 3
+        },
+        {
+          "hashes": [
+            "4b280c2be3f6b21f08904cc74b83d5d08e853f650d4ed49b8999d47c69e2f5d2"
+          ],
+          "leg": 4
+        }
+      ]
+    }
+  ]
+}
