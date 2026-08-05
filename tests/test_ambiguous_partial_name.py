@@ -120,6 +120,12 @@ class SteinCalendarIsEveningTest(unittest.TestCase):
         morning_events = {9, 14, 15, 20}   # Steinbis children's Wednesday prelims swims
         self.assertFalse(morning_events & {i["event_number"] for i in payload["items"]})
 
+    def test_payload_flags_ambiguity_so_the_ui_does_not_say_no_events_found(self):
+        # Zero events here means "too many matches", not "nothing scheduled". The UI keys off this
+        # flag to ask for a first name instead of offering an empty calendar to import.
+        self.assertTrue(analyze("Stein")["ambiguous_swimmer_match"])
+        self.assertFalse(analyze("Stein, Layla")["ambiguous_swimmer_match"])
+
 
 if __name__ == "__main__":
     unittest.main()

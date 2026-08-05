@@ -1015,6 +1015,12 @@ def extract_psych_entries(psych_pdf: Path, swimmer_name: str) -> tuple[list[Psyc
     return resolve_fuzzy_match(swimmer_name, entries, page_counts)
 
 
+# Present in every ambiguous-name warning (exact and fuzzy paths). The payload exposes a boolean
+# derived from it so the UI can say "be more specific" instead of "no events found" -- telling a
+# parent their swimmer has nothing scheduled is the same harm as the merged calendar was.
+AMBIGUOUS_NAME_MARKER = "matches more than one swimmer"
+
+
 def ambiguous_swimmer_candidates(entries: list[PsychEntry]) -> list[str] | None:
     """Display names of the distinct swimmers these entries resolve to, when there is MORE than one.
 
@@ -3115,6 +3121,7 @@ def analyze_uploads(
         "meet": {"id": meet_id, "name": meet_name, "short_name": short_name},
         "swimmer": output_swimmer_name,
         "requested_swimmer": swimmer_name,
+        "ambiguous_swimmer_match": any(AMBIGUOUS_NAME_MARKER in w for w in name_warnings),
         "verified_event_count": len(swims),
         # "verified" counts only leg-confirmed relays; tentative team entries are reported separately
         # so the confirmed count keeps its meaning.

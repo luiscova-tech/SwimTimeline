@@ -365,9 +365,16 @@ async function analyzeCurrentMeet(meet, card) {
     }
     renderResult(payload);
     const noMatches = verifiedTotal(payload) === 0;
+    // An ambiguous name found too MANY swimmers, not none -- saying "no events found" would tell a
+    // family their swimmer has nothing scheduled, and offering an empty calendar invites them to
+    // import that. Ask for a more specific name instead.
     setMeetCardState(card, noMatches ? "empty" : "success", { meet, swimmerNames, payload });
     setStatus(
-      noMatches ? "No matching swimmer events were found. You can still download an empty calendar below." : "Calendar files are ready.",
+      payload.ambiguous_swimmer_match
+        ? "That name matches more than one swimmer at this meet. Add the first name and search again."
+        : noMatches
+          ? "No matching swimmer events were found. You can still download an empty calendar below."
+          : "Calendar files are ready.",
       noMatches ? "empty" : "success",
     );
   } catch (error) {
@@ -758,20 +765,25 @@ function updateReadyDock(payload) {
   const noMatches = verifiedTotal(payload) === 0;
   downloadDock.classList.remove("dock-busy", "dock-error", "dock-ready", "dock-empty");
   downloadDock.classList.add(noMatches ? "dock-empty" : "dock-ready");
-  downloadDockTitle.textContent = noMatches ? "No events found" : "Calendar ready";
+  const ambiguous = Boolean(payload.ambiguous_swimmer_match);
+  downloadDockTitle.textContent = ambiguous ? "More than one swimmer" : noMatches ? "No events found" : "Calendar ready";
   jumpDownloadsBtn.textContent = "View all files";
   jumpDownloadsBtn.dataset.action = "downloads";
   jumpDownloadsBtn.classList.remove("hidden");
   const primary = primaryCalendarDownload(payload);
   if (!primary) {
     downloadDockPrimary.classList.add("hidden");
-    downloadDockMessage.textContent = noMatches ? "No matching swimmer events were found." : "Calendar files are ready.";
+    downloadDockMessage.textContent = ambiguous
+      ? "Add the first name and search again."
+      : noMatches ? "No matching swimmer events were found." : "Calendar files are ready.";
     return;
   }
   downloadDockPrimary.href = primary.href;
   downloadDockPrimary.textContent = primary.label;
   downloadDockPrimary.classList.remove("hidden");
-  downloadDockMessage.textContent = noMatches
+  downloadDockMessage.textContent = ambiguous
+    ? "Add the first name and search again -- an empty calendar would be misleading here."
+    : noMatches
     ? "No matching swimmer events were found, but you can still download an empty calendar."
     : primary.message;
 }
