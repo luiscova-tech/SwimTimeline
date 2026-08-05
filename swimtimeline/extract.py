@@ -998,10 +998,33 @@ def extract_psych_entries(psych_pdf: Path, swimmer_name: str) -> tuple[list[Psyc
 
     entries, page_counts = collect_psych_entries(pages, fragments, patterns, query_pairs, allow_fuzzy=False)
     if entries:
+        # A partial query is matched as a SUBSTRING, so a short surname can be a prefix of a longer
+        # one ("Stein" also matches "Steinbis"). That counts as an exact match, so the fuzzy path's
+        # ambiguity guard never saw it, and the different swimmers' events were silently merged into
+        # one calendar under the typed name -- mixing sessions, warm-up lanes, ages and genders.
+        candidates = ambiguous_swimmer_candidates(entries)
+        if candidates:
+            return [], [], [
+                f"'{swimmer_name}' matches more than one swimmer at this meet "
+                f"({', '.join(candidates)}). Their events would be merged into a single calendar, "
+                "so none was generated -- search a more specific name (include the first name)."
+            ]
         return entries, page_counts, []
 
     entries, page_counts = collect_psych_entries(pages, fragments, patterns, query_pairs, allow_fuzzy=True)
     return resolve_fuzzy_match(swimmer_name, entries, page_counts)
+
+
+def ambiguous_swimmer_candidates(entries: list[PsychEntry]) -> list[str] | None:
+    """Display names of the distinct swimmers these entries resolve to, when there is MORE than one.
+
+    None when they all resolve to a single swimmer -- one real swimmer legitimately appears as
+    several rows whose printed names differ ("Stein, Layla B", "Stein, Layla WZAG"), and
+    distinct_swimmer_pairs already folds those together.
+    """
+    if len(distinct_swimmer_pairs(entries)) <= 1:
+        return None
+    return sorted({display_first_last(entry.matched_name) or entry.matched_name for entry in entries})
 
 
 def resolve_fuzzy_match(
@@ -1016,8 +1039,8 @@ def resolve_fuzzy_match(
     """
     if not entries:
         return entries, page_counts, []
-    if len(distinct_swimmer_pairs(entries)) > 1:
-        candidates = sorted({display_first_last(e.matched_name) or e.matched_name for e in entries})
+    candidates = ambiguous_swimmer_candidates(entries)
+    if candidates:
         return [], [], [
             f"'{swimmer_name}' closely matches more than one swimmer ({', '.join(candidates)}). "
             "No exact match was found; please search a more specific name (include the first name)."
