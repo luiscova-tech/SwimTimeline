@@ -203,6 +203,18 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         # both optional and both threaded like the other per-meet config.
         warmup_path = resolve_repo_file(files.get("warmup"), required=False, label="Warm-up Assignments")
         meet_warmup_window = meet.get("warmup_window") or None
+        # Real heat sheets, one per day as they are published. They OVERLAY the psych sheet for the
+        # days they cover; every other day keeps its existing estimate, so a partial-day drop does
+        # not change the meet's readiness or affect the rest of the schedule.
+        heat_sheet_paths = [
+            path for path in (
+                resolve_repo_file(entry, required=False, label="Heat Sheet")
+                for entry in (files.get("heat_sheets") or [])
+            ) if path is not None
+        ]
+        distance_timeline_path = resolve_repo_file(
+            files.get("distance_timeline"), required=False, label="Distance Timeline"
+        )
 
         run_id = f"{int(time.time())}-{uuid4().hex[:8]}"
         output_dir = RUNS_DIR / run_id / "outputs"
@@ -223,6 +235,8 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             timeline_projected=timeline_projected,
             warmup_path=warmup_path,
             meet_warmup_window=meet_warmup_window,
+            heat_sheet_paths=heat_sheet_paths,
+            distance_timeline_path=distance_timeline_path,
         )
         result["run_id"] = run_id
         result["current_meet_id"] = meet_id
@@ -496,6 +510,8 @@ def analyze_swimmer_set(
     timeline_projected: bool = False,
     warmup_path: Path | None = None,
     meet_warmup_window: str | None = None,
+    heat_sheet_paths: list[Path] | None = None,
+    distance_timeline_path: Path | None = None,
 ) -> dict:
     if len(swimmer_names) == 1:
         return analyze_uploads(
@@ -514,6 +530,8 @@ def analyze_swimmer_set(
             timeline_projected=timeline_projected,
             warmup_pdf=warmup_path,
             meet_warmup_window=meet_warmup_window,
+            heat_sheet_pdfs=heat_sheet_paths,
+            distance_timeline_pdf=distance_timeline_path,
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -541,6 +559,8 @@ def analyze_swimmer_set(
             timeline_projected=timeline_projected,
             warmup_pdf=warmup_path,
             meet_warmup_window=meet_warmup_window,
+            heat_sheet_pdfs=heat_sheet_paths,
+            distance_timeline_pdf=distance_timeline_path,
         )
         result["output_subdir"] = subdir_name
         result["files"] = {key: f"{subdir_name}/{name}" for key, name in result["files"].items()}

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import date, datetime, timedelta
 from functools import lru_cache
 import hashlib
@@ -343,6 +343,13 @@ class PsychEntry:
     round_name: str | None = None
     heat_is_estimated: bool = False
     estimate_note: str | None = None
+    # A heat sheet said this heat runs in the evening finals session ("Swimming with Finals").
+    # Informational: the flyer footnote rule still decides which timeline window is used, so this
+    # records what the heat sheet stated without overriding logic that is already tested.
+    swims_with_finals: bool = False
+    # Which document supplied a REAL heat/lane, when one did. None means the heat/lane is either
+    # absent or estimated -- see heat_is_estimated.
+    heat_document: str | None = None
 
 
 @dataclass(frozen=True)
@@ -604,7 +611,16 @@ def parse_entry_fields(clean: str, heat: int | None, round_name: str | None) -> 
         r"(?P<seed>(?:NT|(?:\d+:)?\d{1,2}\.\d{2}[A-Z]?))\s*"
         r"(?P<age>\d{1,2})\s*"
         r"(?P<name>.+?)\s*"
-        r"(?P<place>\d+)\s*$",
+        r"(?P<place>\d+)"
+        # A HY-TEK program with the time-standard column enabled prints the standard as its own
+        # trailing token AFTER the lane ("Arizona 39.82L 12Cova, Mila2 B"). Without this the row
+        # failed to match at all and was dropped silently -- losing the swim, not just the marker
+        # (427 rows on the real WZAG Wednesday program alone). Optional and anchored after the
+        # lane, so rows that already end in the number ("...Mila6", and the psych sheet's
+        # marker-before-place form "...Mila B29") parse byte-identically to before.
+        # (?-i:...) keeps the marker strictly uppercase despite the enclosing IGNORECASE, which
+        # the team/name groups need -- otherwise title-case prose lines start matching as rows.
+        r"(?:\s+(?P<standard>(?-i:[A-Z]{1,4})))?\s*$",
         clean,
         flags=re.IGNORECASE,
     )
@@ -676,7 +692,50 @@ def normalize_entry_line(line: str) -> tuple[str, int | None, str | None]:
 # point -- so a swimmer row whose team code is literally "HEAT" ("HEAT 25.52 ..." with the
 # seed glued on) is not misread as a heat header.
 _HEAT_HEADER_RE = re.compile(r"^Heat\s+(?P<heat>\d+)(?=[\s(]|$)(?:\s+of\s+\d+)?\s*(?P<rest>.*)$", re.IGNORECASE)
-_EVENT_PAREN_RE = re.compile(r"\(\s*#\s*(?P<num>\d+)\s+(?P<name>[^)]+?)\s*\)")
+# "(#N Event Name)" continuation reference. Widened for combined blocks, which reference BOTH
+# events and may carry no name at all ("(#21 / 22 )").
+_EVENT_PAREN_RE = re.compile(r"\(\s*#\s*(?P<num>\d+(?:\s*/\s*\d+)*)\s*(?P<name>[^)]*?)\s*\)")
+# A combined girls/boys block labels each heat with the event's OWN heat number and gender:
+# "Heat 5   (Heat 3 Girls 800 Free)" is girls heat 3, not heat 5. Requires the literal "Heat"
+# straight after "(" and forbids "#", so it can never collide with the continuation form above.
+_HEAT_PAREN_RE = re.compile(r"\(\s*Heat\s+(?P<heat>\d+)\s+(?P<label>[^)#]*?)\s*\)", re.IGNORECASE)
+# "Swimming with Finals" marks a heat that runs in the evening finals session. It is a session
+# qualifier appended to the round label ("Finals - Swimming with Finals"), not a round word.
+_SWIMS_WITH_FINALS_RE = re.compile(r"(?:\s*-\s*)?\bSwimming\s+with\s+Finals", re.IGNORECASE)
+_GENDER_WORD_RE = re.compile(r"\b(Girls|Boys|Women|Men|Mixed)\b", re.IGNORECASE)
+# Event header, possibly naming several events at once: "Event 21 / 22  Girls / Boys 13-14 800 Free".
+_EVENT_HEADER_RE = re.compile(r"(?:#|Event)\s*(?P<nums>\d+(?:\s*/\s*\d+)*)\s+(?P<name>.+)$", re.IGNORECASE)
+_DUAL_GENDER_NAME_RE = re.compile(
+    r"^(?P<genders>(?:Girls|Boys|Women|Men|Mixed)(?:\s*/\s*(?:Girls|Boys|Women|Men|Mixed))+)\s+(?P<rest>.+)$",
+    re.IGNORECASE,
+)
+
+
+def split_event_header(line: str) -> list[tuple[int, str]] | None:
+    """Every event named by an event header, as [(event_number, event_name), ...], or None.
+
+    Normally one event. A HY-TEK program may also run two events as ONE combined block, naming
+    both in order: "Event 21 / 22   Girls / Boys 13-14 800 Free" -> event 21 "Girls 13-14 800
+    Free" and event 22 "Boys 13-14 800 Free". When the shape is not recognizable (gender count
+    does not match event count) the full name is shared rather than guessed at.
+    """
+    match = _EVENT_HEADER_RE.match(line)
+    if not match:
+        return None
+    numbers = [int(part) for part in re.split(r"\s*/\s*", match.group("nums"))]
+    name = normalize_event_header_name(match.group("name"))
+    if len(numbers) == 1:
+        return [(numbers[0], name)]
+    dual = _DUAL_GENDER_NAME_RE.match(name)
+    if not dual:
+        return [(number, name) for number in numbers]
+    genders = re.split(r"\s*/\s*", dual.group("genders"))
+    if len(genders) != len(numbers):
+        return [(number, name) for number in numbers]
+    return [
+        (number, normalize_space(f"{gender.title()} {dual.group('rest')}"))
+        for number, gender in zip(numbers, genders)
+    ]
 _SEED_TOKEN_RE = re.compile(r"(?:NT|(?:\d+:)?\d{1,2}\.\d{2})", re.IGNORECASE)
 # Used ONLY to peel a round word off the front of a concatenated header line so the first
 # swimmer's team code stays clean (e.g. "PrelimsSYS-FL 2:13..." -> round "Prelims", team
@@ -696,6 +755,13 @@ class HeatHeader:
     event_number: int | None
     event_name: str | None
     swimmer_remainder: str
+    # Combined-block support. sub_heat/sub_gender come from a "(Heat N Girls ...)" label: the
+    # event's OWN heat number and which event of the block this heat belongs to. event_numbers is
+    # set instead of event_number when a continuation reference names several events ("(#21 / 22 )").
+    sub_heat: int | None = None
+    sub_gender: str | None = None
+    event_numbers: tuple[int, ...] | None = None
+    swims_with_finals: bool = False
 
 
 def parse_heat_header(clean: str) -> HeatHeader | None:
@@ -716,16 +782,42 @@ def parse_heat_header(clean: str) -> HeatHeader | None:
     heat = int(match.group("heat"))
     rest = match.group("rest")
 
+    # A combined block's per-heat label comes first: it carries the event's own heat number and the
+    # gender that selects which event of the block this heat is.
+    sub_heat = sub_gender = None
+    heat_paren = _HEAT_PAREN_RE.search(rest)
+    if heat_paren:
+        sub_heat = int(heat_paren.group("heat"))
+        gender = _GENDER_WORD_RE.search(heat_paren.group("label"))
+        sub_gender = gender.group(1).title() if gender else None
+        rest = normalize_space(rest[: heat_paren.start()] + " " + rest[heat_paren.end() :])
+
     event_number = event_name = None
+    event_numbers = None
     paren = _EVENT_PAREN_RE.search(rest)
     if paren:
-        event_number = int(paren.group("num"))
-        event_name = normalize_event_header_name(paren.group("name").strip())
+        numbers = [int(part) for part in re.split(r"\s*/\s*", paren.group("num"))]
+        raw_name = paren.group("name").strip()
+        if len(numbers) == 1:
+            event_number = numbers[0]
+            # An empty name ("(#21 )") must not clobber a known event name.
+            event_name = normalize_event_header_name(raw_name) if raw_name else None
+        else:
+            # References the whole combined block, not one event -- the per-heat label above is
+            # what resolves the event, so do not pin event_number here.
+            event_numbers = tuple(numbers)
         rest = normalize_space(rest[: paren.start()] + " " + rest[paren.end() :])
+
+    swims_with_finals = bool(_SWIMS_WITH_FINALS_RE.search(rest))
+    if swims_with_finals:
+        rest = normalize_space(_SWIMS_WITH_FINALS_RE.sub(" ", rest))
 
     if not _SEED_TOKEN_RE.search(rest):
         # Header on its own line: the whole remainder is the round label; no swimmer here.
-        return HeatHeader(heat, rest.strip() or None, event_number, event_name, "")
+        return HeatHeader(
+            heat, rest.strip() or None, event_number, event_name, "",
+            sub_heat, sub_gender, event_numbers, swims_with_finals,
+        )
 
     # A swimmer is concatenated onto this line. Peel a known round word off the front so the
     # team code stays clean; if the label is unfamiliar, leave the row intact (best effort).
@@ -736,7 +828,10 @@ def parse_heat_header(clean: str) -> HeatHeader | None:
     else:
         round_name = None
         remainder = rest.strip()
-    return HeatHeader(heat, round_name or None, event_number, event_name, remainder)
+    return HeatHeader(
+        heat, round_name or None, event_number, event_name, remainder,
+        sub_heat, sub_gender, event_numbers, swims_with_finals,
+    )
 
 
 def parse_psych_entry_line(
@@ -795,10 +890,14 @@ def collect_psych_entries(
     # continuation reference. The heat cursor is cleared by a new event header, an
     # "Alternates" section, or the next heat header. Neither is cleared by page-break junk,
     # so a heat or event split across a page boundary survives.
-    event_header_re = re.compile(r"(?:#|Event)\s*(\d+)\s+(.+)$", re.IGNORECASE)
+    # A third cursor holds the current COMBINED block, when the header named two events at once
+    # ("Event 21 / 22  Girls / Boys 13-14 800 Free"). Inside such a block the event is not known
+    # until a heat's own "(Heat N Girls ...)" label says which event that heat belongs to.
     current_event: tuple[int, str] | None = None
+    current_block: list[tuple[int, str]] | None = None
     current_heat: int | None = None
     current_round: str | None = None
+    current_swims_with_finals = False
 
     for page_number, text in enumerate(pages, start=1):
         lines = text.splitlines()
@@ -806,25 +905,43 @@ def collect_psych_entries(
         for index, line in enumerate(lines):
             normalized = normalize_space(line)
 
-            event_match = event_header_re.match(normalized)
-            if event_match:
-                current_event = (int(event_match.group(1)), normalize_event_header_name(event_match.group(2)))
+            event_split = split_event_header(normalized)
+            if event_split:
+                current_block = event_split
+                # A combined block waits for a per-heat label to resolve the event.
+                current_event = event_split[0] if len(event_split) == 1 else None
                 current_heat = None
                 current_round = None
+                current_swims_with_finals = False
                 continue
 
             if re.match(r"Alternates?\b", normalized, flags=re.IGNORECASE):
                 # Finals-sheet alternates are not assigned to a heat; end the heat block.
                 current_heat = None
                 current_round = None
+                current_swims_with_finals = False
                 continue
 
             heat_header = parse_heat_header(normalized)
             if heat_header is not None:
                 current_heat = heat_header.heat
                 current_round = heat_header.round_name
-                if heat_header.event_number is not None:
-                    current_event = (heat_header.event_number, heat_header.event_name)
+                current_swims_with_finals = heat_header.swims_with_finals
+                if heat_header.sub_gender and current_block:
+                    # Combined block: the heat's own label is authoritative for BOTH which event
+                    # this heat belongs to and its real heat number (block heat 5 = girls heat 3).
+                    for number, name in current_block:
+                        if name.lower().startswith(heat_header.sub_gender.lower()):
+                            current_event = (number, name)
+                            break
+                    if heat_header.sub_heat is not None:
+                        current_heat = heat_header.sub_heat
+                elif heat_header.event_number is not None:
+                    # A continuation reference may omit the name; keep the one already in hand.
+                    current_event = (
+                        heat_header.event_number,
+                        heat_header.event_name or (current_event[1] if current_event else ""),
+                    )
                 clean = heat_header.swimmer_remainder
                 if not clean:
                     continue  # header on its own line; swimmers follow on later rows
@@ -863,6 +980,7 @@ def collect_psych_entries(
                     heat=row.heat,
                     lane=row.lane,
                     round_name=row.round_name,
+                    swims_with_finals=current_swims_with_finals if row.heat is not None else False,
                 )
             )
         if count:
@@ -1918,11 +2036,140 @@ def location_for_session(session: SessionInfo | TimelineEvent) -> str:
     return "Meet facility"
 
 
+def _seed_key(value: str) -> str:
+    """A seed time reduced to its digits so '39.82L' and '39.82' compare equal across documents."""
+    return re.sub(r"[^0-9]", "", value or "")
+
+
+def heat_sheet_label(pdf: Path) -> str:
+    """Human-readable name for a heat-sheet document, used in warnings and the source line."""
+    return pdf.stem
+
+
+def overlay_heat_sheet_entries(
+    entries: list[PsychEntry],
+    heat_sheet_pdfs: Iterable[Path] | None,
+    swimmer_name: str,
+) -> list[str]:
+    """Copy REAL heat/lane from heat sheet(s) onto the psych-sheet entries that already exist.
+
+    The psych sheet stays the spine: this never creates, deletes, or reorders an entry, and never
+    touches seed_place or event_name (the psych sheet's fuller event name is what the standards
+    lookup needs). Only heat, lane, round_name, swims_with_finals and heat_document are set.
+
+    A heat sheet usually covers ONE day of a multi-day meet, so entries it does not mention are
+    deliberately left alone -- the existing estimate (or nothing) still applies to them. Anything
+    ambiguous also leaves the entry untouched and records a warning, because a wrong-but-confident
+    lane is worse than an honest estimate.
+    """
+    if not heat_sheet_pdfs:
+        return []
+    warnings: list[str] = []
+    by_event = {entry.event_number: entry for entry in entries}
+    for pdf in heat_sheet_pdfs:
+        label = heat_sheet_label(Path(pdf))
+        heat_rows, _, _ = extract_psych_entries(Path(pdf), swimmer_name)
+        rows_by_event: dict[int, list[PsychEntry]] = {}
+        for row in heat_rows:
+            rows_by_event.setdefault(row.event_number, []).append(row)
+        for event_number, rows in sorted(rows_by_event.items()):
+            target = by_event.get(event_number)
+            if target is None:
+                warnings.append(
+                    f"{label} lists event #{event_number} for this swimmer but the entry sheet does "
+                    "not, so no heat/lane was applied. Confirm with your coach."
+                )
+                continue
+            if len(rows) > 1:
+                warnings.append(
+                    f"{label} shows {len(rows)} rows for event #{event_number}; heat/lane was left "
+                    "as an estimate rather than guessing which row is right."
+                )
+                continue
+            row = rows[0]
+            if row.heat is None or row.lane is None:
+                continue  # a seeded list with no heat headers -- nothing real to copy
+            if _seed_key(row.seed_time) != _seed_key(target.seed_time):
+                warnings.append(
+                    f"{label} shows seed {row.seed_time} for event #{event_number} but the entry "
+                    f"sheet shows {target.seed_time}; heat/lane was left as an estimate."
+                )
+                continue
+            target.heat = row.heat
+            target.lane = row.lane
+            target.round_name = row.round_name or target.round_name
+            target.swims_with_finals = row.swims_with_finals
+            target.heat_is_estimated = False
+            target.estimate_note = None
+            target.heat_document = label
+    return warnings
+
+
+# A distance-session timeline lists one row per heat: "12:04 PM 21 Girls 13-14 800 Freestyle -- Heat
+# 3 of 5". Heats that swim in another session are simply absent, and no time is invented for them.
+_DISTANCE_HEAT_ROW_RE = re.compile(
+    r"^(?P<time>\d{1,2}:\d{2}\s*[AP]M)\s+(?P<event>\d+)\s+.*?\bHeat\s+(?P<heat>\d+)\s+of\s+(?P<total>\d+)",
+    re.IGNORECASE,
+)
+_DISTANCE_FINISH_RE = re.compile(r"Est\.?\s*finish\s+(?P<time>\d{1,2}:\d{2}\s*[AP]M)", re.IGNORECASE)
+
+
+def parse_distance_heat_times(distance_pdf: Path | None) -> dict[tuple[int, int], tuple[str, str | None]]:
+    """Per-heat start/end clock times from a distance-session timeline, keyed by (event, heat).
+
+    Each heat's end is the next listed heat's start (the document gives no end times), and the last
+    heat ends at the stated estimated finish. Only heats the document actually lists appear here --
+    a heat that swims in another session has no entry and therefore gets no time.
+    """
+    if distance_pdf is None:
+        return {}
+    text = "\n".join(extract_text_pages(Path(distance_pdf)))
+    rows: list[tuple[int, int, str]] = []
+    finish: str | None = None
+    for raw in text.splitlines():
+        line = normalize_space(raw)
+        match = _DISTANCE_HEAT_ROW_RE.match(line)
+        if match:
+            rows.append((int(match.group("event")), int(match.group("heat")), match.group("time")))
+            continue
+        end = _DISTANCE_FINISH_RE.search(line)
+        if end:
+            finish = end.group("time")
+    windows: dict[tuple[int, int], tuple[str, str | None]] = {}
+    for index, (event_number, heat, start) in enumerate(rows):
+        next_start = rows[index + 1][2] if index + 1 < len(rows) else finish
+        windows[(event_number, heat)] = (start, next_start)
+    return windows
+
+
+def refine_timeline_for_heat(
+    entry: PsychEntry, timeline: TimelineEvent, heat_windows: dict[tuple[int, int], tuple[str, str | None]]
+) -> TimelineEvent:
+    """Narrow an event-wide window to this swimmer's own heat, when a document actually states it.
+
+    Requires a REAL heat (from a heat sheet) plus a matching row in the distance timeline. An
+    estimated heat is never used to pick a per-heat time, and a heat the document omits keeps the
+    event-wide window -- no time is fabricated.
+    """
+    if entry.heat is None or entry.heat_is_estimated or entry.heat_document is None:
+        return timeline
+    window = heat_windows.get((entry.event_number, entry.heat))
+    if not window:
+        return timeline
+    start_clock, end_clock = window
+    start = combine_date_time(timeline.date, start_clock)
+    end = combine_date_time(timeline.date, end_clock) if end_clock else timeline.end
+    if end <= start:
+        return timeline
+    return replace(timeline, start=start, end=end)
+
+
 def build_swim_events(
     entries: list[PsychEntry],
     timeline_events: list[TimelineEvent],
     state: str,
     flyer_text: str = "",
+    heat_windows: dict[tuple[int, int], tuple[str, str | None]] | None = None,
 ) -> list[SwimEvent]:
     primary = primary_timeline_by_event(timeline_events)
     finals = final_timeline_by_event(timeline_events)
@@ -1935,6 +2182,9 @@ def build_swim_events(
         timeline = timeline_for_timing_rule(entry, primary_timeline, final_timeline, rule)
         if not timeline:
             continue
+        # A real heat plus a document that states that heat's time narrows the event-wide window.
+        if heat_windows:
+            timeline = refine_timeline_for_heat(entry, timeline, heat_windows)
         # Precedence: an explicitly entered State/LSC always wins; only when it is blank do we fall
         # back to the LSC parsed from this swimmer's own team code. Detection is per entry, so a
         # combined family calendar (and even a single lookup that fuzzy-matches swimmers from
@@ -2739,6 +2989,8 @@ def analyze_uploads(
     timeline_projected: bool = False,
     warmup_pdf: Path | None = None,
     meet_warmup_window: str | None = None,
+    heat_sheet_pdfs: Iterable[Path] | None = None,
+    distance_timeline_pdf: Path | None = None,
 ) -> dict:
     resolved_timezone = meet_timezone or resolve_meet_timezone(state)
     flyer_text = "\n".join(extract_text_pages(flyer_pdf)) if flyer_pdf else ""
@@ -2774,8 +3026,15 @@ def analyze_uploads(
             "provided; these appear as tentative. Confirm relay assignments with your coach."
         )
     assign_days(entries, timeline_events)
+    # Real heat/lane from any heat sheet(s) supplied, BEFORE estimation: estimate_heat_lanes_for_entries
+    # skips entries that already carry a heat/lane, so a day with a real heat sheet keeps its real
+    # values while every other day is estimated exactly as before, in the same run.
+    overlay_warnings = overlay_heat_sheet_entries(entries, heat_sheet_pdfs, swimmer_name)
     estimate_warnings = estimate_heat_lanes_for_entries(entries, timeline_events, flyer_text) if estimate_heat_lanes else []
-    swims = build_swim_events(entries, timeline_events, state=state, flyer_text=flyer_text)
+    heat_windows = parse_distance_heat_times(distance_timeline_pdf)
+    swims = build_swim_events(
+        entries, timeline_events, state=state, flyer_text=flyer_text, heat_windows=heat_windows
+    )
     relays = build_relay_events(relay_entries, timeline_events, flyer_text=flyer_text)
     # Warm-up first line: the per-team/day assignments doc (complex) wins, else a universal window
     # from the meet field or a flyer-stated range (simple). Keyed off the swimmer's own team code.
@@ -2854,6 +3113,7 @@ def analyze_uploads(
             relays,
             relay_warnings,
             name_warnings
+            + overlay_warnings
             + estimate_warnings
             + timeline_source_warnings(timeline_events)
             + auto_detect_state_warnings(state, entries),
