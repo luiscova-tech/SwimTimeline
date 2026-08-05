@@ -1037,9 +1037,17 @@ def ambiguous_swimmer_candidates(entries: list[PsychEntry]) -> list[str] | None:
     several rows whose printed names differ ("Stein, Layla B", "Stein, Layla WZAG"), and
     distinct_swimmer_pairs already folds those together.
     """
-    if len(distinct_swimmer_pairs(entries)) <= 1:
+    swimmers = distinct_swimmer_pairs(entries)
+    if len(swimmers) <= 1:
         return None
-    return sorted({display_first_last(entry.matched_name) or entry.matched_name for entry in entries})
+    # When two of them share a full name, the name alone cannot tell a parent which is theirs, so
+    # add the age that distinguishes them ("Ethan Zhu (age 9)", "Ethan Zhu (age 11)").
+    name_counts = Counter(f"{first.title()} {last.title()}" for first, last, _ in swimmers)
+    labels = set()
+    for first, last, age in swimmers:
+        label = f"{first.title()} {last.title()}"
+        labels.add(f"{label} (age {age})" if name_counts[label] > 1 and age else label)
+    return sorted(labels)
 
 
 def resolve_fuzzy_match(
@@ -1069,16 +1077,23 @@ def resolve_fuzzy_match(
     return entries, page_counts, warnings
 
 
-def distinct_swimmer_pairs(entries: list[PsychEntry]) -> set[tuple[str, str]]:
-    """The set of distinct (first, last) swimmers among matched entries, by normalized name. One
-    real swimmer can appear as several psych rows ('Cova, Mila B', 'Cova, Mila WZAG') that all
-    normalize to a single pair; more than one pair means the query resolved to different people."""
-    pairs: set[tuple[str, str]] = set()
+def distinct_swimmer_pairs(entries: list[PsychEntry]) -> set[tuple[str, str, str]]:
+    """The distinct swimmers among matched entries, as (first, last, age).
+
+    One real swimmer appears as several rows whose printed names differ ('Cova, Mila B', 'Cova, Mila
+    WZAG'); those fold together. Age is part of the key because two DIFFERENT children can share a
+    full name -- the Narwhal sheet has two Ethan Zhus, ages 9 and 11 at different clubs -- and
+    comparing names alone merged their calendars with no warning at all. Team is deliberately NOT in
+    the key: heat sheets truncate the team column ("Pacific Northwes"), which would split one
+    swimmer into several and refuse a name that is not actually ambiguous.
+    """
+    swimmers: set[tuple[str, str, str]] = set()
     for entry in entries:
         matched = name_pairs(entry.matched_name)
         if matched:
-            pairs.add(matched[0])
-    return pairs
+            first, last = matched[0]
+            swimmers.add((first, last, str(entry.age or "").strip()))
+    return swimmers
 
 
 def resolved_relay_query(swimmer_name: str, entries: list[PsychEntry]) -> str:
@@ -1103,6 +1118,8 @@ def extract_relay_entries(relay_pdf: Path | None, swimmer_name: str) -> tuple[li
     pages = extract_text_pages(relay_pdf)
     relays: list[RelayEntry] = []
     fuzzy_relays: list[RelayEntry] = []
+    matched_names: list[str] = []
+    fuzzy_matched_names: list[str] = []
     warnings: list[str] = []
     current: dict[str, str | int] | None = None
 
@@ -1178,12 +1195,26 @@ def extract_relay_entries(relay_pdf: Path | None, swimmer_name: str) -> tuple[li
                 )
                 if match_type:
                     relays.append(relay)
+                    matched_names.append(swimmer.group("name"))
                 elif fuzzy_match_type:
                     fuzzy_relays.append(relay)
+                    fuzzy_matched_names.append(swimmer.group("name"))
 
     if not relays and fuzzy_relays:
         relays = fuzzy_relays
+        matched_names = fuzzy_matched_names
         warnings.append("No exact relay-name match was found. Used a high-confidence relay name match.")
+    # Same guard as the individual-event path: a relay document names swimmers too, so a query that
+    # resolves to several of them would merge different children's legs into one calendar -- with no
+    # individual swims alongside to make the mix obvious. A relay roster carries no age, so
+    # distinctness here is by name alone.
+    relay_swimmers = {pair[0] for name in matched_names for pair in name_pairs(name)[:1]}
+    if len(relay_swimmers) > 1:
+        candidates = sorted({display_first_last(name) or name for name in matched_names})
+        return [], [
+            f"'{swimmer_name}' {AMBIGUOUS_NAME_MARKER} in the relay document "
+            f"({', '.join(candidates)}). No relays were added -- search a more specific name."
+        ]
     if not relays:
         warnings.append("Relay document uploaded, but no relay rows explicitly named the swimmer.")
     relays.sort(key=lambda relay: (relay.event_number, relay.relay_label, relay.leg))

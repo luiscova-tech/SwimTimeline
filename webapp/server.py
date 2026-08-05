@@ -587,10 +587,14 @@ def analyze_swimmer_set(
                 "verified_event_count": result.get("verified_event_count", 0),
                 "verified_relay_count": result.get("verified_relay_count", 0),
                 "tentative_relay_count": result.get("tentative_relay_count", 0),
+                "ambiguous_swimmer_match": bool(result.get("ambiguous_swimmer_match")),
                 "files": result.get("files", {}),
             }
             for result in individual_results
         ],
+        # True when ANY swimmer's name was ambiguous. Without this the family UI reported "Calendar
+        # ready" while silently omitting that child, since the others made verifiedTotal non-zero.
+        "ambiguous_swimmer_match": any(bool(result.get("ambiguous_swimmer_match")) for result in individual_results),
         "verified_event_count": sum(int(result.get("verified_event_count", 0)) for result in individual_results),
         "verified_relay_count": sum(int(result.get("verified_relay_count", 0)) for result in individual_results),
         "tentative_relay_count": sum(int(result.get("tentative_relay_count", 0)) for result in individual_results),

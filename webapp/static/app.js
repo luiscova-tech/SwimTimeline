@@ -93,6 +93,9 @@ async function handleGenerateFromUploads() {
     renderResult(payload);
     if (verifiedTotal(payload) > 0) {
       setStatus("Calendar files are ready.", "success");
+    } else if (payload.ambiguous_swimmer_match) {
+      // Too many matches, not none -- must not read as "your swimmer has nothing scheduled".
+      setStatus("That name matches more than one swimmer at this meet. Add the first name and search again.", "empty");
     } else {
       setStatus("No matching swimmer events were found. You can still download an empty calendar below.", "empty");
     }

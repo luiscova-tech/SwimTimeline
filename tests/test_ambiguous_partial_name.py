@@ -151,6 +151,53 @@ class GenuineAmbiguityStillRefusedTest(unittest.TestCase):
         self.assertEqual(len(entries), 6)
 
 
+class SameNameDifferentChildrenTest(unittest.TestCase):
+    """Two children can share a full name -- comparing names alone merged them silently."""
+
+    NARWHAL = ROOT / "meets/2026-narwhal-invite/input/narwhal final psych again.pdf"
+
+    def test_two_swimmers_with_the_same_name_are_refused_and_shown_with_ages(self):
+        entries, _, warnings = extract_psych_entries(self.NARWHAL, "Zhu, Ethan")
+        self.assertEqual(entries, [])   # was 13 merged entries with zero warnings
+        self.assertIn("Ethan Zhu (age 9)", warnings[0])
+        self.assertIn("Ethan Zhu (age 11)", warnings[0])
+
+    def test_age_is_part_of_the_distinctness_key(self):
+        one = [psych_entry("Zhu, Ethan"), psych_entry("Zhu, Ethan")]
+        self.assertIsNone(ambiguous_swimmer_candidates(one))          # same age -> one swimmer
+        two = [psych_entry("Zhu, Ethan"), psych_entry("Zhu, Ethan")]
+        two[1].age = "9"
+        self.assertEqual(len(ambiguous_swimmer_candidates(two)), 2)   # different ages -> two
+
+    def test_truncated_team_names_do_not_split_one_swimmer(self):
+        # Team is deliberately out of the key: heat sheets truncate it ("Pacific Northwes").
+        rows = [psych_entry("Livingston, Fiona"), psych_entry("Livingston, Fiona")]
+        rows[0].team, rows[1].team = "Pacific Northwes", "Pacific Northwest"
+        self.assertIsNone(ambiguous_swimmer_candidates(rows))
+
+
+class RelayDocumentAmbiguityTest(unittest.TestCase):
+    """The relay document names swimmers too, and had no guard at all -- so an ambiguous query
+    produced a calendar of other children's relay legs with no individual swims to make it obvious."""
+
+    RELAY = ROOT / "meets/2026-speedo-invite/input/Mesa Aquatics Club _ Relay Teams.pdf"
+
+    def test_namesakes_in_a_relay_document_are_refused(self):
+        from swimtimeline.extract import extract_relay_entries
+        for query, expected in (("Law", ("Liam Law", "Olivia Law")), ("Post", ("Harper Post", "Reagan Post"))):
+            relays, warnings = extract_relay_entries(self.RELAY, query)
+            self.assertEqual(relays, [], query)
+            self.assertTrue(warnings, query)
+            for name in expected:
+                self.assertIn(name, warnings[0], query)
+
+    def test_an_unambiguous_relay_query_still_resolves(self):
+        from swimtimeline.extract import extract_relay_entries
+        for query in ("Cova, Mila L", "Cova"):
+            relays, _ = extract_relay_entries(self.RELAY, query)
+            self.assertEqual(len(relays), 4, query)
+
+
 class SteinCalendarIsEveningTest(unittest.TestCase):
     """The reported symptom: her 800 Free must not sit in a morning-anchored Wednesday block."""
 
