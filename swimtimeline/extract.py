@@ -553,7 +553,16 @@ def make_name_patterns(swimmer_name: str) -> list[re.Pattern[str]]:
             patterns.append(rf"{last},\s*{first}(?:\s+[A-Z][A-Za-z]*)?")
             patterns.append(rf"{first}\s+[A-Za-z ]*{last}")
         patterns.append(re.escape(raw))
-    return [re.compile(pattern, re.IGNORECASE) for pattern in dict.fromkeys(patterns)]
+    # Anchor each pattern so it can only match at NAME-TOKEN boundaries. Unanchored substring
+    # matching returned the wrong swimmer outright: "Stein" matched Abbie Wein|stein|, and it also
+    # matched Steinbis, Walkenhorst, Covault and so on -- which either handed a family a stranger's
+    # calendar or (once the ambiguity guard landed) refused a name that was never really ambiguous.
+    # Letter lookarounds, NOT \b: heat-sheet rows glue the age onto the name ("12Cova, Mila6"), so a
+    # digit legitimately precedes the surname and \b would reject that real match.
+    return [
+        re.compile(rf"(?<![A-Za-z]){pattern}(?![A-Za-z])", re.IGNORECASE)
+        for pattern in dict.fromkeys(patterns)
+    ]
 
 
 def line_matches_name(line: str, patterns: Iterable[re.Pattern[str]]) -> bool:

@@ -7,9 +7,13 @@ evening finals at 6:37 PM) appeared inside a morning block. The cause was not he
 family, Snake River, one a 10 & Under girl and one a 13-14 boy) and all three children's events were
 merged under the single label "Stein".
 
-Partial queries are matched as substrings and that counts as an "exact" match, so the distinct-
-swimmer ambiguity guard -- which already protected the fuzzy fallback -- never ran on this path.
-It now guards both. An unambiguous partial ("Cova") still resolves, since that is a real feature.
+Two layers fix it. First, a query now matches only at NAME-TOKEN boundaries, so "Stein" no longer
+reaches Steinbis at all -- and no longer reaches Abbie Wein|stein| at a meet with no Stein, which was
+silently returning a stranger's calendar with no warning (a single match, so no ambiguity guard could
+have caught it). Second, when a query still resolves to several real swimmers -- true namesakes like
+the two AZ Yang siblings plus Yi Yang -- it refuses and names them instead of merging their events.
+The ambiguity guard previously ran only on the fuzzy fallback; a substring hit counts as an exact
+match, so it never protected this path. Unambiguous partials ("Cova", "Stein", "Horst") still resolve.
 """
 
 from pathlib import Path
@@ -66,16 +70,67 @@ class AmbiguousCandidatesHelperTest(unittest.TestCase):
         self.assertIsNone(ambiguous_swimmer_candidates([psych_entry("Cova, Mila")]))
 
 
-class SubstringPrefixCollisionTest(unittest.TestCase):
-    """The exact/substring path is now guarded, not just the fuzzy fallback."""
+class TokenBoundaryMatchingTest(unittest.TestCase):
+    """A query matches only at name-token boundaries, so it can neither merge nor mis-resolve.
 
-    def test_stein_is_refused_and_names_all_three_swimmers(self):
+    Unanchored substring matching was the underlying defect: "Stein" hit Steinbis (merge) and, at a
+    meet with no Stein at all, hit Abbie Wein|stein| (wrong swimmer, single match -- which the
+    ambiguity guard cannot catch, because only one swimmer matched).
+    """
+
+    def test_stein_now_resolves_to_just_layla_stein(self):
         entries, _, warnings = extract_psych_entries(PSYCH, "Stein")
-        self.assertEqual(entries, [])   # nothing merged
+        self.assertEqual(warnings, [])
+        self.assertTrue(entries)
+        self.assertTrue(all("Stein, Layla" in e.matched_name for e in entries))
+
+    def test_surname_embedded_inside_another_surname_is_not_matched(self):
+        # Declan Horst must not be blocked by Tayler Walken|horst|.
+        entries, _, warnings = extract_psych_entries(PSYCH, "Horst")
+        self.assertEqual(warnings, [])
+        self.assertTrue(all("Horst, Declan" in e.matched_name for e in entries))
+
+    def test_a_meet_with_no_such_swimmer_returns_nobody_not_a_lookalike(self):
+        # Shark Open has no Stein -- it has Abbie Weinstein. Returning her calendar was silently
+        # handing a family a stranger's schedule with no warning at all.
+        shark = ROOT / "meets/2026-shark-open/input/2026-shark-open-heat-sheet.pdf"
+        entries, _, _ = extract_psych_entries(shark, "Stein")
+        self.assertEqual(entries, [])
+
+    def test_short_surname_no_longer_matches_dozens_of_swimmers(self):
+        entries, _, warnings = extract_psych_entries(PSYCH, "Li")
+        self.assertEqual(warnings, [])
+        self.assertTrue(all(e.matched_name.startswith("Li,") for e in entries))
+
+    def test_cova_resolves_at_a_meet_that_also_has_covault(self):
+        az = ROOT / "meets/2026-az-lc-age-group-state/input/age-group-state-psych-sheet.pdf"
+        entries, _, warnings = extract_psych_entries(az, "Cova")
+        self.assertEqual(warnings, [])
+        self.assertTrue(all("Cova, Mila" in e.matched_name for e in entries))
+
+
+class GenuineAmbiguityStillRefusedTest(unittest.TestCase):
+    """Real namesakes still refuse -- including two AZ siblings, which anchoring cannot resolve."""
+
+    def test_two_siblings_plus_a_namesake_are_refused(self):
+        entries, _, warnings = extract_psych_entries(PSYCH, "Yang")
+        self.assertEqual(entries, [])
         self.assertEqual(len(warnings), 1)
-        for expected in ("Layla Stein", "River Steinbis", "Cam Steinbis"):
+        for expected in ("Richelle Yang", "Roddy Yang", "Yi Yang"):
             self.assertIn(expected, warnings[0])
         self.assertIn("more specific name", warnings[0])
+
+    def test_a_query_matching_someones_first_name_is_refused(self):
+        entries, _, warnings = extract_psych_entries(PSYCH, "Carter")
+        self.assertEqual(entries, [])
+        self.assertIn("Carter Goldthorpe", warnings[0])
+        self.assertIn("Izzy Carter", warnings[0])
+
+    def test_a_ten_way_surname_collision_is_refused(self):
+        entries, _, warnings = extract_psych_entries(PSYCH, "Wang")
+        self.assertEqual(entries, [])
+        self.assertIn("Amy Wang", warnings[0])
+        self.assertIn("Andy Wang", warnings[0])
 
     def test_full_name_still_resolves_to_just_that_swimmer(self):
         for query in ("Stein, Layla", "Layla Stein"):
@@ -108,22 +163,21 @@ class SteinCalendarIsEveningTest(unittest.TestCase):
         self.assertEqual(event["entry_position"], "Heat/lane: heat 1, lane 8")
         self.assertEqual(event["window"], "6:37 PM-6:48 PM")
 
-    def test_ambiguous_stein_query_produces_no_calendar_at_all(self):
-        # Better an explicit "be more specific" than a calendar that would send a family to the
-        # wrong session: the merged version started Wednesday at 6:30 AM with an SR warm-up.
+    def test_bare_surname_stein_now_gives_her_evening_calendar_not_a_merged_one(self):
+        # The originally reported query. It no longer merges the Steinbis children, so it resolves
+        # to her alone -- and her Wednesday is the evening finals session, never a 6:30 AM block.
         payload = analyze("Stein")
-        self.assertEqual(payload["verified_event_count"], 0)
-        self.assertTrue(any("matches more than one swimmer" in w for w in payload["warnings"]))
-
-    def test_merged_calendar_no_longer_mixes_other_childrens_events(self):
-        payload = analyze("Stein")
-        morning_events = {9, 14, 15, 20}   # Steinbis children's Wednesday prelims swims
-        self.assertFalse(morning_events & {i["event_number"] for i in payload["items"]})
+        wednesday = [i for i in payload["items"] if i.get("type") != "relay" and i["day"] == "Wednesday"]
+        self.assertEqual([i["event_number"] for i in wednesday], [21])
+        self.assertEqual(wednesday[0]["window"], "6:37 PM-6:48 PM")
+        # None of the Steinbis children's morning swims leak in.
+        self.assertFalse({9, 14, 15, 20} & {i["event_number"] for i in payload["items"]})
 
     def test_payload_flags_ambiguity_so_the_ui_does_not_say_no_events_found(self):
-        # Zero events here means "too many matches", not "nothing scheduled". The UI keys off this
-        # flag to ask for a first name instead of offering an empty calendar to import.
-        self.assertTrue(analyze("Stein")["ambiguous_swimmer_match"])
+        # Zero events for a genuinely ambiguous name means "too many matches", not "nothing
+        # scheduled". The UI keys off this flag to ask for a first name instead of offering an
+        # empty calendar to import.
+        self.assertTrue(analyze("Yang")["ambiguous_swimmer_match"])
         self.assertFalse(analyze("Stein, Layla")["ambiguous_swimmer_match"])
 
 
