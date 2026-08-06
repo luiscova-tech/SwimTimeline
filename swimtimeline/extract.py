@@ -3060,6 +3060,7 @@ def analyze_uploads(
     meet_warmup_window: str | None = None,
     heat_sheet_pdfs: Iterable[Path] | None = None,
     distance_timeline_pdf: Path | None = None,
+    include_relays: bool | None = None,
 ) -> dict:
     resolved_timezone = meet_timezone or resolve_meet_timezone(state)
     flyer_text = "\n".join(extract_text_pages(flyer_pdf)) if flyer_pdf else ""
@@ -3069,31 +3070,44 @@ def analyze_uploads(
     # individual events (substring match) but no relays. Resolve the swimmer's full name from the
     # matched entries first, so a partial-but-unambiguous search gets relays too (ambiguous queries
     # fall back to the raw query and simply do not resolve relays -- never guess one swimmer).
-    relay_query = resolved_relay_query(swimmer_name, entries)
-    relay_entries, relay_warnings = extract_relay_entries(relay_pdf, relay_query)
-    internal_relay_entries, internal_relay_warnings = extract_internal_relay_entries(internal_relay_sources, relay_query)
-    relay_entries = dedupe_relay_entries([*relay_entries, *internal_relay_entries])
-    relay_warnings.extend(internal_relay_warnings)
-    # Tentative "team entered, leg unknown" relays from the psych sheet's own team-level rows -- the
-    # middle ground when no leg-naming source covered an event. Precedence: a real roster proves who
-    # is actually on an event, so tentative matching is suppressed for EVERY event any roster covers
-    # -- not merely the events THIS swimmer was confirmed on. Otherwise a swimmer whose team is
-    # entered but who is not on the published lineup would still get a false "team entered" tentative
-    # for an event the roster already settled.
+    # Relay output is OPT-IN, and that gate has to cover both kinds. The confirmed sources were
+    # gated only implicitly -- supplying no relay document meant there was nothing to find -- but
+    # tentative "team entered" relays read the psych sheet, which is always present, so without an
+    # explicit gate they appeared for parents who never asked for relay information at all.
+    # None means "derive it": supplying a relay source IS the opt-in, which keeps every existing
+    # caller behaving as before.
+    if include_relays is None:
+        include_relays = bool(relay_pdf or internal_relay_sources)
+    # Identity resolution is NOT relay-specific -- the warm-up resolver needs the team code to pick
+    # this swimmer's LSC warm-up lane -- so it stays outside the relay gate.
     swimmer_team, swimmer_age, swimmer_gender = swimmer_relay_identity(entries)
-    roster_covered_events = relay_roster_event_numbers(relay_pdf, internal_relay_sources)
-    suppressed_relay_events = roster_covered_events | {relay.event_number for relay in relay_entries}
-    team_relay_entries = [
-        entry
-        for entry in extract_team_relay_entries(psych_pdf, swimmer_team, swimmer_age, swimmer_gender)
-        if entry.event_number not in suppressed_relay_events
-    ]
-    relay_entries = [*relay_entries, *team_relay_entries]
-    if team_relay_entries:
-        relay_warnings.append(
-            f"{len(team_relay_entries)} relay(s) list your team entered but no confirmed lineup was "
-            "provided; these appear as tentative. Confirm relay assignments with your coach."
-        )
+    relay_entries: list[RelayEntry] = []
+    relay_warnings: list[str] = []
+    if include_relays:
+        relay_query = resolved_relay_query(swimmer_name, entries)
+        relay_entries, relay_warnings = extract_relay_entries(relay_pdf, relay_query)
+        internal_relay_entries, internal_relay_warnings = extract_internal_relay_entries(internal_relay_sources, relay_query)
+        relay_entries = dedupe_relay_entries([*relay_entries, *internal_relay_entries])
+        relay_warnings.extend(internal_relay_warnings)
+        # Tentative "team entered, leg unknown" relays from the psych sheet's own team-level rows --
+        # the middle ground when no leg-naming source covered an event. Precedence: a real roster
+        # proves who is actually on an event, so tentative matching is suppressed for EVERY event any
+        # roster covers -- not merely the events THIS swimmer was confirmed on. Otherwise a swimmer
+        # whose team is entered but who is not on the published lineup would still get a false "team
+        # entered" tentative for an event the roster already settled.
+        roster_covered_events = relay_roster_event_numbers(relay_pdf, internal_relay_sources)
+        suppressed_relay_events = roster_covered_events | {relay.event_number for relay in relay_entries}
+        team_relay_entries = [
+            entry
+            for entry in extract_team_relay_entries(psych_pdf, swimmer_team, swimmer_age, swimmer_gender)
+            if entry.event_number not in suppressed_relay_events
+        ]
+        relay_entries = [*relay_entries, *team_relay_entries]
+        if team_relay_entries:
+            relay_warnings.append(
+                f"{len(team_relay_entries)} relay(s) list your team entered but no confirmed lineup was "
+                "provided; these appear as tentative. Confirm relay assignments with your coach."
+            )
     assign_days(entries, timeline_events)
     # Real heat/lane from any heat sheet(s) supplied, BEFORE estimation: estimate_heat_lanes_for_entries
     # skips entries that already carry a heat/lane, so a day with a real heat sheet keeps its real

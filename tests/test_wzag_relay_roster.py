@@ -30,6 +30,7 @@ def analyze(name, *, with_roster):
         swimmer_name=name, output_dir=Path(tempfile.mkdtemp()), state="",
         meet_timezone="America/Boise", meet_venue="Idaho Central Aquatic Center, Boise, ID",
         modes=["detailed"], internal_relay_sources=[ROSTER] if with_roster else None,
+        include_relays=True,
     )
 
 

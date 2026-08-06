@@ -41,7 +41,7 @@ def analyze_cova_wzag():
         timeline_pdf=WZAG / "wzag timelines v4.pdf",
         swimmer_name="Cova, Mila L", output_dir=Path(tempfile.mkdtemp()), state="",
         meet_timezone="America/Boise", meet_venue="Idaho Central Aquatic Center, Boise, ID",
-        modes=["detailed"],
+        modes=["detailed"], include_relays=True,
     )
 
 
@@ -93,6 +93,7 @@ class FamilyAggregationTest(unittest.TestCase):
             output_dir=Path(tempfile.mkdtemp()), state="", modes=["daily"], combine_family=True,
             estimate_heat_lanes=False, meet_timezone="America/Boise",
             meet_venue="Idaho Central Aquatic Center, Boise, ID",
+            include_relays=True,
         )
         per_swimmer = result["swimmers"]
         # Each swimmer row carries its own tentative count...

@@ -134,6 +134,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             combine_family=combine_family,
             estimate_heat_lanes=estimate_heat_lanes,
             warmup_path=warmup_path,
+            include_relays=bool(relay_path),
         )
         result["run_id"] = run_id
         result["relay_status"] = "uploaded_and_parsed" if relay_path else "not_uploaded"
@@ -237,6 +238,9 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             meet_warmup_window=meet_warmup_window,
             heat_sheet_paths=heat_sheet_paths,
             distance_timeline_path=distance_timeline_path,
+            # The relay add-on checkboxes are the parent's opt-in. Unchecked -> no relay output at
+            # all, confirmed or tentative, exactly as before tentative relays existed.
+            include_relays=bool(relay_option_ids or relay_path),
         )
         result["run_id"] = run_id
         result["current_meet_id"] = meet_id
@@ -512,6 +516,7 @@ def analyze_swimmer_set(
     meet_warmup_window: str | None = None,
     heat_sheet_paths: list[Path] | None = None,
     distance_timeline_path: Path | None = None,
+    include_relays: bool = False,
 ) -> dict:
     if len(swimmer_names) == 1:
         return analyze_uploads(
@@ -532,6 +537,7 @@ def analyze_swimmer_set(
             meet_warmup_window=meet_warmup_window,
             heat_sheet_pdfs=heat_sheet_paths,
             distance_timeline_pdf=distance_timeline_path,
+            include_relays=include_relays,
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -561,6 +567,7 @@ def analyze_swimmer_set(
             meet_warmup_window=meet_warmup_window,
             heat_sheet_pdfs=heat_sheet_paths,
             distance_timeline_pdf=distance_timeline_path,
+            include_relays=include_relays,
         )
         result["output_subdir"] = subdir_name
         result["files"] = {key: f"{subdir_name}/{name}" for key, name in result["files"].items()}

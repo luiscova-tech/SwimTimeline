@@ -42,7 +42,7 @@ def analyze_wzag(**kwargs):
         output_dir=Path(tempfile.mkdtemp()),
         meet_timezone="America/Boise",
         meet_venue="Idaho Central Aquatic Center, Boise, ID",
-        modes=["detailed"],
+        modes=["detailed"], include_relays=True,
         **kwargs,
     )
 
@@ -53,7 +53,7 @@ def analyze_state(**kwargs):
         psych_pdf=STATE / "age-group-state-psych-sheet.pdf",
         timeline_pdf=STATE / "age-group-state-timeline.pdf",
         output_dir=Path(tempfile.mkdtemp()),
-        modes=["detailed"],
+        modes=["detailed"], include_relays=True,
         **kwargs,
     )
 
@@ -143,7 +143,7 @@ class WzagTentativeTest(unittest.TestCase):
             timeline_pdf=WZAG / "wzag timelines v4.pdf",
             swimmer_name="Cova, Mila L", output_dir=out, state="",
             meet_timezone="America/Boise", meet_venue="X", modes=["detailed"],
-            timeline_projected=False,
+            timeline_projected=False, include_relays=True,
         )
         ics = (out / "detailed.ics").read_text(encoding="utf-8").replace("\r\n ", "")
         team_blocks = [b for b in ics.split("BEGIN:VEVENT") if "team entered" in b.lower()]
