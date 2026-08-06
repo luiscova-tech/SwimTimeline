@@ -24,7 +24,7 @@
         "Some distance events swim all but the fastest seeded heat after prelims; fastest seeded heat swims in finals.",
         "Relays are timed finals and all relay heats swim in finals.",
         "Circle seeding applies to selected prelim events.",
-        "Wednesday's real heat sheet is loaded: Wednesday events show confirmed heat/lane. Thursday-Saturday remain pre-meet estimates until their heat sheets are published."
+        "Real heat sheets are loaded for Wednesday and Thursday: those days show confirmed heat/lane. Friday-Saturday remain pre-meet estimates until their heat sheets are published."
       ],
       "files": {
         "flyer": "meets/2026-wzag-championships-boise/input/Sanctioned_2026 WZAG Championships - Boise (v5.pdf",
@@ -34,9 +34,11 @@
         "relay": null,
         "warmup": "meets/2026-wzag-championships-boise/input/wzag warm-up assignments.pdf",
         "heat_sheets": [
-          "meets/2026-wzag-championships-boise/input/wzag wednesday prelim program.pdf"
+          "meets/2026-wzag-championships-boise/input/wzag wednesday prelim program.pdf",
+          "meets/2026-wzag-championships-boise/input/wzag thursday prelim program v2.pdf"
         ],
-        "distance_timeline": "meets/2026-wzag-championships-boise/input/wzag wednesday distance timeline.pdf"
+        "distance_timeline": "meets/2026-wzag-championships-boise/input/wzag wednesday distance timeline.pdf",
+        "thursday_prelims_timeline": "meets/2026-wzag-championships-boise/input/wzag thursday prelims timeline.pdf"
       },
       "documents": [
         "Meet flyer",
@@ -44,7 +46,8 @@
         "Psych/heat sheet",
         "Timeline",
         "Warm-up assignments",
-        "Wednesday heat sheet (real heat/lane)"
+        "Wednesday heat sheet (real heat/lane)",
+        "Thursday heat sheet (real heat/lane)"
       ],
       "relay_options": [
         {

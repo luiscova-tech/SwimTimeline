@@ -2,7 +2,9 @@
 
 Wednesday's real HY-TEK Meet Program is ground truth for heat/lane. It covers ONE day of a
 four-day meet, so it is applied as an OVERLAY onto the psych-sheet spine: Wednesday events get
-real heat/lane, Thursday-Saturday stay exactly as before (estimated / seed place only).
+real heat/lane, and every other day stays exactly as before (estimated / seed place only).
+Thursday's program was added the same way -- appended to the heat_sheets list, not replacing
+Wednesday's -- and ThursdayRealDocsTest pins that both days stay real in one run.
 
 Two structurally new patterns in this program, both previously mishandled:
 
@@ -25,6 +27,7 @@ import unittest
 
 from swimtimeline.extract import (
     analyze_uploads,
+    extract_text_pages,
     extract_psych_entries,
     parse_distance_heat_times,
     parse_entry_fields,
@@ -35,6 +38,7 @@ from swimtimeline.extract import (
 ROOT = Path(__file__).resolve().parents[1]
 WZAG = ROOT / "meets/2026-wzag-championships-boise/input"
 PROGRAM = WZAG / "wzag wednesday prelim program.pdf"
+THURSDAY = WZAG / "wzag thursday prelim program v2.pdf"
 DISTANCE = WZAG / "wzag wednesday distance timeline.pdf"
 PSYCH = WZAG / "wzag psych sheet v3.pdf"
 FLYER = WZAG / "Sanctioned_2026 WZAG Championships - Boise (v5.pdf"
@@ -273,6 +277,94 @@ class OverlayFailsSafeTest(unittest.TestCase):
     def test_no_heat_sheet_means_no_change_at_all(self):
         from swimtimeline.extract import overlay_heat_sheet_entries
         self.assertEqual(overlay_heat_sheet_entries([], None, "Cova, Mila L"), [])
+
+
+def analyze_both_days(name):
+    """Both real heat sheets at once -- the state families actually see now."""
+    return analyze_uploads(
+        flyer_pdf=FLYER, psych_pdf=PSYCH, timeline_pdf=TIMELINE,
+        swimmer_name=name, output_dir=Path(tempfile.mkdtemp()), state="",
+        meet_timezone="America/Boise", meet_venue="Idaho Central Aquatic Center, Boise, ID",
+        modes=["detailed"], heat_sheet_pdfs=[PROGRAM, THURSDAY], distance_timeline_pdf=DISTANCE,
+    )
+
+
+class ThursdayRealDocsTest(unittest.TestCase):
+    """Thursday's program is a second one-day heat sheet, applied alongside Wednesday's.
+
+    Thursday is structurally simpler than Wednesday: events 26-47 are all single events (no
+    combined girls/boys block) and every heat is a plain "Prelims" round -- no heat swims with
+    finals -- so the timeline's heat counts equal the heat sheet's totals, unlike Wednesday where
+    the swims-with-finals heat made them differ by one.
+    """
+
+    def test_thursday_has_no_combined_event_block(self):
+        text = "\n".join(extract_text_pages(THURSDAY))
+        self.assertNotIn("/ 22", text)
+        for line in text.splitlines():
+            split = split_event_header(line.strip())
+            if split:
+                self.assertEqual(len(split), 1, line)   # every Thursday header names ONE event
+
+    def test_no_thursday_heat_swims_with_finals(self):
+        text = "\n".join(extract_text_pages(THURSDAY))
+        self.assertNotIn("Swimming with Finals", text)
+
+    def test_cova_thursday_real_heat_lane(self):
+        events = individual(analyze_both_days("Cova, Mila L"))
+        self.assertEqual(events[28]["entry_position"], "Heat/lane: heat 1, lane 7")
+        self.assertEqual(events[28]["seed_time"], "2:20.36")     # psych seed preserved
+        self.assertEqual(events[28]["source_document"], "Heat sheet")
+        self.assertFalse(events[28]["heat_is_estimated"])
+
+    def test_stein_thursday_real_heat_lane(self):
+        events = individual(analyze_both_days("Stein, Layla"))
+        self.assertEqual(events[30]["entry_position"], "Heat/lane: heat 2, lane 5")
+        self.assertEqual(events[36]["entry_position"], "Heat/lane: heat 4, lane 2")
+        for number in (30, 36):
+            self.assertEqual(events[number]["source_document"], "Heat sheet")
+
+    def test_wednesday_is_unchanged_by_adding_thursday(self):
+        # Adding a second day's heat sheet must not disturb the first day's real values.
+        for name, expected in (
+            ("Cova, Mila L", {5: "Heat/lane: heat 4, lane 2", 11: "Heat/lane: heat 3, lane 6"}),
+            ("Stein, Layla", {21: "Heat/lane: heat 1, lane 8"}),
+        ):
+            events = individual(analyze_both_days(name))
+            for number, position in expected.items():
+                self.assertEqual(events[number]["entry_position"], position, f"{name} #{number}")
+
+    def test_stein_wednesday_800_keeps_its_evening_finals_window(self):
+        events = individual(analyze_both_days("Stein, Layla"))
+        self.assertEqual(events[21]["window"], "6:37 PM-6:48 PM")
+
+    def test_friday_and_saturday_remain_estimates(self):
+        for name, numbers in (("Cova, Mila L", (60, 70, 81)), ("Stein, Layla", (56, 72, 83))):
+            events = individual(analyze_both_days(name))
+            for number in numbers:
+                self.assertTrue(events[number]["entry_position"].startswith("Seed place:"), f"{name} #{number}")
+                self.assertEqual(events[number]["source_document"], "Psych/entry sheet")
+
+    def test_only_thursday_events_change_when_thursday_is_added(self):
+        wednesday_only = analyze_uploads(
+            flyer_pdf=FLYER, psych_pdf=PSYCH, timeline_pdf=TIMELINE,
+            swimmer_name="Stein, Layla", output_dir=Path(tempfile.mkdtemp()), state="",
+            meet_timezone="America/Boise", meet_venue="Idaho Central Aquatic Center, Boise, ID",
+            modes=["detailed"], heat_sheet_pdfs=[PROGRAM], distance_timeline_pdf=DISTANCE,
+        )
+        before = {i["event_number"]: i for i in wednesday_only["items"] if i.get("type") != "relay"}
+        after = individual(analyze_both_days("Stein, Layla"))
+        self.assertEqual(set(before), set(after))
+        changed = {n for n in after if before[n] != after[n]}
+        self.assertEqual(changed, {30, 36})
+        self.assertTrue(all(after[n]["day"] == "Thursday" for n in changed))
+
+    def test_thursday_trailing_marker_rows_are_recovered(self):
+        # 481 rows on this document carry the " B" time-standard marker after the lane; before the
+        # parser fix every one of them was dropped silently.
+        entries, _, _ = extract_psych_entries(THURSDAY, "Mo, Khloe")
+        self.assertTrue(entries)
+        self.assertIsNotNone(entries[0].lane)
 
 
 if __name__ == "__main__":
