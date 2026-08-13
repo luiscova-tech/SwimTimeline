@@ -21,6 +21,14 @@ import time
 from urllib.parse import parse_qs, unquote, urlsplit
 from uuid import uuid4
 
+# mimetypes.guess_type() has no built-in ".ics" entry of its own -- on this Mac it resolves via
+# the system's /etc/mime.types, which a minimal Linux container (e.g. Render's) is not guaranteed
+# to have installed at all, in which case guess_type() would silently fall back to
+# application/octet-stream and mobile Safari/Chrome would offer a generic file download instead of
+# an "Add to Calendar" prompt. Registering it explicitly makes the mapping correct everywhere,
+# regardless of what mime database (if any) happens to be present on the host.
+mimetypes.add_type("text/calendar", ".ics")
+
 ROOT = Path(__file__).resolve().parents[1]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 RUNS_DIR = ROOT / ".swimtimeline-runs"
@@ -359,6 +367,11 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             return
         content = target.read_bytes()
         mime = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+        # Calendar files are always written as UTF-8 text (see build_ics) and may contain
+        # non-ASCII characters (accented names, punctuation); be explicit rather than let a
+        # client fall back to guessing an encoding for a downloaded file.
+        if mime == "text/calendar":
+            mime = "text/calendar; charset=utf-8"
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Disposition", f'attachment; filename="{target.name}"')
