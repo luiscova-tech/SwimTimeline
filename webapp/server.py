@@ -16,8 +16,9 @@ from pathlib import Path
 import re
 import shutil
 import sys
+import threading
 import time
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlsplit
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,6 +29,14 @@ USAGE_STATS_PATH = ROOT / "data" / "usage_stats.json"
 HOSTED_MEETS_DIR = ROOT / "meets" / "current-hosted"
 DEFAULT_MODES = ["daily"]
 VALID_MODES = {"daily", "weekend", "detailed"}
+# /subscribe.ics is polled repeatedly, forever, by calendar apps -- unlike every other endpoint
+# here, which is called once per user action. A short in-memory TTL absorbs bursts (e.g. a
+# family's several devices all refreshing around the same time) without re-parsing PDFs for each
+# one, while staying well under any calendar app's own poll interval so "add a heat sheet mid-meet"
+# still shows up on the next real poll. Render's free tier runs a single instance, so a plain
+# in-process dict is enough -- no shared cache needed, and it can't grow unbounded in practice
+# (bounded by distinct meet/swimmer/option combinations, and reset on every process restart).
+SUBSCRIBE_CACHE_TTL_SECONDS = 300
 UPLOAD_FIELD_LABELS = {
     "flyer_pdf": "Meet Flyer",
     "psych_pdf": "Psych Sheet or Heat Sheet",
@@ -45,7 +54,8 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
     server_version = "SwimTimeline/0.1"
 
     def do_GET(self) -> None:
-        path = self.path.split("?", 1)[0]
+        parsed = urlsplit(self.path)
+        path = parsed.path
         if path == "/":
             self.send_static(STATIC_DIR / "index.html")
             return
@@ -55,6 +65,11 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             return
         if path.startswith("/download/"):
             self.send_download(path)
+            return
+        if path == "/subscribe.ics":
+            # Current-Meets-only live feed (see send_subscribe_ics). Every other route above only
+            # cares about the path, so this is the only one that needs the query string parsed.
+            self.send_subscribe_ics(parse_qs(parsed.query))
             return
         if path == "/api/health":
             self.send_json({"ok": True})
@@ -172,6 +187,10 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         combine_family = payload_bool(payload, "combine_family", default=True)
         estimate_heat_lanes = payload_bool(payload, "estimate_heat_lanes", default=False)
         relay_option_ids = payload_relay_options(payload)
+        # General opt-in for tentative team-entered relays, decoupled from the private-roster
+        # add-ons above -- those only exist for meets with a roster configured (currently AZ-only),
+        # so this is the only opt-in path for every other meet.
+        show_team_relays = payload_bool(payload, "show_team_relays", default=False)
         if not meet_id:
             raise ValueError("Current meet id is required.")
         if not swimmer_names:
@@ -183,47 +202,16 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         # is the VENUE's state (WZAG is in ID while its AZ swimmers need AZSI); substituting it here
         # used to masquerade as an explicitly-entered LSC and block auto-detection entirely.
         state = str(payload.get("state") or "").strip().upper()
-        # Timezone must come from the meet's own venue, not the swimmer/LSC
-        # state above (a traveling swimmer may enter their home LSC there).
-        meet_timezone = resolve_meet_timezone(state=meet.get("state"), explicit_timezone=meet.get("timezone"))
-        # Venue likewise comes from the meet record. It is the fallback the timeline parser uses
-        # when the meet's own flyer/timeline PDFs don't name a facility, so a non-AZ meet no
-        # longer inherits a hardcoded Arizona address. None -> "Meet facility" (never a wrong one).
-        meet_venue = meet.get("venue") or None
-        # Whether this meet's timeline is a settled final schedule or a pre-meet projection. Drives
-        # STATUS:CONFIRMED vs STATUS:TENTATIVE and a per-event caveat in the generated calendar.
-        # Anything not explicitly "projected" (including absent) is treated as final.
-        timeline_projected = meet.get("timeline_type") == "projected"
-        files = meet.get("files", {})
-        flyer_path = resolve_repo_file(files.get("flyer"), required=False, label="Meet Flyer")
-        psych_path = resolve_repo_file(files.get("psych"), required=True, label="Psych Sheet or Heat Sheet")
-        timeline_path = resolve_repo_file(files.get("timeline"), required=True, label="Timeline")
-        relay_path = resolve_repo_file(files.get("relay"), required=False, label="Relay Doc")
+        docs = resolve_current_meet_documents(meet)
         internal_relay_sources = resolve_current_meet_relay_sources(meet, relay_option_ids)
-        # Warm-up assignments doc (per-team/day matrix) and/or a universal warm-up window scalar,
-        # both optional and both threaded like the other per-meet config.
-        warmup_path = resolve_repo_file(files.get("warmup"), required=False, label="Warm-up Assignments")
-        meet_warmup_window = meet.get("warmup_window") or None
-        # Real heat sheets, one per day as they are published. They OVERLAY the psych sheet for the
-        # days they cover; every other day keeps its existing estimate, so a partial-day drop does
-        # not change the meet's readiness or affect the rest of the schedule.
-        heat_sheet_paths = [
-            path for path in (
-                resolve_repo_file(entry, required=False, label="Heat Sheet")
-                for entry in (files.get("heat_sheets") or [])
-            ) if path is not None
-        ]
-        distance_timeline_path = resolve_repo_file(
-            files.get("distance_timeline"), required=False, label="Distance Timeline"
-        )
 
         run_id = f"{int(time.time())}-{uuid4().hex[:8]}"
         output_dir = RUNS_DIR / run_id / "outputs"
         result = analyze_swimmer_set(
-            flyer_path=flyer_path,
-            psych_path=psych_path,
-            timeline_path=timeline_path,
-            relay_path=relay_path,
+            flyer_path=docs["flyer_path"],
+            psych_path=docs["psych_path"],
+            timeline_path=docs["timeline_path"],
+            relay_path=docs["relay_path"],
             internal_relay_sources=internal_relay_sources,
             swimmer_names=swimmer_names,
             output_dir=output_dir,
@@ -231,20 +219,21 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             modes=modes,
             combine_family=combine_family,
             estimate_heat_lanes=estimate_heat_lanes,
-            meet_timezone=meet_timezone,
-            meet_venue=meet_venue,
-            timeline_projected=timeline_projected,
-            warmup_path=warmup_path,
-            meet_warmup_window=meet_warmup_window,
-            heat_sheet_paths=heat_sheet_paths,
-            distance_timeline_path=distance_timeline_path,
-            # The relay add-on checkboxes are the parent's opt-in. Unchecked -> no relay output at
-            # all, confirmed or tentative, exactly as before tentative relays existed.
-            include_relays=bool(relay_option_ids or relay_path),
+            meet_timezone=docs["meet_timezone"],
+            meet_venue=docs["meet_venue"],
+            timeline_projected=docs["timeline_projected"],
+            warmup_path=docs["warmup_path"],
+            meet_warmup_window=docs["meet_warmup_window"],
+            heat_sheet_paths=docs["heat_sheet_paths"],
+            distance_timeline_path=docs["distance_timeline_path"],
+            # The relay add-on checkboxes (or the general "show my team's entered relays" toggle)
+            # are the parent's opt-in. All unchecked -> no relay output at all, confirmed or
+            # tentative, exactly as before tentative relays existed.
+            include_relays=bool(relay_option_ids or docs["relay_path"] or show_team_relays),
         )
         result["run_id"] = run_id
         result["current_meet_id"] = meet_id
-        result["relay_status"] = relay_status(relay_path, internal_relay_sources)
+        result["relay_status"] = relay_status(docs["relay_path"], internal_relay_sources)
         result["can_publish_current"] = False
         result["downloads"] = download_urls(run_id, result["files"])
         add_individual_download_urls(run_id, result)
@@ -315,6 +304,28 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         manifest["published_current_meet_id"] = meet_id
         write_json(manifest_path, manifest)
         return {"current_meet": public_current_meet(entry), "already_saved": False}
+
+    def send_subscribe_ics(self, query: dict[str, list[str]]) -> None:
+        try:
+            ics_bytes, filename = build_subscribe_ics(query)
+        except SubscribeError as exc:
+            self.send_error(exc.status, str(exc))
+            return
+        except Exception as exc:  # Never let a parsing bug 500 a feed a calendar app polls forever.
+            self.send_error(HTTPStatus.BAD_REQUEST, str(exc))
+            return
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/calendar; charset=utf-8")
+        # "inline", not "attachment" (unlike send_download below): this URL is meant to be fetched
+        # and parsed by calendar software on its own schedule, not saved as a file by a human.
+        self.send_header("Content-Disposition", f'inline; filename="{filename}"')
+        # Calendar apps and any intermediate proxy/CDN should re-poll on their own cadence rather
+        # than pin this response for a long time -- max-age matches our own short server-side
+        # cache, so allowing a shared cache to hold it that long adds no real extra staleness.
+        self.send_header("Cache-Control", f"public, max-age={SUBSCRIBE_CACHE_TTL_SECONDS}, must-revalidate")
+        self.send_header("Content-Length", str(len(ics_bytes)))
+        self.end_headers()
+        self.wfile.write(ics_bytes)
 
     def send_static(self, path: Path) -> None:
         try:
@@ -1018,6 +1029,55 @@ def resolve_current_meet_relay_sources(meet: dict, relay_option_ids: list[str]) 
     return sources
 
 
+def resolve_current_meet_documents(meet: dict) -> dict:
+    """Resolve every per-meet document path and derived metadata straight from disk. Shared by
+    handle_analyze_current and the /subscribe.ics feed so both always see the meet's LATEST files
+    -- re-reading them here, on every call, rather than caching anything is the whole point of a
+    live feed (a heat sheet added mid-meet must show up on the next poll unattended)."""
+    # Timezone/venue come from the MEET record, not any swimmer-entered state -- see the caller's
+    # comment on why the swimmer's State/LSC field must never substitute for either.
+    meet_timezone = resolve_meet_timezone(state=meet.get("state"), explicit_timezone=meet.get("timezone"))
+    meet_venue = meet.get("venue") or None
+    # Whether this meet's timeline is a settled final schedule or a pre-meet projection. Drives
+    # STATUS:CONFIRMED vs STATUS:TENTATIVE and a per-event caveat in the generated calendar.
+    # Anything not explicitly "projected" (including absent) is treated as final.
+    timeline_projected = meet.get("timeline_type") == "projected"
+    files = meet.get("files", {})
+    flyer_path = resolve_repo_file(files.get("flyer"), required=False, label="Meet Flyer")
+    psych_path = resolve_repo_file(files.get("psych"), required=True, label="Psych Sheet or Heat Sheet")
+    timeline_path = resolve_repo_file(files.get("timeline"), required=True, label="Timeline")
+    relay_path = resolve_repo_file(files.get("relay"), required=False, label="Relay Doc")
+    # Warm-up assignments doc (per-team/day matrix) and/or a universal warm-up window scalar, both
+    # optional and both threaded like the other per-meet config.
+    warmup_path = resolve_repo_file(files.get("warmup"), required=False, label="Warm-up Assignments")
+    meet_warmup_window = meet.get("warmup_window") or None
+    # Real heat sheets, one per day as they are published. They OVERLAY the psych sheet for the
+    # days they cover; every other day keeps its existing estimate, so a partial-day drop does not
+    # change the meet's readiness or affect the rest of the schedule.
+    heat_sheet_paths = [
+        path for path in (
+            resolve_repo_file(entry, required=False, label="Heat Sheet")
+            for entry in (files.get("heat_sheets") or [])
+        ) if path is not None
+    ]
+    distance_timeline_path = resolve_repo_file(
+        files.get("distance_timeline"), required=False, label="Distance Timeline"
+    )
+    return {
+        "flyer_path": flyer_path,
+        "psych_path": psych_path,
+        "timeline_path": timeline_path,
+        "relay_path": relay_path,
+        "warmup_path": warmup_path,
+        "meet_warmup_window": meet_warmup_window,
+        "heat_sheet_paths": heat_sheet_paths,
+        "distance_timeline_path": distance_timeline_path,
+        "meet_timezone": meet_timezone,
+        "meet_venue": meet_venue,
+        "timeline_projected": timeline_projected,
+    }
+
+
 def relay_status(relay_path: Path | None, internal_relay_sources: list[Path]) -> str:
     if relay_path and internal_relay_sources:
         return "uploaded_and_private_relay_parsed"
@@ -1104,6 +1164,141 @@ def unique_current_meet_id(meet_name: str, dates: str) -> str:
 
 def slugify_value(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-") or "swim-meet"
+
+
+class SubscribeError(Exception):
+    """Raised for any /subscribe.ics request that can't be fulfilled, carrying the HTTP status
+    send_subscribe_ics should reply with -- so a bad/missing param, an unknown meet, or a swimmer
+    with no matches becomes a clear error response, never a 500 or a malformed calendar file."""
+
+    def __init__(self, status: HTTPStatus, message: str):
+        super().__init__(message)
+        self.status = status
+
+
+# Keyed by the resolved request (not the raw query string, so param order never causes a miss).
+# Guarded by a lock because ThreadingHTTPServer runs each request on its own thread; the lock only
+# protects the dict itself; two concurrent misses for the same key just both compute it, which is
+# harmless.
+_subscribe_cache: dict[tuple, tuple[float, bytes, str]] = {}
+_subscribe_cache_lock = threading.Lock()
+
+
+def query_value(query: dict[str, list[str]], name: str, default: str = "") -> str:
+    values = query.get(name)
+    return values[0] if values else default
+
+
+def query_bool(query: dict[str, list[str]], name: str, default: bool = False) -> bool:
+    values = query.get(name)
+    if not values:
+        return default
+    return values[0].strip().lower() not in {"", "0", "false", "off", "no"}
+
+
+def swimmer_matched(result: dict) -> bool:
+    # Mirrors the frontend's own verifiedTotal() -- tentative relays don't count, since a swimmer
+    # can only get a tentative team-entered relay after their individual entries resolved a team
+    # code for them (see swimmer_relay_identity), so this can't false-negative a relay-only match.
+    return (int(result.get("verified_event_count") or 0) + int(result.get("verified_relay_count") or 0)) > 0
+
+
+def subscribe_filename(meet: dict, swimmer_name: str, mode: str) -> str:
+    meet_slug = slugify_value(str(meet.get("short_name") or meet.get("name") or meet.get("id") or "meet"))
+    return f"{meet_slug}-{slugify_value(swimmer_name)}-{mode}.ics"
+
+
+def build_subscribe_ics(query: dict[str, list[str]]) -> tuple[bytes, str]:
+    meet_id = query_value(query, "meet_id").strip()
+    swimmer_name = query_value(query, "swimmer").strip()
+    if not meet_id:
+        raise SubscribeError(HTTPStatus.BAD_REQUEST, "meet_id is required.")
+    if not swimmer_name:
+        raise SubscribeError(HTTPStatus.BAD_REQUEST, "swimmer is required.")
+    state = query_value(query, "state").strip().upper()
+    modes = normalize_modes(query.get("modes", []))
+    mode = modes[0]
+    # Same opt-in shape as handle_analyze_current: a private-roster add-on id, or the general
+    # "show my team's entered relays" toggle. payload_relay_options only reads one key, so handing
+    # it a synthetic dict reuses its cleaning/dedup logic without duplicating it here.
+    relay_option_ids = payload_relay_options({"relay_options": query.get("relay_options", [])})
+    show_team_relays = query_bool(query, "show_team_relays", default=False)
+
+    try:
+        meet = resolve_current_meet(meet_id)
+    except ValueError as exc:
+        raise SubscribeError(HTTPStatus.NOT_FOUND, str(exc)) from exc
+    if not public_current_meet(meet).get("is_ready_for_lookup"):
+        raise SubscribeError(HTTPStatus.CONFLICT, "This meet is not ready for calendar generation yet.")
+
+    cache_key = (meet_id, swimmer_name, state, mode, tuple(sorted(relay_option_ids)), show_team_relays)
+    with _subscribe_cache_lock:
+        cached = _subscribe_cache.get(cache_key)
+    if cached and cached[0] > time.time():
+        return cached[1], cached[2]
+
+    try:
+        internal_relay_sources = resolve_current_meet_relay_sources(meet, relay_option_ids)
+        docs = resolve_current_meet_documents(meet)
+    except ValueError as exc:
+        raise SubscribeError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+
+    # Throwaway run dir: nothing else ever looks it up again (unlike /api/analyze and
+    # /api/analyze-current, whose run_id is handed back to the browser for /download/ links and
+    # the publish-to-current-meets flow). There is no existing sweep that cleans up RUNS_DIR, and
+    # this route is polled repeatedly forever by calendar apps, so it is deleted explicitly below
+    # rather than left to accumulate.
+    run_id = f"subscribe-{int(time.time())}-{uuid4().hex[:8]}"
+    run_dir = RUNS_DIR / run_id
+    output_dir = run_dir / "outputs"
+    try:
+        result = analyze_swimmer_set(
+            flyer_path=docs["flyer_path"],
+            psych_path=docs["psych_path"],
+            timeline_path=docs["timeline_path"],
+            relay_path=docs["relay_path"],
+            internal_relay_sources=internal_relay_sources,
+            swimmer_names=[swimmer_name],
+            output_dir=output_dir,
+            state=state,
+            modes=[mode],
+            combine_family=False,  # Single swimmer only -- see the module docstring on scope.
+            # Real heat sheets overlay unconditionally regardless of this flag (see
+            # overlay_heat_sheet_entries in extract.py); only the PRE-heat-sheet estimation
+            # heuristic is gated by it. A live feed should show the confirmed heat/lane the moment
+            # Luis posts the real sheet either way, so skipping speculative estimates here is a
+            # reasonable default, not a real capability gap.
+            estimate_heat_lanes=False,
+            meet_timezone=docs["meet_timezone"],
+            meet_venue=docs["meet_venue"],
+            timeline_projected=docs["timeline_projected"],
+            warmup_path=docs["warmup_path"],
+            meet_warmup_window=docs["meet_warmup_window"],
+            heat_sheet_paths=docs["heat_sheet_paths"],
+            distance_timeline_path=docs["distance_timeline_path"],
+            include_relays=bool(relay_option_ids or show_team_relays),
+        )
+        if result.get("ambiguous_swimmer_match"):
+            raise SubscribeError(
+                HTTPStatus.BAD_REQUEST,
+                f"'{swimmer_name}' matches more than one swimmer at this meet. Use a more specific name.",
+            )
+        if not swimmer_matched(result):
+            raise SubscribeError(
+                HTTPStatus.NOT_FOUND,
+                f"No swims found for '{swimmer_name}' at this meet. Check the spelling and try again.",
+            )
+        ics_name = result["files"].get(f"{mode}_ics")
+        if not ics_name:
+            raise SubscribeError(HTTPStatus.BAD_REQUEST, f"Unsupported calendar mode: {mode}")
+        ics_bytes = (output_dir / ics_name).read_bytes()
+    finally:
+        shutil.rmtree(run_dir, ignore_errors=True)
+
+    filename = subscribe_filename(meet, swimmer_name, mode)
+    with _subscribe_cache_lock:
+        _subscribe_cache[cache_key] = (time.time() + SUBSCRIBE_CACHE_TTL_SECONDS, ics_bytes, filename)
+    return ics_bytes, filename
 
 
 def main() -> None:

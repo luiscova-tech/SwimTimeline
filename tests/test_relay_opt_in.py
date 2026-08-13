@@ -142,5 +142,71 @@ class ServerWiringTest(unittest.TestCase):
         self.assertEqual(checked["verified_relay_count"], 4)
 
 
+class ShowTeamRelaysToggleTest(unittest.TestCase):
+    """The general "show my team's entered relays" toggle is a second, independent opt-in for
+    tentative team-entered relays -- decoupled from the private-roster add-on checkboxes, which
+    only exist for meets with a roster configured (currently AZ-only). It ORs into the same
+    include_relays gate those checkboxes already drive, per handle_analyze_current's formula:
+    bool(relay_option_ids or relay_path or show_team_relays)."""
+
+    def test_toggle_alone_opts_in_to_tentative_relays_with_no_roster(self):
+        relay_option_ids, relay_path, show_team_relays = [], None, True
+        include_relays = bool(relay_option_ids or relay_path or show_team_relays)
+        self.assertTrue(include_relays)
+        payload = analyze(include_relays=include_relays, roster=False)
+        self.assertEqual(payload["tentative_relay_count"], 8)
+        self.assertEqual(payload["verified_relay_count"], 0)
+
+    def test_toggle_off_and_no_roster_or_pdf_means_no_relays(self):
+        relay_option_ids, relay_path, show_team_relays = [], None, False
+        include_relays = bool(relay_option_ids or relay_path or show_team_relays)
+        self.assertFalse(include_relays)
+        payload = analyze(include_relays=include_relays, roster=False)
+        self.assertEqual(relay_rows(payload), [])
+
+    def test_toggle_checked_alongside_a_roster_addon_does_not_duplicate_or_conflict(self):
+        # Simulates a swimmer whose parent BOTH checked the AZ roster add-on (relay_option_ids
+        # resolves to the roster) AND checked "show my team's entered relays" -- the general
+        # toggle is redundant here, but must not produce duplicate/conflicting relay rows: the
+        # roster's precedence (relay_roster_event_numbers) already suppresses tentative team
+        # entries for every event the roster covers, regardless of which flag(s) caused
+        # include_relays to be True.
+        try:
+            from webapp.server import analyze_swimmer_set
+        except ModuleNotFoundError as exc:  # pragma: no cover - environment guard
+            raise unittest.SkipTest("webapp.server needs Python 3.12") from exc
+
+        relay_option_ids, relay_path, show_team_relays = ["az-2026-wzag-relays"], None, True
+        include_relays = bool(relay_option_ids or relay_path or show_team_relays)
+        self.assertTrue(include_relays)
+
+        common = dict(
+            flyer_path=WZAG / "Sanctioned_2026 WZAG Championships - Boise (v5.pdf",
+            psych_path=WZAG / "wzag psych sheet v3.pdf",
+            timeline_path=WZAG / "wzag timelines v4.pdf",
+            swimmer_names=["Cova, Mila L"],
+            state="", modes=["daily"], combine_family=True, estimate_heat_lanes=False,
+            meet_timezone="America/Boise", meet_venue="Idaho Central Aquatic Center, Boise, ID",
+        )
+        both_flags = analyze_swimmer_set(
+            relay_path=relay_path, internal_relay_sources=[ROSTER],
+            output_dir=Path(tempfile.mkdtemp()), include_relays=include_relays, **common,
+        )
+        roster_only = analyze_swimmer_set(
+            relay_path=None, internal_relay_sources=[ROSTER],
+            output_dir=Path(tempfile.mkdtemp()), include_relays=True, **common,
+        )
+
+        # Identical outcome whether or not the general toggle was ALSO checked: exactly her four
+        # real relays, none tentative -- the roster fully determines the result either way.
+        for payload in (both_flags, roster_only):
+            self.assertEqual(payload["verified_relay_count"], 4)
+            self.assertEqual(payload["tentative_relay_count"], 0)
+        both_events = sorted(i["event_number"] for i in both_flags["items"] if i.get("type") == "relay")
+        roster_events = sorted(i["event_number"] for i in roster_only["items"] if i.get("type") == "relay")
+        self.assertEqual(both_events, [25, 50, 75, 99])
+        self.assertEqual(both_events, roster_events)
+
+
 if __name__ == "__main__":
     unittest.main()

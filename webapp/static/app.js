@@ -383,12 +383,21 @@ async function analyzeCurrentMeet(meet, card) {
         combine_family: form.elements.combine_family.checked,
         estimate_heat_lanes: form.elements.estimate_heat_lanes.checked,
         relay_options: selectedRelayOptions(meet.id),
+        show_team_relays: form.elements.show_team_relays.checked,
       }),
     });
     const payload = await response.json();
     if (!response.ok) {
       throw new Error(payload.error || "Current meet analysis failed.");
     }
+    // Carried alongside the payload (not returned by the server) so renderResult can build
+    // /subscribe.ics links that reproduce exactly this request -- same state/relay choices --
+    // on every future poll, not just the swimmer name and mode already in payload.downloads.
+    payload.subscribe_params = {
+      state,
+      relayOptionIds: selectedRelayOptions(meet.id),
+      showTeamRelays: form.elements.show_team_relays.checked,
+    };
     renderResult(payload);
     const noMatches = verifiedTotal(payload) === 0;
     // An ambiguous name found too MANY swimmers, not none -- saying "no events found" would tell a
@@ -555,6 +564,7 @@ function renderResult(payload) {
   }
   appendDownloadGroup(payload.family ? "Combined family calendars" : "Calendar files", primaryLinks);
   renderIndividualDownloads(payload);
+  renderSubscribeLinks(payload);
 
   for (const warning of payload.warnings || []) {
     const item = document.createElement("div");
@@ -633,6 +643,100 @@ function appendDownloadGroup(title, links) {
     list.appendChild(link);
   }
   group.appendChild(list);
+  downloadsEl.appendChild(group);
+}
+
+// Current Meets only -- an uploaded PDF has no stable long-term storage for the server to re-poll,
+// so payload.current_meet_id (only ever set by /api/analyze-current) is exactly the right gate.
+const SUBSCRIBE_MODE_LABELS = {
+  daily_ics: ["daily", "Daily Calendar"],
+  weekend_ics: ["weekend", "Whole Meet Calendar"],
+  detailed_ics: ["detailed", "Swim-by-Swim Calendar"],
+};
+
+function buildSubscribeUrl({ meetId, swimmerName, mode, state, relayOptionIds, showTeamRelays }) {
+  const url = new URL("/subscribe.ics", window.location.origin);
+  url.searchParams.set("meet_id", meetId);
+  url.searchParams.set("swimmer", swimmerName);
+  url.searchParams.set("modes", mode);
+  if (state) {
+    url.searchParams.set("state", state);
+  }
+  for (const optionId of relayOptionIds || []) {
+    url.searchParams.append("relay_options", optionId);
+  }
+  if (showTeamRelays) {
+    url.searchParams.set("show_team_relays", "1");
+  }
+  return url.toString();
+}
+
+// webcal:// is what makes Apple/Google/Outlook's calendar apps treat the link as "subscribe to
+// this feed" instead of "download this one file" -- swapping the scheme is all it takes, since
+// the URL itself is otherwise identical to the plain https:// one.
+function webcalUrl(httpsUrl) {
+  return httpsUrl.replace(/^https?:/, "webcal:");
+}
+
+function renderSubscribeLinks(payload) {
+  if (!payload.current_meet_id) return;
+  const params = payload.subscribe_params || {};
+  const rows = [];
+  if (payload.family) {
+    for (const swimmer of payload.swimmers || []) {
+      const links = swimmer.downloads || {};
+      for (const [key, [mode, label]] of Object.entries(SUBSCRIBE_MODE_LABELS)) {
+        if (!links[key]) continue;
+        rows.push({ swimmerName: swimmer.name, mode, label: `${swimmer.name} — ${label}` });
+      }
+    }
+  } else {
+    for (const [key, [mode, label]] of Object.entries(SUBSCRIBE_MODE_LABELS)) {
+      if (!payload.downloads[key]) continue;
+      rows.push({ swimmerName: payload.swimmer, mode, label });
+    }
+  }
+  if (!rows.length) return;
+
+  const group = document.createElement("section");
+  group.className = "download-group subscribe-group";
+  const heading = document.createElement("h3");
+  heading.textContent = "Subscribe (auto-updating)";
+  group.appendChild(heading);
+  const note = document.createElement("p");
+  note.className = "subscribe-note";
+  note.textContent = "Subscribing keeps this calendar current on its own -- no need to come back and "
+    + "re-download after a new heat sheet is posted.";
+  group.appendChild(note);
+
+  for (const row of rows) {
+    const httpsUrl = buildSubscribeUrl({ meetId: payload.current_meet_id, swimmerName: row.swimmerName, mode: row.mode, ...params });
+    const item = document.createElement("div");
+    item.className = "subscribe-row";
+    item.innerHTML = `
+      <a class="subscribe-link" href="${escapeHtml(webcalUrl(httpsUrl))}">Subscribe: ${escapeHtml(row.label)}</a>
+      <label class="subscribe-copy-label">Or paste into Google Calendar's "From URL" field:</label>
+      <div class="subscribe-copy-field">
+        <input type="text" class="subscribe-copy-input" readonly value="${escapeHtml(httpsUrl)}">
+        <button type="button" class="subscribe-copy-button">Copy</button>
+      </div>
+    `;
+    const input = item.querySelector(".subscribe-copy-input");
+    const copyButton = item.querySelector(".subscribe-copy-button");
+    input.addEventListener("click", () => input.select());
+    copyButton.addEventListener("click", async () => {
+      input.select();
+      try {
+        await navigator.clipboard.writeText(httpsUrl);
+        copyButton.textContent = "Copied!";
+        setTimeout(() => { copyButton.textContent = "Copy"; }, 1500);
+      } catch (error) {
+        // Clipboard API unavailable (e.g. a non-secure context) -- the field is already selected
+        // above, so the user can still copy it by hand.
+      }
+    });
+    group.appendChild(item);
+  }
   downloadsEl.appendChild(group);
 }
 

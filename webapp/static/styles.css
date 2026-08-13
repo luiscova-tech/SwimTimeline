@@ -1289,6 +1289,94 @@ input[name="state"] {
   justify-content: flex-end;
 }
 
+/* .download-group defaults to justify-items: end for the short link rows above; the copy field
+   here needs the full row width instead, so this group opts back into a stretched layout. */
+.subscribe-group {
+  justify-items: stretch;
+  gap: 10px;
+}
+
+.subscribe-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.subscribe-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.subscribe-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 750;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.subscribe-link:hover {
+  border-color: #9cc8bd;
+}
+
+.subscribe-copy-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.subscribe-copy-field {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.subscribe-copy-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+}
+
+.subscribe-copy-button {
+  flex-shrink: 0;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: var(--navy);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.subscribe-copy-button:hover {
+  border-color: #9cc8bd;
+}
+
 .download-dock {
   position: fixed;
   left: 12px;
@@ -1558,6 +1646,18 @@ td strong {
 
   .downloads a {
     width: 100%;
+  }
+
+  .subscribe-row {
+    align-items: stretch;
+  }
+
+  .subscribe-note {
+    text-align: left;
+  }
+
+  .subscribe-copy-field {
+    flex-direction: column;
   }
 
   .download-dock:not(.hidden) {
