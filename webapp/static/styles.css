@@ -224,6 +224,54 @@ h2 {
   margin-top: 16px;
 }
 
+/* First-run banner: same highlighted-box treatment as .current-meets (soft blue gradient +
+   border) so it reads as part of the same visual language, but sits above the form as a plain
+   block -- never fixed/sticky -- so it can't compete with #downloadDock's fixed bottom bar. */
+.onboarding-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid #aec8de;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f9fbfe 0%, #f2f7fb 100%);
+  box-shadow: 0 10px 24px rgba(23, 50, 93, 0.06);
+}
+
+.onboarding-banner-text {
+  margin: 0;
+  max-width: 640px;
+  color: var(--navy);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.onboarding-banner-text strong {
+  color: var(--accent-dark);
+}
+
+.onboarding-banner-dismiss {
+  flex-shrink: 0;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: var(--navy);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.onboarding-banner-dismiss:hover {
+  border-color: #9cc8bd;
+}
+
 .instruction-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-top: 12px;
@@ -323,6 +371,13 @@ h2 {
 
 .upload-requirement-hint.active-error {
   color: var(--warn);
+  font-weight: 800;
+}
+
+.field-error-hint {
+  margin: 8px 0 0;
+  color: var(--warn);
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -1438,9 +1493,14 @@ td strong {
   .section-header,
   .result-header,
   .meet-card,
-  .contact-panel {
+  .contact-panel,
+  .onboarding-banner {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .onboarding-banner-dismiss {
+    width: 100%;
   }
 
   .control-strip,

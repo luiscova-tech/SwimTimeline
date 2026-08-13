@@ -20,6 +20,8 @@
       </header>
 
       <section class="workspace">
+        <div id="onboardingBannerSlot"></div>
+
         <form id="uploadForm" class="panel">
           <div class="workflow-strip" aria-label="Create calendar steps">
             <div>
@@ -48,6 +50,7 @@
                 </div>
               </div>
               <button id="addSwimmer" class="add-swimmer-button" type="button">+ Add another swimmer</button>
+              <p id="swimmerRequirementHint" class="field-error-hint hidden" role="alert"></p>
             </div>
             <div class="state-field">
               <label>
@@ -124,25 +127,7 @@
             </div>
           </details>
 
-          <section id="currentMeets" class="current-meets primary-current-meets">
-            <div class="section-header">
-              <div>
-                <h2>Choose A Meet</h2>
-                <p class="section-copy">Hosted meet documents are ready to search.</p>
-              </div>
-            </div>
-            <div id="featuredMeet" class="featured-meet"></div>
-            <div id="currentMeetList" class="meet-list"></div>
-            <details id="pastMeets" class="past-meets hidden">
-              <summary>
-                <span>Past Meets</span>
-                <small>Hosted documents from recently completed meets</small>
-              </summary>
-              <div id="pastMeetList" class="meet-list"></div>
-            </details>
-          </section>
-
-          <details id="howToUse" class="how-to-use">
+          <details id="howToUse" class="how-to-use" open>
             <summary>
               <span>Need help?</span>
               <small>How to use SwimTimeline</small>
@@ -165,6 +150,24 @@
               </div>
             </div>
           </details>
+
+          <section id="currentMeets" class="current-meets primary-current-meets">
+            <div class="section-header">
+              <div>
+                <h2>Choose A Meet</h2>
+                <p class="section-copy">Hosted meet documents are ready to search.</p>
+              </div>
+            </div>
+            <div id="featuredMeet" class="featured-meet"></div>
+            <div id="currentMeetList" class="meet-list"></div>
+            <details id="pastMeets" class="past-meets hidden">
+              <summary>
+                <span>Past Meets</span>
+                <small>Hosted documents from recently completed meets</small>
+              </summary>
+              <div id="pastMeetList" class="meet-list"></div>
+            </details>
+          </section>
 
           <details id="uploadMeet" class="upload-section">
             <summary>

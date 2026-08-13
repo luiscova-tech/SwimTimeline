@@ -23,11 +23,19 @@ const hostedRelayOptions = document.querySelector("#hostedRelayOptions");
 const relayOptionList = document.querySelector("#relayOptionList");
 const generateFromUploadsBtn = document.querySelector("#generateFromUploads");
 const uploadRequirementHint = document.querySelector(".upload-requirement-hint");
+const swimmerRequirementHint = document.querySelector("#swimmerRequirementHint");
 let lastPayload = null;
 let activeMeetCard = null;
 
+// Declared here (rather than beside renderOnboardingBanner() below) because it's a `const` read
+// by that function, and this call site runs before the function body does -- a `const` declared
+// down near the function would still be in its temporal dead zone at this point in the script,
+// so referencing it would throw and get silently swallowed by that function's own try/catch.
+const ONBOARDING_DISMISSED_KEY = "swimtimeline_onboarding_dismissed";
+
 loadCurrentMeets();
 updateRemoveButtons();
+renderOnboardingBanner();
 
 publishCurrentBtn.addEventListener("click", publishCurrentMeet);
 addSwimmerBtn.addEventListener("click", () => addSwimmerRow());
@@ -48,6 +56,13 @@ swimmerList.addEventListener("click", (event) => {
     updateRemoveButtons();
   }
 });
+// Clear the "swimmer name required" hint as soon as the user starts fixing it, not just on the
+// next submit attempt.
+swimmerList.addEventListener("input", () => {
+  if (getSwimmerNames().length) {
+    clearSwimmerRequirementError();
+  }
+});
 document.addEventListener("click", (event) => {
   if (event.target.classList.contains("past-meets-pointer")) {
     pastMeetsEl.open = true;
@@ -60,12 +75,14 @@ async function handleGenerateFromUploads() {
   resultEl.classList.add("hidden");
   hideDownloadDock();
   uploadRequirementHint?.classList.remove("active-error");
+  clearSwimmerRequirementError();
 
   const data = new FormData(form);
   data.set("combine_family", form.elements.combine_family.checked ? "1" : "0");
   data.set("estimate_heat_lanes", form.elements.estimate_heat_lanes.checked ? "1" : "0");
   if (!getSwimmerNames().length) {
     setStatus("At least one swimmer name is required — add one near the top of the page.", "error");
+    showSwimmerRequirementError("At least one swimmer name is required.");
     uploadRequirementHint?.classList.add("active-error");
     uploadRequirementHint?.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
@@ -328,8 +345,14 @@ async function analyzeCurrentMeet(meet, card) {
   // substituting meet.state (e.g. "ID" for a Boise meet full of AZ swimmers) blocked that.
   const state = form.elements.state.value.trim();
   const modes = new FormData(form).getAll("modes");
+  clearSwimmerRequirementError();
   if (!swimmerNames.length) {
+    // Clicking a meet card can happen from anywhere on the page (the card grid sits well below
+    // the swimmer field), so a validation failure needs to be visible at the point of failure --
+    // not just appended to #status below the whole form, off-screen. setStatus() itself scrolls
+    // on "error", and this inline hint puts the message right next to the field that needs fixing.
     setStatus("At least one swimmer name is required.", "error");
+    showSwimmerRequirementError("At least one swimmer name is required — enter it above, then choose a meet.");
     return;
   }
   if (!modes.length) {
@@ -715,6 +738,65 @@ function setStatus(message, state = "idle") {
   }
   statusEl.textContent = message;
   statusEl.classList.add(`status-${state}`);
+  if (state === "error") {
+    // A validation error can be triggered from anywhere on the page (e.g. a meet card far below
+    // the fold), and #status renders after the whole form with no visual cue otherwise. #status is
+    // sticky, so scrolling it into view both surfaces the message now and keeps it pinned near the
+    // top while the user fixes the problem.
+    statusEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+// Compact, point-of-failure notice next to the swimmer name field -- the specific spot the
+// reported bug (click "Use this meet" with no name entered) needs feedback closest to.
+function showSwimmerRequirementError(message) {
+  if (!swimmerRequirementHint) return;
+  swimmerRequirementHint.textContent = message;
+  swimmerRequirementHint.classList.remove("hidden");
+}
+
+function clearSwimmerRequirementError() {
+  if (!swimmerRequirementHint) return;
+  swimmerRequirementHint.textContent = "";
+  swimmerRequirementHint.classList.add("hidden");
+}
+
+// First-run banner. Skipped entirely (never inserted into the DOM) once dismissed, rather than
+// rendered-then-hidden with CSS -- so a returning visitor never even briefly has the node present.
+// (ONBOARDING_DISMISSED_KEY is declared near the top of the file, not here -- see that comment.)
+function renderOnboardingBanner() {
+  const slot = document.querySelector("#onboardingBannerSlot");
+  if (!slot) return;
+  let dismissed = false;
+  try {
+    dismissed = localStorage.getItem(ONBOARDING_DISMISSED_KEY) === "1";
+  } catch (error) {
+    // Storage disabled (e.g. private browsing) -- fail open and just show the banner every visit.
+    dismissed = false;
+  }
+  if (dismissed) return;
+
+  const banner = document.createElement("div");
+  banner.id = "onboardingBanner";
+  banner.className = "onboarding-banner";
+  banner.setAttribute("role", "note");
+  banner.setAttribute("aria-label", "Getting started with SwimTimeline");
+  banner.innerHTML = `
+    <p class="onboarding-banner-text">
+      <strong>New here?</strong> Enter your swimmer's name, choose their meet, then download the
+      calendar — three quick steps below.
+    </p>
+    <button type="button" class="onboarding-banner-dismiss">Got it</button>
+  `;
+  banner.querySelector(".onboarding-banner-dismiss").addEventListener("click", () => {
+    try {
+      localStorage.setItem(ONBOARDING_DISMISSED_KEY, "1");
+    } catch (error) {
+      // If storage isn't available the dismissal just won't persist; not worth surfacing an error.
+    }
+    banner.remove();
+  });
+  slot.appendChild(banner);
 }
 
 function hideDownloadDock() {
