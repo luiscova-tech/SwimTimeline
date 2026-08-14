@@ -617,7 +617,13 @@ def parse_entry_fields(clean: str, heat: int | None, round_name: str | None) -> 
     """
     match = re.search(
         r"(?P<team>[A-Z0-9-]+?)\s*"
-        r"(?P<seed>(?:NT|(?:\d+:)?\d{1,2}\.\d{2}[A-Z]?))\s*"
+        # "NT" (no time) can carry the same trailing conversion-flag letter a real time does --
+        # real HY-TEK output prints "NTY"/"NTL" for a no-time entry at a meet run in a different
+        # course than the swimmer's other times, exactly like "2:23.23Y" on a real time. Without
+        # the flag allowed on "NT" too, a row like "Whalers-WI NTY 13Perelshteyn, Andrew6" (Shark
+        # Open) or "SNS NTL 14Galizio, Carmella B62" (WZAG) failed to match at all -- silently
+        # dropping the swim, the same failure mode as the standard-marker comment below.
+        r"(?P<seed>(?:NT[A-Z]?|(?:\d+:)?\d{1,2}\.\d{2}[A-Z]?))\s*"
         r"(?P<age>\d{1,2})\s*"
         r"(?P<name>.+?)\s*"
         r"(?P<place>\d+)"
@@ -652,7 +658,18 @@ def parse_para_psych_line(line: str, heat: int | None, round_name: str | None) -
     match = re.search(
         r"^(?:(?P<class_prefix>[A-Z]{1,3}\d{1,2})-)?"
         r"(?P<team>.+?)\s+"
-        r"(?P<seed>NT|(?:\d+:)?\d{1,2}\.\d{2})\s*"
+        # Same optional trailing conversion-flag letter as parse_entry_fields above, on both the
+        # "NT" and numeric branches -- this regex was missing it on both (parse_entry_fields's
+        # numeric branch already had it; this one did not, an inconsistency within the same
+        # pattern shape rather than a fixture-proven failure on its own). Unlike
+        # parse_entry_fields, there is no digit field between seed and name here to stop a greedy
+        # extra letter from eating the name's own first letter instead of a real flag -- real rows
+        # glue "NT"/a numeric seed straight onto the name with NO separator at all ("NTThomas...",
+        # "4:49.17Winnett...", both real Para Nationals rows), so a bare [A-Z]? here silently
+        # corrupted them (seed "4:49.17W", name "innett, Taylor..."). The (?=\s) lookahead only
+        # consumes the letter when a real flag is followed by whitespace -- true of every
+        # confirmed real "NTY"/"NTL" case -- leaving a letter glued straight onto a name alone.
+        r"(?P<seed>NT(?:[A-Z](?=\s))?|(?:\d+:)?\d{1,2}\.\d{2}(?:[A-Z](?=\s))?)\s*"
         r"(?P<name>.+?,\s*[A-Za-z][A-Za-z' .-]*?)\s+"
         r"(?P<class>[A-Z]{1,3}\d{1,2})\s+"
         r"(?P<age>\d{1,2})(?:\s+.*)?$",
@@ -745,7 +762,11 @@ def split_event_header(line: str) -> list[tuple[int, str]] | None:
         (number, normalize_space(f"{gender.title()} {dual.group('rest')}"))
         for number, gender in zip(numbers, genders)
     ]
-_SEED_TOKEN_RE = re.compile(r"(?:NT|(?:\d+:)?\d{1,2}\.\d{2})", re.IGNORECASE)
+# Same NT[A-Z]? / numeric[A-Z]? shape as the seed groups above, kept in sync for consistency. Used
+# via .search() as a bare presence check (see parse_heat_header below), so an unflagged "NT" would
+# already have been found as a substring of "NTY"/"NTL" here regardless -- this alignment matters
+# if this pattern is ever reused to capture the token itself rather than just testing for one.
+_SEED_TOKEN_RE = re.compile(r"(?:NT[A-Z]?|(?:\d+:)?\d{1,2}\.\d{2}[A-Z]?)", re.IGNORECASE)
 # Used ONLY to peel a round word off the front of a concatenated header line so the first
 # swimmer's team code stays clean (e.g. "PrelimsSYS-FL 2:13..." -> round "Prelims", team
 # "SYS-FL"). Recognition of the heat header itself does NOT depend on this list. Each entry
