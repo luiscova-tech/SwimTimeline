@@ -595,7 +595,7 @@ function renderResult(payload) {
       <td data-col="event" data-label="Event">${swimmerChip(swim, payload)}<strong>#${swim.event_number}${swim.type === "relay" ? " Relay" : ""}</strong>${escapeHtml(swim.event_name)}<br>${escapeHtml(swim.event_format || "")}</td>
       <td data-col="seed" data-label="${escapeHtml(seedLabel)}">${seedCell}</td>
       <td data-col="window" data-label="Window">${escapeHtml(swim.window)}</td>
-      <td data-col="benchmark" data-label="Benchmark">${benchmarkLine(swim.benchmarks.usa, swim, "usa")}<br>${benchmarkLine(swim.benchmarks.lsc, swim, "lsc")}${advancedLine(swim)}</td>
+      <td data-col="benchmark" data-label="Benchmark">${benchmarkLine(swim.benchmarks.usa, swim, "usa")}<br>${benchmarkLine(swim.benchmarks.lsc, swim, "lsc")}${sectionalNationalLines(swim)}${advancedLine(swim)}</td>
       <td data-col="source" data-label="Source">${sourceCell}</td>
     `;
     eventsBody.appendChild(row);
@@ -785,6 +785,17 @@ function linkifyBenchmark(text, sources) {
 function benchmarkLine(text, swim, lineName) {
   const sources = (swim.benchmarks.sources || {})[lineName];
   return linkifyBenchmark(text, sources);
+}
+
+function sectionalNationalLines(swim) {
+  let html = "";
+  if (swim.benchmarks.sectional) {
+    html += `<br>${benchmarkLine(swim.benchmarks.sectional, swim, "sectional")}`;
+  }
+  if (swim.benchmarks.national) {
+    html += `<br>${benchmarkLine(swim.benchmarks.national, swim, "national")}`;
+  }
+  return html;
 }
 
 function advancedLine(swim) {
