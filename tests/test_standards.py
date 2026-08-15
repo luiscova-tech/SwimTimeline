@@ -150,37 +150,40 @@ class AzsiRegionalSuppressionTest(unittest.TestCase):
 
 class SectionalLookupTest(unittest.TestCase):
     """Speedo Sectional targets: AZ swimmers, AGE-OPEN (both meet flyers gate eligibility purely
-    on qualifying time, no age floor/ceiling), both meets named individually and never merged into
-    a generic "Sectional". Reported on the dedicated sectional_summary line, separate from the AZSI
-    lsc_summary and absent from the confidence string.
+    on qualifying time, no age floor/ceiling). Collapsed to a single nearest-unmet-cut line across
+    both meets -- tied meets (both publish the same 2026 cut for most events) are joined with "/"
+    on one line, never repeated as separate identical segments. Reported on the dedicated
+    sectional_summary line, separate from the AZSI lsc_summary and absent from the confidence
+    string.
     """
 
-    def test_names_both_meets_individually_when_both_offer_the_event(self):
-        # A met cut is never restated -- same convention as AZSI ("met", not "met 24.99").
-        result = lookup("Girls 15-16 50 Yard Freestyle", "24.50", state="AZ", age="16")
+    def test_ties_are_joined_on_one_line_when_both_meets_share_an_unmet_cut(self):
+        # Both meets publish the identical 24.99 cut for this event; neither is met at 26.00, so
+        # the collapsed line names both, tied by "/", on ONE line -- not two identical segments.
+        result = lookup("Girls 15-16 50 Yard Freestyle", "26.00", state="AZ", age="16")
         self.assertEqual(
             result.sectional_summary,
-            "Sectional Girls SCY -- Four Corners Spring Speedo Sectional: met; Western Region Summer Speedo Sectional: met",
+            "Sectional Girls SCY -- next Four Corners Spring Speedo Sectional / Western Region Summer Speedo Sectional 24.99",
         )
+
+    def test_collapses_to_met_once_every_applicable_meet_is_beaten(self):
+        # A met cut is never restated -- same convention as AZSI ("met", not "met 24.99") -- and
+        # once EVERY meet that offers this event is beaten, the whole line collapses to bare "met"
+        # with no meet names at all, rather than restating each one individually.
+        result = lookup("Girls 15-16 50 Yard Freestyle", "24.50", state="AZ", age="16")
+        self.assertEqual(result.sectional_summary, "Sectional Girls SCY -- met")
 
     def test_real_wzag_stein_event_shows_met_with_no_cutoff_restatement(self):
         # Regression pin against real WZAG data: Stein, Layla (age 13) swims Girls 13-14 50 LCM
-        # Free at 28.27, beating both Sectional meets' 28.44 cut. Neither meet restates the value.
+        # Free at 28.27, beating both Sectional meets' 28.44 cut. Collapses to bare "met".
         # (Cova's own real WZAG events are all still targets -- she has not beaten a Sectional cut
         # yet -- so Stein is the real swimmer whose data exercises this "met" branch.)
         result = lookup("Girls 13-14 50 LC Meter Freestyle", "28.27", state="AZ", age="13")
-        self.assertEqual(
-            result.sectional_summary,
-            "Sectional Girls LCM -- Four Corners Spring Speedo Sectional: met; Western Region Summer Speedo Sectional: met",
-        )
-
-    def test_target_when_seed_is_slower_than_the_cut(self):
-        result = lookup("Girls 15-16 50 Yard Freestyle", "26.00", state="AZ", age="16")
-        self.assertIn("Four Corners Spring Speedo Sectional: target 24.99", result.sectional_summary)
-        self.assertIn("Western Region Summer Speedo Sectional: target 24.99", result.sectional_summary)
+        self.assertEqual(result.sectional_summary, "Sectional Girls LCM -- met")
 
     def test_fifty_of_stroke_shows_summer_meet_only(self):
-        # Four Corners omits the 50s of stroke, so only the Summer meet should appear.
+        # Four Corners omits the 50s of stroke, so only the Summer meet should appear -- the
+        # single-meet case collapses to that one meet's own name with no "/" join needed.
         result = lookup("Boys 17-18 50 Yard Backstroke", "25.00", state="AZ", age="17")
         self.assertIn("Western Region Summer Speedo Sectional", result.sectional_summary)
         self.assertNotIn("Four Corners", result.sectional_summary)
@@ -189,16 +192,14 @@ class SectionalLookupTest(unittest.TestCase):
         # Age-open: a 14-year-old AZ swimmer sees the Sectional target too (not just 15-18),
         # while the AZSI Age Group LSC line stays on its own 13-14 band.
         result = lookup("Girls 13-14 50 Yard Freestyle", "24.50", state="AZ", age="14")
-        self.assertIsNotNone(result.sectional_summary)
-        self.assertIn("Four Corners Spring Speedo Sectional: met", result.sectional_summary)
+        self.assertEqual(result.sectional_summary, "Sectional Girls SCY -- met")
         self.assertIn("AZSI 13-14 Girls SCY", result.lsc_summary)
 
     def test_age_open_above_the_motivational_range_still_gets_sectional(self):
         # A 19-year-old is past every USA-S/AZSI band, but Sectionals are age-open, so an AZ
         # swimmer who met the time still sees the target -- the only benchmark that applies.
         result = lookup("Girls 15-16 50 Yard Freestyle", "24.50", state="AZ", age="19")
-        self.assertIsNotNone(result.sectional_summary)
-        self.assertIn("Western Region Summer Speedo Sectional: met", result.sectional_summary)
+        self.assertEqual(result.sectional_summary, "Sectional Girls SCY -- met")
         self.assertEqual(result.lsc_summary, "LSC: standards not configured for this state/event")
 
     def test_sectional_shows_even_when_age_is_unknown(self):

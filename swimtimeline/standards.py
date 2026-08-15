@@ -504,19 +504,40 @@ def azsi_next_band_state_bonus(
     return f"also meets {next_label} State standard ({cell['state']})"
 
 
+def _nearest_unmet_rung(rungs: list[tuple[str, str, float]], seed_seconds: float) -> str | None:
+    """Walk rungs slowest (easiest) to fastest and return "{name(s)} {time_str}" for the first --
+    i.e. nearest -- one still unmet, joining every rung that ties on the exact same cut string.
+    None when every rung is already met (the caller reports "met" instead) or the list is empty.
+
+    Same "find nearest unmet, join ties" approach as next_advanced_target()'s walk over
+    advanced_ladder_rungs() (the "Beyond AAAA" line) -- deliberately a separate, smaller helper
+    rather than calling into that one, since sectional/national must stay their own distinct rows
+    and next_advanced_target()/advanced_ladder_rungs() are not touched by this.
+    """
+    for _name, time_str, secs in rungs:
+        if seed_seconds > secs:
+            names = [name for name, t, _ in rungs if t == time_str]
+            return f"{' / '.join(names)} {time_str}"
+    return None
+
+
 def sectional_summary_line(
     course: str | None, gender: str | None, event_key: str, seed_seconds: float
 ) -> str | None:
-    """Per-meet Speedo Sectional status for an event, or None if no meet offers it.
+    """Single collapsed Speedo Sectional status for an event, or None if neither meet offers it.
 
-    The two meets are reported separately and by name (never as a single generic "Sectional"),
-    each as "met" or "target" against its own qualifying cut. Only meets that actually list the
-    event contribute -- e.g. the Spring meet omits the 50s of stroke, so those show Summer only.
+    Both meets' qualifying cuts are combined into one difficulty-ordered ladder (same shape as
+    advanced_ladder_rungs()) and only the single nearest unmet cut is reported, tied meets joined
+    with "/" -- e.g. Four Corners and Western Region publish the identical 2026 AZ cut for most
+    events, which used to print as two redundant identical segments on one line. "met" once every
+    applicable meet's cut is beaten (no restated number, same convention as AZSI). Only meets that
+    actually list the event contribute -- e.g. the Spring meet omits the 50s of stroke, so an event
+    with only a Summer cut collapses to that one meet's name, same as before.
     """
     if not (course and gender and event_key):
         return None
     gender_label = "Girls" if gender == "girls" else "Boys"
-    parts: list[str] = []
+    rungs: list[tuple[str, str, float]] = []
     for meet in SECTIONAL_MEETS:
         cell = meet["standards"].get(course, {}).get(gender, {}).get(event_key)
         if not cell or "qualifying" not in cell:
@@ -524,12 +545,13 @@ def sectional_summary_line(
         cut = parse_time(cell["qualifying"])
         if cut is None:
             continue
-        # Same convention as AZSI: a met cut is never restated (no redundant "met" number); an
-        # unmet cut keeps its number as the genuine target.
-        parts.append(f"{meet['name']}: met" if seed_seconds <= cut else f"{meet['name']}: target {cell['qualifying']}")
-    if not parts:
+        rungs.append((meet["name"], cell["qualifying"], cut))
+    if not rungs:
         return None
-    return f"Sectional {gender_label} {course} -- " + "; ".join(parts)
+    rungs.sort(key=lambda rung: rung[2], reverse=True)  # slowest (easiest) first
+    nearest = _nearest_unmet_rung(rungs, seed_seconds)
+    tail = f"next {nearest}" if nearest else "met"
+    return f"Sectional {gender_label} {course} -- {tail}"
 
 
 def age_bracket(age: int | None) -> str | None:
@@ -544,28 +566,39 @@ def age_bracket(age: int | None) -> str | None:
 def national_summary_line(
     course: str | None, gender: str | None, event_key: str, seed_seconds: float, age: int | None
 ) -> str | None:
-    """Per-meet national elite status for an event, or None if no meet offers it.
+    """Single collapsed national elite status for an event, or None if no meet offers it.
 
-    Each meet (Futures, Toyota Nationals, Summer/Winter Juniors, U.S. Open) is reported
-    separately and by name, never merged into one generic line. Futures/Toyota Nationals are
-    age-bracket meets (18 & Under / 19 & Over) -- an unknown age can't be resolved to a bracket,
-    so those meets are skipped rather than guessed. The flat-plus-bonus meets each carry their
-    own age_ceiling (Summer/Winter Juniors: 18, meet-wide; U.S. Open: None, age-open) and
-    bonus_age_ceiling (independent of age_ceiling for U.S. Open, whose Bonus tier alone is
-    18-and-under) -- an unknown age is treated as not-yet-disqualified (shown), matching how the
-    rest of this app treats unresolved ages as "can't rule out" rather than "assume ineligible".
-    Qualifying/Bonus are reported the same way the AZSI State/Regional split is: meeting the
-    primary Qualifying cut suppresses the Bonus value, otherwise a Bonus-met or target line shows
-    both (when Bonus applies to this swimmer's age at all).
+    Every meet (Futures, Toyota Nationals, Summer/Winter Juniors, U.S. Open) contributes into one
+    difficulty-ordered ladder (same shape as advanced_ladder_rungs()), and only the single nearest
+    unmet cut is reported, tied meets joined with "/" -- never merged meet-by-meet into one long
+    line. Futures/Toyota Nationals are age-bracket meets (18 & Under / 19 & Over) -- an unknown age
+    can't be resolved to a bracket, so those meets contribute no rung at all rather than guessing.
+    The flat-plus-bonus meets each carry their own age_ceiling (Summer/Winter Juniors: 18,
+    meet-wide; U.S. Open: None, age-open) and bonus_age_ceiling (independent of age_ceiling for
+    U.S. Open, whose Bonus tier alone is 18-and-under) -- an unknown age is treated as
+    not-yet-disqualified (rung included), matching how the rest of this app treats unresolved ages
+    as "can't rule out" rather than "assume ineligible".
+
+    Qualifying/Bonus, collapsed: unlike advanced_ladder_rungs() (which only ever reads
+    "qualifying"), a flat-plus-bonus meet contributes UP TO TWO rungs here -- its own Bonus cut
+    (the easier one) and its own Qualifying cut (the harder one) -- so the meet's internal
+    Qualifying/Bonus structure survives being folded into the shared ladder instead of collapsing
+    to a single number. Sorting the combined ladder slowest-first and walking for the first unmet
+    rung then does the right thing automatically: a swimmer who has met a meet's Bonus but not its
+    Qualifying has that Bonus rung skipped (already met) and lands on the next genuinely unmet rung
+    -- which may be that same meet's own Qualifying, or a nearer cut from a different meet entirely
+    -- with no special-casing needed beyond building the two rungs. This is the same convention
+    AZSI's State/Regional split and Sectional use throughout: a met tier's number is never
+    restated, so what surfaces is always the next real target, never a "you already have X" recap.
     """
     if not (course and gender and event_key):
         return None
     gender_label = "Girls" if gender == "girls" else "Boys"
-    parts: list[str] = []
+    rungs: list[tuple[str, str, float]] = []
+    bracket = age_bracket(age)
     for meet in NATIONAL_MEETS:
         genders = meet["standards"].get(course, {}).get(gender, {})
         if meet["kind"] == "age_bracket":
-            bracket = age_bracket(age)
             if bracket is None:
                 continue
             cell = genders.get(bracket, {}).get(event_key)
@@ -574,12 +607,7 @@ def national_summary_line(
             cut = parse_time(cell["qualifying"])
             if cut is None:
                 continue
-            # Same convention as AZSI/Sectional: drop the number on a met cut, keep it as the
-            # genuine target when unmet.
-            if seed_seconds <= cut:
-                parts.append(f"{meet['name']} ({bracket}): met")
-            else:
-                parts.append(f"{meet['name']} ({bracket}): target {cell['qualifying']}")
+            rungs.append((f"{meet['name']} ({bracket})", cell["qualifying"], cut))
         else:
             age_ceiling = meet.get("age_ceiling")
             if age_ceiling is not None and age is not None and age > age_ceiling:
@@ -587,28 +615,26 @@ def national_summary_line(
             cell = genders.get(event_key)
             if not cell or "qualifying" not in cell:
                 continue
+            # Qualifying rung: always labeled "(Qualifying)", even when Bonus doesn't apply to this
+            # swimmer's age -- same convention the old per-meet text used ("target Qualifying X"
+            # regardless of Bonus eligibility), so the label stays meaningful on its own line.
+            qualifying_cut = parse_time(cell["qualifying"])
+            if qualifying_cut is not None:
+                rungs.append((f"{meet['name']} (Qualifying)", cell["qualifying"], qualifying_cut))
             bonus_age_ceiling = meet.get("bonus_age_ceiling")
             bonus_allowed = "bonus" in cell and not (
                 bonus_age_ceiling is not None and age is not None and age > bonus_age_ceiling
             )
-            qualifying_cut = parse_time(cell["qualifying"])
-            bonus_cut = parse_time(cell["bonus"]) if bonus_allowed else None
-            # Same convention as AZSI/Sectional throughout: a met tier's own value is never
-            # restated; an unmet tier (Qualifying still ahead of a Bonus-only swimmer) keeps its
-            # number as the genuine target.
-            if qualifying_cut is not None and seed_seconds <= qualifying_cut:
-                parts.append(f"{meet['name']}: Qualifying met")
-            elif bonus_cut is not None and seed_seconds <= bonus_cut:
-                parts.append(f"{meet['name']}: Bonus met; Qualifying target {cell['qualifying']}")
-            elif bonus_allowed:
-                parts.append(
-                    f"{meet['name']}: target Qualifying {cell['qualifying']}, Bonus {cell['bonus']}"
-                )
-            else:
-                parts.append(f"{meet['name']}: target Qualifying {cell['qualifying']}")
-    if not parts:
+            if bonus_allowed:
+                bonus_cut = parse_time(cell["bonus"])
+                if bonus_cut is not None:
+                    rungs.append((f"{meet['name']} (Bonus)", cell["bonus"], bonus_cut))
+    if not rungs:
         return None
-    return f"National {gender_label} {course} -- " + "; ".join(parts)
+    rungs.sort(key=lambda rung: rung[2], reverse=True)  # slowest (easiest) first
+    nearest = _nearest_unmet_rung(rungs, seed_seconds)
+    tail = f"next {nearest}" if nearest else "met"
+    return f"National {gender_label} {course} -- {tail}"
 
 
 def achieved_tier(seed_seconds: float, standards: dict[str, str]) -> tuple[str | None, str | None]:

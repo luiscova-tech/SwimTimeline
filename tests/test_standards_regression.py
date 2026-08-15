@@ -450,9 +450,18 @@ class NationalStandardsValueTest(unittest.TestCase):
 
 
 class NationalLookupTest(unittest.TestCase):
-    """lookup()'s national_summary line: NOT state-scoped (unlike AZSI/Sectional), age-bracket
-    boundary at 18/19 for Futures/Toyota Nationals (covering every age with no gap), and the real
-    18-and-under entry ceiling for Summer Juniors.
+    """lookup()'s national_summary line: collapsed to the single nearest unmet cut across every
+    applicable meet (Futures, Toyota Nationals, Summer/Winter Juniors, U.S. Open) -- tied meets
+    joined with "/", never merged meet-by-meet into one long per-meet line (see
+    sectional_summary_line/national_summary_line's own docstrings). NOT state-scoped (unlike
+    AZSI/Sectional), age-bracket boundary at 18/19 for Futures/Toyota Nationals (covering every
+    age with no gap), the real 18-and-under entry ceiling for Summer/Winter Juniors, and U.S.
+    Open's own split ceilings (Qualifying age-open, Bonus 18-and-under only).
+
+    Because the collapse means only the single nearest cut is ever visible, most of these tests
+    prove a meet is (or is not) contributing its rung by choosing a seed where that meet's cut is
+    UNIQUELY the nearest one -- isolating it -- rather than searching for a per-meet substring
+    inside a multi-meet line, which no longer exists as a concept.
     """
 
     def test_not_scoped_to_arizona(self):
@@ -460,132 +469,223 @@ class NationalLookupTest(unittest.TestCase):
 
         result = lookup("Girls 17-18 50 Yard Freestyle", "23.00", state="NY", age="18")
         self.assertIsNotNone(result.national_summary)
-        self.assertIn("TYR Futures Championships", result.national_summary)
+        self.assertTrue(result.national_summary.startswith("National Girls SCY --"))
         # The AZSI/Sectional layers correctly stay Arizona-only for this non-AZ swimmer.
         self.assertEqual(result.lsc_summary, "LSC: standards not configured for this state/event")
         self.assertIsNone(result.sectional_summary)
 
-    def test_age_18_resolves_to_18_and_under_bracket(self):
+    def test_age_18_resolves_to_the_18_and_under_bracket(self):
         from swimtimeline.standards import lookup
 
-        result = lookup("Girls 17-18 50 Yard Freestyle", "23.00", state="CA", age="18")
-        self.assertIn("TYR Futures Championships (18 & Under)", result.national_summary)
-        self.assertIn("Toyota National Championships (18 & Under)", result.national_summary)
-
-    def test_age_bracket_met_shows_no_cutoff_restatement(self):
-        from swimtimeline.standards import lookup
-
-        # TYR Futures Girls 18 & Under SCY 50 Free cut is 23.89; a 23.00 seed has met it. Same
-        # convention as AZSI/Sectional: "met" alone, no restated value.
-        result = lookup("Girls 17-18 50 Yard Freestyle", "23.00", state="CA", age="18")
-        segment = meet_segment(result.national_summary, "TYR Futures Championships (18 & Under)")
-        self.assertEqual(segment, "TYR Futures Championships (18 & Under): met")
-
-    def test_age_19_resolves_to_19_and_over_bracket(self):
-        from swimtimeline.standards import lookup
-
-        result = lookup("Women 50 Yard Freestyle", "23.00", state="CA", age="19")
-        self.assertIn("TYR Futures Championships (19 & Over)", result.national_summary)
-        self.assertIn("Toyota National Championships (19 & Over)", result.national_summary)
-
-    def test_unknown_age_skips_bracket_meets_but_not_summer_juniors(self):
-        from swimtimeline.standards import lookup
-
-        result = lookup("Girls 50 Yard Freestyle", "23.00", state="CA", age=None)
-        self.assertNotIn("TYR Futures Championships", result.national_summary or "")
-        self.assertNotIn("Toyota National Championships", result.national_summary or "")
-        self.assertIn("Speedo Summer Junior National Championships", result.national_summary)
-
-    def test_summer_juniors_shows_for_age_18_but_not_age_19(self):
-        from swimtimeline.standards import lookup
-
-        eighteen = lookup("Girls 17-18 50 Yard Freestyle", "23.00", state="CA", age="18")
-        nineteen = lookup("Women 50 Yard Freestyle", "23.00", state="CA", age="19")
-        self.assertIn("Speedo Summer Junior National Championships", eighteen.national_summary)
-        self.assertNotIn("Speedo Summer Junior National Championships", nineteen.national_summary or "")
-        # The 19-year-old still gets a national_summary line -- Futures/Toyota Nationals cover them.
-        self.assertIsNotNone(nineteen.national_summary)
-
-    def test_summer_juniors_qualifying_met_suppresses_bonus(self):
-        from swimtimeline.standards import lookup
-
-        # SCY Girls 50 Free: qualifying 22.99, bonus 23.89. A 22.50 seed meets qualifying. A met
-        # tier is never restated -- "Qualifying met" alone, same convention as AZSI.
-        result = lookup("Girls 17-18 50 Yard Freestyle", "22.50", state="CA", age="17")
-        segment = meet_segment(result.national_summary, "Speedo Summer Junior National Championships")
-        self.assertEqual(segment, "Speedo Summer Junior National Championships: Qualifying met")
-
-    def test_summer_juniors_bonus_met_shows_both_values(self):
-        from swimtimeline.standards import lookup
-
-        # A 23.50 seed misses qualifying (22.99) but meets bonus (23.89). Bonus's own beaten value
-        # is dropped; the still-unmet Qualifying target keeps its number.
-        result = lookup("Girls 17-18 50 Yard Freestyle", "23.50", state="CA", age="17")
-        segment = meet_segment(result.national_summary, "Speedo Summer Junior National Championships")
+        # A seed slower than every 18-and-under cut: the nearest unmet ties Futures' OWN
+        # 18-and-under value (23.89) with two other meets' Bonus tiers that happen to share it --
+        # still proves Futures resolved to 18-and-under (not the faster 19-and-over value).
+        futures = lookup("Girls 17-18 50 Yard Freestyle", "24.00", state="CA", age="18")
+        self.assertIn("TYR Futures Championships (18 & Under)", futures.national_summary)
+        self.assertIn("23.89", futures.national_summary)
+        # Toyota Nationals' own 18-and-under cut (22.79, pinned for real in
+        # NationalStandardsValueTest) isolated alone with a seed that has already beaten every
+        # easier cut ahead of it.
+        toyota = lookup("Girls 17-18 50 Yard Freestyle", "22.85", state="CA", age="18")
         self.assertEqual(
-            segment,
-            "Speedo Summer Junior National Championships: Bonus met; Qualifying target 22.99",
+            toyota.national_summary, "National Girls SCY -- next Toyota National Championships (18 & Under) 22.79"
         )
 
-    def test_winter_juniors_shares_summer_juniors_ceiling(self):
+    def test_age_19_resolves_to_the_19_and_over_bracket(self):
         from swimtimeline.standards import lookup
 
-        eighteen = lookup("Girls 17-18 50 Yard Freestyle", "23.00", state="CA", age="18")
-        nineteen = lookup("Women 50 Yard Freestyle", "23.00", state="CA", age="19")
-        self.assertIn("Speedo Winter Junior Championships", eighteen.national_summary)
-        self.assertNotIn("Speedo Winter Junior Championships", nineteen.national_summary or "")
+        # Futures' 19-and-over cut (22.99) is the easiest of the three meets still applying at 19,
+        # so it surfaces alone at a seed that has beaten nothing yet.
+        futures = lookup("Women 50 Yard Freestyle", "23.00", state="CA", age="19")
+        self.assertEqual(
+            futures.national_summary, "National Girls SCY -- next TYR Futures Championships (19 & Over) 22.99"
+        )
+        # Toyota Nationals' own 19-and-over cut (22.19) isolated the same way as 18-and-under above.
+        toyota = lookup("Women 50 Yard Freestyle", "22.30", state="CA", age="19")
+        self.assertEqual(
+            toyota.national_summary, "National Girls SCY -- next Toyota National Championships (19 & Over) 22.19"
+        )
 
-    def test_us_open_qualifying_is_age_open_but_bonus_is_18_and_under_only(self):
+    def test_unknown_age_excludes_the_bracket_meets_but_not_summer_juniors(self):
         from swimtimeline.standards import lookup
 
-        # SCY Girls 50 Free at U.S. Open: qualifying 22.49, bonus 22.99. A 22.80 seed (slower
-        # than qualifying, faster than bonus) at age 19 must NOT get the age-restricted Bonus --
-        # it should show a plain Qualifying target instead, unlike an 18-year-old with the same
-        # seed who gets "Bonus met".
-        seventeen = lookup("Girls 17-18 50 Yard Freestyle", "22.80", state="CA", age="17")
-        nineteen = lookup("Women 50 Yard Freestyle", "22.80", state="CA", age="19")
-        seventeen_segment = meet_segment(seventeen.national_summary, "Toyota U.S. Open Championships")
-        nineteen_segment = meet_segment(nineteen.national_summary, "Toyota U.S. Open Championships")
-        self.assertEqual(seventeen_segment, "Toyota U.S. Open Championships: Bonus met; Qualifying target 22.49")
-        self.assertEqual(nineteen_segment, "Toyota U.S. Open Championships: target Qualifying 22.49")
+        # An unresolved age can't be mapped to a Futures/Toyota Nationals bracket, so neither
+        # contributes a rung at all -- but the flat-plus-bonus meets treat an unknown age as
+        # "not yet disqualified" (rung included), so the national line is still populated.
+        result = lookup("Girls 50 Yard Freestyle", "23.00", state="CA", age=None)
+        self.assertIsNotNone(result.national_summary)
+        self.assertNotIn("TYR Futures Championships", result.national_summary)
+        self.assertNotIn("Toyota National Championships", result.national_summary)
+        self.assertIn("Speedo Summer Junior National Championships", result.national_summary)
 
-    def test_us_open_qualifying_still_shown_for_age_19(self):
+    def test_collapses_to_met_once_every_applicable_meet_is_beaten(self):
         from swimtimeline.standards import lookup
 
-        # Age-open Qualifying tier: a 19-year-old still gets a U.S. Open line at all (unlike
-        # Summer/Winter Juniors, which drop entirely for 19+).
-        result = lookup("Women 50 Yard Freestyle", "23.00", state="CA", age="19")
-        self.assertIn("Toyota U.S. Open Championships", result.national_summary)
+        # Faster than every configured national cut (the hardest here is Toyota Nationals'
+        # 19-and-over 22.19): the whole line collapses to bare "met", same convention as
+        # AZSI/Sectional -- no per-meet restatement.
+        result = lookup("Girls 17-18 50 Yard Freestyle", "20.00", state="CA", age="17")
+        self.assertEqual(result.national_summary, "National Girls SCY -- met")
+
+    def test_meeting_a_flat_bonus_meets_qualifying_cut_suppresses_its_own_bonus_too(self):
+        from swimtimeline.standards import lookup
+
+        # Summer Juniors: qualifying 22.99, bonus 23.89 -- bonus is always the easier/slower cut
+        # of the two (pinned across every flat-bonus meet in
+        # NationalStandardsValueTest.test_qualifying_faster_than_bonus_for_every_flat_bonus_meet),
+        # so meeting Qualifying necessarily also beats the easier Bonus. Neither of Summer
+        # Juniors' own rungs can be "nearest unmet" anymore -- the name drops out entirely, same
+        # as AZSI's Regional once State is met -- leaving whichever OTHER meet is genuinely next
+        # (Toyota Nationals here).
+        result = lookup("Girls 17-18 50 Yard Freestyle", "22.90", state="CA", age="17")
+        self.assertNotIn("Summer Junior", result.national_summary)
+        self.assertEqual(
+            result.national_summary, "National Girls SCY -- next Toyota National Championships (18 & Under) 22.79"
+        )
+
+    def test_winter_juniors_bonus_met_but_qualifying_not_surfaces_the_qualifying_target(self):
+        from swimtimeline.standards import lookup
+
+        # THE Bonus/Qualifying case this refactor had to get right: Winter Juniors' qualifying is
+        # 23.29, bonus 23.89. A 23.50 seed beats Bonus (and every other meet's easier cuts) but not
+        # Winter Juniors' own Qualifying, which is uniquely positioned here (nothing else ties its
+        # value) -- so it surfaces alone. No separate "Bonus met" restatement is shown; that
+        # information is exactly what "nearest unmet" is designed to make unnecessary -- a met
+        # tier's own value is never restated, the same convention every other line in this module
+        # already uses.
+        result = lookup("Girls 17-18 50 Yard Freestyle", "23.50", state="CA", age="17")
+        self.assertEqual(
+            result.national_summary,
+            "National Girls SCY -- next Speedo Winter Junior Championships (Qualifying) 23.29",
+        )
+
+    def test_winter_juniors_neither_tier_met_ties_with_others_sharing_its_bonus_cut(self):
+        from swimtimeline.standards import lookup
+
+        # Same event/cuts, a seed slower than even Winter Juniors' own (easier) Bonus cut: nothing
+        # is met yet, so the nearest unmet ties every meet whose cut is exactly 23.89 (Futures'
+        # 18-and-under value and Summer Juniors' own Bonus happen to share it too).
+        result = lookup("Girls 17-18 50 Yard Freestyle", "24.00", state="CA", age="17")
+        self.assertIn("Speedo Winter Junior Championships (Bonus)", result.national_summary)
+        self.assertIn("23.89", result.national_summary)
+
+    def test_winter_juniors_drops_out_entirely_past_its_18_and_under_ceiling(self):
+        from swimtimeline.standards import lookup
+
+        # Same seed as the Bonus-met case above (23.50), at 19 instead of 17: Winter Juniors'
+        # age_ceiling (18) excludes it entirely, so the identical seed now surfaces a completely
+        # different meet (Futures' own 19-and-over cut) instead.
+        result = lookup("Women 50 Yard Freestyle", "23.50", state="CA", age="19")
+        self.assertNotIn("Winter Junior", result.national_summary)
+        self.assertEqual(
+            result.national_summary, "National Girls SCY -- next TYR Futures Championships (19 & Over) 22.99"
+        )
+
+    def test_us_open_bonus_met_but_qualifying_not_is_not_mistaken_for_still_owing_bonus(self):
+        from swimtimeline.standards import lookup
+
+        # U.S. Open: qualifying 22.49, bonus 22.99. A 22.85 seed beats every meet's easier cuts,
+        # including U.S. Open's own Bonus, and lands on Toyota Nationals' 18-and-under cut (22.79)
+        # as the true nearest target -- proving U.S. Open's Bonus rung was live and beaten (not
+        # simply absent), since it no longer appears anywhere in the collapsed result.
+        result = lookup("Girls 17-18 50 Yard Freestyle", "22.85", state="CA", age="17")
+        self.assertNotIn("U.S. Open", result.national_summary)
+        self.assertEqual(
+            result.national_summary, "National Girls SCY -- next Toyota National Championships (18 & Under) 22.79"
+        )
+
+    def test_us_open_bonus_is_18_and_under_only_unlike_its_age_open_qualifying(self):
+        from swimtimeline.standards import lookup
+
+        # The one meet where Bonus carries its OWN age ceiling (18-and-under), independent of
+        # (and stricter than) its age-open Qualifying tier. At 17, a 23.10 seed ties Summer
+        # Juniors' own Qualifying with U.S. Open's own Bonus -- both happen to sit at 22.99 --
+        # proving U.S. Open's Bonus rung is live.
+        seventeen = lookup("Girls 17-18 50 Yard Freestyle", "23.10", state="CA", age="17")
+        self.assertEqual(
+            seventeen.national_summary,
+            "National Girls SCY -- next Speedo Summer Junior National Championships (Qualifying)"
+            " / Toyota U.S. Open Championships (Bonus) 22.99",
+        )
+        # At 19, U.S. Open's Bonus ceiling (18) excludes it, and Summer Juniors drops out
+        # entirely too (its own age_ceiling) -- so the IDENTICAL seed instead surfaces Futures'
+        # own 19-and-over cut, which coincidentally sits at the same 22.99 value: proof that
+        # neither meet's rung survived past 18, not just a coincidence of the number.
+        nineteen = lookup("Women 50 Yard Freestyle", "23.10", state="CA", age="19")
+        self.assertNotIn("Summer Junior", nineteen.national_summary)
+        self.assertNotIn("U.S. Open", nineteen.national_summary)
+        self.assertEqual(
+            nineteen.national_summary, "National Girls SCY -- next TYR Futures Championships (19 & Over) 22.99"
+        )
+
+    def test_us_open_qualifying_still_shown_for_age_19_when_it_is_the_nearest(self):
+        from swimtimeline.standards import lookup
+
+        # Age-open Qualifying tier: even past every bracket/ceiling, a 19-year-old still gets a
+        # U.S. Open cut when it truly is the nearest one -- unlike Summer/Winter Juniors, which
+        # drop entirely at 19 and can never appear again at any seed.
+        result = lookup("Women 50 Yard Freestyle", "22.60", state="CA", age="19")
+        self.assertEqual(
+            result.national_summary, "National Girls SCY -- next Toyota U.S. Open Championships (Qualifying) 22.49"
+        )
 
 
-_ALL_NATIONAL_MEET_NAMES = [
-    "TYR Futures Championships",
-    "Toyota National Championships",
-    "Speedo Summer Junior National Championships",
-    "Speedo Winter Junior Championships",
-    "Toyota U.S. Open Championships",
-]
-
-
-def meet_segment(national_summary, meet_name):
-    """Isolate one meet's segment from a national_summary line. Segments are joined with "; ",
-    but a single meet's own text can ALSO contain "; " internally (e.g. "Bonus met; Qualifying
-    target..."), so a naive split("; ") would cut a segment in half. Instead, find where the next
-    OTHER known meet name begins and slice up to there, so assertions about one meet aren't
-    tripped up by a different meet elsewhere in the line happening to contain the same word.
+class RealWzagNationalCollapseTest(unittest.TestCase):
+    """Regression pin against real WZAG Boise data: Cova, Mila L's events 5, 11, 28, 60, 70 (the
+    exact real fixtures named for this verification). Every one of these events has multiple
+    national meets tied on the identical nearest-unmet cut -- the real 2026 standards happen to
+    coincide there -- so this doubles as the tie-join proof for National, the same way event #11's
+    Sectional line (SectionalLookupTest) proves it for Sectional.
     """
-    start = national_summary.find(meet_name)
-    if start == -1:
-        return None
-    rest = national_summary[start:]
-    cut = len(rest)
-    for other in _ALL_NATIONAL_MEET_NAMES:
-        if other == meet_name:
-            continue
-        idx = rest.find(f"; {other}")
-        if idx != -1:
-            cut = min(cut, idx)
-    return rest[:cut]
+
+    REAL_EVENTS = [
+        (
+            "#5 50 breast, seed 39.82L",
+            "Girls 11-12 50 LC Meter Breaststroke",
+            "39.82L",
+            "National Girls LCM -- next TYR Futures Championships (18 & Under)"
+            " / Speedo Summer Junior National Championships (Bonus) 34.79",
+        ),
+        (
+            "#11 100 free, seed 1:03.41",
+            "Girls 11-12 100 LC Meter Freestyle",
+            "1:03.41",
+            "National Girls LCM -- next TYR Futures Championships (18 & Under)"
+            " / Speedo Summer Junior National Championships (Bonus)"
+            " / Speedo Winter Junior Championships (Bonus) 59.29",
+        ),
+        (
+            "#28 200 free, seed 2:20.36",
+            "Girls 11-12 200 LC Meter Freestyle",
+            "2:20.36",
+            "National Girls LCM -- next TYR Futures Championships (18 & Under)"
+            " / Speedo Summer Junior National Championships (Bonus)"
+            " / Speedo Winter Junior Championships (Bonus) 2:07.79",
+        ),
+        (
+            "#60 100 breast, seed 1:28.02L",
+            "Girls 11-12 100 LC Meter Breaststroke",
+            "1:28.02L",
+            "National Girls LCM -- next TYR Futures Championships (18 & Under)"
+            " / Speedo Summer Junior National Championships (Bonus)"
+            " / Speedo Winter Junior Championships (Bonus) 1:15.99",
+        ),
+        (
+            "#70 400 free, seed 4:54.19",
+            "Girls 11-12 400 LC Meter Freestyle",
+            "4:54.19",
+            "National Girls LCM -- next TYR Futures Championships (18 & Under)"
+            " / Speedo Summer Junior National Championships (Bonus)"
+            " / Speedo Winter Junior Championships (Bonus) 4:28.79",
+        ),
+    ]
+
+    def test_cova_wzag_events_collapse_to_the_correct_tied_next_line(self):
+        from swimtimeline.standards import lookup
+
+        for label, event_name, seed, expected in self.REAL_EVENTS:
+            result = lookup(event_name, seed, state="AZ", age="12")
+            self.assertEqual(result.national_summary, expected, label)
 
 
 if __name__ == "__main__":
