@@ -59,7 +59,15 @@ class SourceLinkPresenceTest(unittest.TestCase):
             self.assertTrue(url.startswith("https://"))
 
     def test_national_meets_link_to_their_per_meet_sources(self):
-        national = {s["label"]: s["url"] for s in self.result.sources["national"]}
+        # self.result's own event (#11, 100 LC Meter Free) now has no national_summary at all --
+        # National is gated on Sectional completion, and Cova's real Sectional cut for this event
+        # is still unmet (see NationalGatedOnSectionalTest in test_standards_regression.py) -- so
+        # this needs its own fixture with Sectional already cleared. Stein, Layla (age 13), 50 LCM
+        # Free at 28.27 is the same real fixture pinned in test_azsi_next_band.py's
+        # test_13_14_to_senior, and happens to also clear both AZ Sectional meets' 50 free cut.
+        result = lookup("Girls 13-14 50 LC Meter Freestyle", "28.27", state="AZ", age="13")
+        self.assertEqual(result.sectional_summary, "Sectional Girls LCM -- met")
+        national = {s["label"]: s["url"] for s in result.sources["national"]}
         self.assertIn("TYR Futures Championships", national)
         self.assertTrue(national["TYR Futures Championships"].startswith("https://www.usaswimming.org/"))
 

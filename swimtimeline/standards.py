@@ -766,7 +766,20 @@ def lookup(event_name: str, seed_time: str, state: str = "AZ", age: str | int | 
     # these are national championship series open to any USA Swimming member. Age gating is
     # handled inside national_summary_line() per meet (Futures/Toyota Nationals need a resolvable
     # bracket; each flat-plus-bonus meet carries its own age_ceiling/bonus_age_ceiling), not here.
-    national_summary = national_summary_line(course, gender, event_key, seed_seconds, swimmer_age)
+    #
+    # Gated on Sectional completion first -- same convention as AZSI's State-met-removes-Regional
+    # suppression above, one tier up: a swimmer still chasing an unmet Sectional cut hasn't earned
+    # the right to see National yet, so National is suppressed entirely rather than shown alongside
+    # a Sectional target that is the swimmer's actual next milestone. sectional_summary is None when
+    # Sectional doesn't apply to this event/course/gender at all -- nothing to block on, so National
+    # stands on its own -- or ends in "met" once every applicable Sectional cut is already cleared,
+    # in which case National becomes the genuine next milestone and is computed normally. Only when
+    # sectional_summary contains "next " (a real unmet Sectional target still ahead) is National
+    # withheld.
+    if sectional_summary is not None and "next " in sectional_summary:
+        national_summary = None
+    else:
+        national_summary = national_summary_line(course, gender, event_key, seed_seconds, swimmer_age)
 
     # Per-meet source links for every line that names a meet (sectional/national, and the advanced
     # "Beyond AAAA" line, which cites the sectional/national meet its next target belongs to).

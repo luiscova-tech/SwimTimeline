@@ -632,60 +632,59 @@ class NationalLookupTest(unittest.TestCase):
 
 class RealWzagNationalCollapseTest(unittest.TestCase):
     """Regression pin against real WZAG Boise data: Cova, Mila L's events 5, 11, 28, 60, 70 (the
-    exact real fixtures named for this verification). Every one of these events has multiple
-    national meets tied on the identical nearest-unmet cut -- the real 2026 standards happen to
-    coincide there -- so this doubles as the tie-join proof for National, the same way event #11's
-    Sectional line (SectionalLookupTest) proves it for Sectional.
+    exact real fixtures named for the collapse verification, and reused here for the
+    Sectional-gates-National verification below). The Sectional tie-join collapse these events
+    were originally pinned for lives on unaffected in SectionalLookupTest -- Cova's own Sectional
+    cut is UNMET at every one of these 5 real events (Four Corners/Western Region's AZ cuts are
+    still ahead of her), which makes this a genuine, independently-real proof of the newer
+    Sectional-gates-National suppression added in lookup(): since a real swimmer's actual next
+    milestone is her still-unmet Sectional target, National is correctly withheld (None) rather
+    than shown alongside it. The National-side tie-join collapse itself (the same "next
+    A / B / C time" shape) is still exercised directly against the same real per-meet cut values
+    in NationalLookupTest's catalog-seeded scenarios, and again below in
+    NationalShowsThroughOnceSectionalIsMetTest, which finds a real swimmer past her Sectional cut.
     """
 
     REAL_EVENTS = [
-        (
-            "#5 50 breast, seed 39.82L",
-            "Girls 11-12 50 LC Meter Breaststroke",
-            "39.82L",
-            "National Girls LCM -- next TYR Futures Championships (18 & Under)"
-            " / Speedo Summer Junior National Championships (Bonus) 34.79",
-        ),
-        (
-            "#11 100 free, seed 1:03.41",
-            "Girls 11-12 100 LC Meter Freestyle",
-            "1:03.41",
-            "National Girls LCM -- next TYR Futures Championships (18 & Under)"
-            " / Speedo Summer Junior National Championships (Bonus)"
-            " / Speedo Winter Junior Championships (Bonus) 59.29",
-        ),
-        (
-            "#28 200 free, seed 2:20.36",
-            "Girls 11-12 200 LC Meter Freestyle",
-            "2:20.36",
-            "National Girls LCM -- next TYR Futures Championships (18 & Under)"
-            " / Speedo Summer Junior National Championships (Bonus)"
-            " / Speedo Winter Junior Championships (Bonus) 2:07.79",
-        ),
-        (
-            "#60 100 breast, seed 1:28.02L",
-            "Girls 11-12 100 LC Meter Breaststroke",
-            "1:28.02L",
-            "National Girls LCM -- next TYR Futures Championships (18 & Under)"
-            " / Speedo Summer Junior National Championships (Bonus)"
-            " / Speedo Winter Junior Championships (Bonus) 1:15.99",
-        ),
-        (
-            "#70 400 free, seed 4:54.19",
-            "Girls 11-12 400 LC Meter Freestyle",
-            "4:54.19",
-            "National Girls LCM -- next TYR Futures Championships (18 & Under)"
-            " / Speedo Summer Junior National Championships (Bonus)"
-            " / Speedo Winter Junior Championships (Bonus) 4:28.79",
-        ),
+        ("#5 50 breast, seed 39.82L", "Girls 11-12 50 LC Meter Breaststroke", "39.82L"),
+        ("#11 100 free, seed 1:03.41", "Girls 11-12 100 LC Meter Freestyle", "1:03.41"),
+        ("#28 200 free, seed 2:20.36", "Girls 11-12 200 LC Meter Freestyle", "2:20.36"),
+        ("#60 100 breast, seed 1:28.02L", "Girls 11-12 100 LC Meter Breaststroke", "1:28.02L"),
+        ("#70 400 free, seed 4:54.19", "Girls 11-12 400 LC Meter Freestyle", "4:54.19"),
     ]
 
-    def test_cova_wzag_events_collapse_to_the_correct_tied_next_line(self):
+    def test_national_suppressed_at_every_real_event_where_sectional_is_still_unmet(self):
         from swimtimeline.standards import lookup
 
-        for label, event_name, seed, expected in self.REAL_EVENTS:
+        for label, event_name, seed in self.REAL_EVENTS:
             result = lookup(event_name, seed, state="AZ", age="12")
-            self.assertEqual(result.national_summary, expected, label)
+            self.assertIn("next ", result.sectional_summary or "", label)
+            self.assertIsNone(result.national_summary, label)
+
+
+class NationalShowsThroughOnceSectionalIsMetTest(unittest.TestCase):
+    """The other half of the Sectional-gates-National proof: a real swimmer/event where Sectional
+    is already fully met, so National surfaces normally as her genuine next milestone. Stein,
+    Layla (age 13), 50 LCM Free, seed 28.27 is the same real fixture already pinned in
+    test_azsi_next_band.py's test_13_14_to_senior for the AZSI State/Senior cross-band case --
+    reused here since it happens to also clear both AZ Sectional meets' identical 50 free cut.
+
+    ("Sectional doesn't apply at all" -- the other way National is left unaffected -- is already
+    covered by NationalLookupTest.test_not_scoped_to_arizona, whose non-AZ swimmer gets
+    sectional_summary=None and an unaffected national_summary.)
+    """
+
+    def test_stein_real_event_clears_sectional_so_national_still_shows(self):
+        from swimtimeline.standards import lookup
+
+        result = lookup("Girls 13-14 50 LC Meter Freestyle", "28.27", state="AZ", age="13")
+        self.assertEqual(result.sectional_summary, "Sectional Girls LCM -- met")
+        self.assertEqual(
+            result.national_summary,
+            "National Girls LCM -- next TYR Futures Championships (18 & Under)"
+            " / Speedo Summer Junior National Championships (Bonus)"
+            " / Speedo Winter Junior Championships (Bonus) 27.39",
+        )
 
 
 if __name__ == "__main__":
