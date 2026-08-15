@@ -29,6 +29,19 @@ The app can run as a public Python web service. This repo includes:
 
 The hosted Current Meets registry keeps reusable meets available without re-uploading their PDFs. Featured current meets can be date-gated so a meet such as WZAG Boise appears prominently only while families are actively using it. Meet cards show a readiness checklist, pending-document status, and short meet-rule notes so families can tell whether lookup is available before tapping the meet.
 
+## Subscriber Notifications
+
+After adding a meet to `data/current_meets.json`, you can email families who follow a swimmer in it:
+
+```bash
+./.venv312/bin/python scripts/notify_subscribers.py <meet_id> --dry-run   # preview, sends nothing
+RESEND_API_KEY=re_... ./.venv312/bin/python scripts/notify_subscribers.py <meet_id>
+```
+
+This runs **locally only, by hand** — the subscriber list holds real emails and children's names, so it is gitignored and never deployed, and Render's ephemeral disk would lose the already-notified log on every deploy. Matching reuses the website's own search path, so an ambiguous name is reported rather than emailed. Re-running skips anyone already notified.
+
+See `docs/subscriber-notifications.md` for setup, the Resend API key, and the sender-domain caveat.
+
 ## Meet Layout
 
 Each meet gets its own folder so source documents, extraction notes, audit logs, and calendar output stay isolated:

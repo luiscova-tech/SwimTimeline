@@ -4,3 +4,16 @@ __pycache__/
 *.pyc
 .venv312/
 .DS_Store
+
+# Local-only subscriber notification data. These contain real parent emails and
+# children's names, which must never enter this public repo. Unlike the relay
+# rosters in data/internal_relay_sources/, an email address cannot be hashed and
+# stay useful for sending, so the whole file stays local. See
+# docs/subscriber-notifications.md.
+# The trailing * is load-bearing, not sloppiness: write_json() writes an atomic temp sibling
+# ("data/notify_log.local.json.tmp") before renaming it into place. Ignoring only the exact .json
+# names left that temp file tracked, so a crash inside the write window -- the very case the
+# per-send flush exists to survive -- could leave every real subscriber address staged by a
+# routine "git add -A".
+data/subscribers.local.json*
+data/notify_log.local.json*

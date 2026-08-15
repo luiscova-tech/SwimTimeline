@@ -1,0 +1,27 @@
+{
+  "_comment": [
+    "TEMPLATE ONLY -- this file is committed and contains no real data.",
+    "Copy it to data/subscribers.local.json (gitignored) and edit that copy.",
+    "Every swimmer needs a 'name'. 'team' is optional and only ever NARROWS a match:",
+    "it is checked against the team code printed on the meet's psych sheet using the",
+    "same matcher the relay code uses, so a bare LSC ('AZ') matches a zone sheet's",
+    "'Arizona' and a club code ('MAC-AZ') requires that exact club.",
+    "Use the swimmer's name as the psych sheet prints it ('Last, First') when you can;",
+    "a bare surname works too but is refused when it matches more than one swimmer."
+  ],
+  "subscribers": [
+    {
+      "email": "parent-one@example.com",
+      "swimmers": [
+        { "name": "Doe, Jane", "team": "AZ" },
+        { "name": "Doe, John" }
+      ]
+    },
+    {
+      "email": "parent-two@example.com",
+      "swimmers": [
+        { "name": "Roe, Rachel", "team": "MAC-AZ" }
+      ]
+    }
+  ]
+}
