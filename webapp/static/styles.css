@@ -1586,6 +1586,41 @@ td strong {
   font-weight: 800;
 }
 
+/* Motivational-tier tokens (B/BB/A/AA/AAA/AAAA) inside a benchmark line, colored low-to-high with
+   this app's own palette. --gold/--warn were considered and rejected: both already mean "needs
+   attention" elsewhere in this app (.readiness-missing/.empty-dot use --gold; error/active states
+   use --warn), so using either for a swimmer's BEST result would fight the app's own vocabulary.
+   --muted/--navy/--accent carry no such conflict: each covers two adjacent tiers (normal weight,
+   then bold) before the scale steps to the next color, and --accent-dark -- the app's own "most
+   emphasized" variant of its ready/good color -- marks AAAA alone as the standout at the top,
+   rather than sharing a color with AAA the way every other pair does. "below B" is not a separate
+   case: it shares B's styling because the literal "B" substring inside "below B" is what the
+   token regex actually matches. */
+.tier-B {
+  color: var(--muted);
+  font-weight: 650;
+}
+.tier-BB {
+  color: var(--navy);
+  font-weight: 650;
+}
+.tier-A {
+  color: var(--navy);
+  font-weight: 800;
+}
+.tier-AA {
+  color: var(--accent);
+  font-weight: 650;
+}
+.tier-AAA {
+  color: var(--accent);
+  font-weight: 800;
+}
+.tier-AAAA {
+  color: var(--accent-dark);
+  font-weight: 800;
+}
+
 @media (max-width: 860px) {
   .shell {
     padding: 12px;

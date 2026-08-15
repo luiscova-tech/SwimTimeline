@@ -767,12 +767,29 @@ async function publishCurrentMeet() {
   }
 }
 
+// Matches a motivational-tier token (TIER_ORDER in standards.py, B lowest to AAAA highest) as a
+// whole word, so it catches "AAA" in "AA; next AAA 39.09", the standalone "AAAA" in "USA-S ...:
+// AAAA", both "B"s in "below B; B target ...", and the achieved-tier "AAAA" inside "Beyond AAAA:
+// next ...". \b on both ends is what keeps this correct regardless of alternation order here --
+// e.g. matching just "A" inside "AAAA" fails its own trailing \b (the next character is still a
+// word character), forcing the engine to backtrack to the full "AAAA" -- so this never needs the
+// longest-first ordering that a plain (non-anchored) alternation would.
+const TIER_TOKEN_RE = /\b(AAAA|AAA|AA|BB|B|A)\b/g;
+
+// Wraps each tier token in a span colored by webapp/static/styles.css's .tier-* rules. Runs BEFORE
+// the source-link substitution below (on plain escaped text, no markup yet), so a label can never
+// collide with a token span -- confirmed against every real fixture in this repo that no
+// usa/lsc/sectional/national/advanced source label ever contains a bare tier word itself.
+function colorizeTiers(escapedText) {
+  return escapedText.replace(TIER_TOKEN_RE, (token) => `<span class="tier-${token}">${token}</span>`);
+}
+
 // Turn each standard's label into a checkable link to its source document. The backend supplies,
 // per benchmark line, a list of {label, url} where label is an exact substring of the line text;
 // we escape everything, then swap the escaped label for an <a> so the number stays plain text and
 // only the label (e.g. "USA-S 11-12 Girls LCM", "Four Corners...") becomes a link.
 function linkifyBenchmark(text, sources) {
-  let html = escapeHtml(text || "");
+  let html = colorizeTiers(escapeHtml(text || ""));
   for (const source of sources || []) {
     if (!source.url || !source.label) continue;
     const escapedLabel = escapeHtml(source.label);
