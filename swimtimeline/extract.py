@@ -344,8 +344,15 @@ class PsychEntry:
     heat_is_estimated: bool = False
     estimate_note: str | None = None
     # A heat sheet said this heat runs in the evening finals session ("Swimming with Finals").
-    # Informational: the flyer footnote rule still decides which timeline window is used, so this
-    # records what the heat sheet stated without overriding logic that is already tested.
+    # Informational only: the flyer's footnote-based EventTimingRule (see build_swim_events ->
+    # timeline_for_timing_rule) always decides which timeline window is actually used; this field
+    # is never read there. Settled, not an open tension -- confirmed against three independent
+    # real WZAG sessions (Wednesday's 800 Free for Stein, Friday's events 70/71 for Cova and their
+    # paired boys event), where the footnote-chosen finals window differs from a naive
+    # primary-timeline fallback by hours, and the footnote wins every time. See
+    # tests/test_swims_with_finals_precedence.py, which also audits the one real gap this could
+    # have -- swims_with_finals=True with no footnote rule at all for that event -- and confirms
+    # it does not occur anywhere in this repo's real fixtures today.
     swims_with_finals: bool = False
     # Which document supplied a REAL heat/lane, when one did. None means the heat/lane is either
     # absent or estimated -- see heat_is_estimated.
@@ -1018,6 +1025,47 @@ def collect_psych_entries(
 
     entries.sort(key=lambda entry: (entry.event_number, entry.page, entry.seed_place))
     return entries, page_counts
+
+
+def swims_with_finals_event_numbers(pages: list[str]) -> set[int]:
+    """Every event number with at least one heat flagged "Swimming with Finals" on a heat sheet,
+    independent of any swimmer -- an audit tool for the swims_with_finals/footnote precedence
+    question (see the PsychEntry.swims_with_finals docstring), not part of the swimmer-lookup path.
+
+    Mirrors just the event-cursor half of collect_psych_entries's heat-header walk (reusing its
+    same split_event_header/parse_heat_header calls rather than re-deriving their regexes) --
+    dropped is everything about matching a specific swimmer, since this only needs to know which
+    EVENTS a heat sheet ever marks swims_with_finals for, not who swims in them.
+    """
+    event_numbers: set[int] = set()
+    current_event: tuple[int, str] | None = None
+    current_block: list[tuple[int, str]] | None = None
+    for text in pages:
+        for line in text.splitlines():
+            normalized = normalize_space(line)
+            event_split = split_event_header(normalized)
+            if event_split:
+                current_block = event_split
+                current_event = event_split[0] if len(event_split) == 1 else None
+                continue
+            if re.match(r"Alternates?\b", normalized, flags=re.IGNORECASE):
+                continue
+            heat_header = parse_heat_header(normalized)
+            if heat_header is None:
+                continue
+            if heat_header.sub_gender and current_block:
+                for number, name in current_block:
+                    if name.lower().startswith(heat_header.sub_gender.lower()):
+                        current_event = (number, name)
+                        break
+            elif heat_header.event_number is not None:
+                current_event = (
+                    heat_header.event_number,
+                    heat_header.event_name or (current_event[1] if current_event else ""),
+                )
+            if heat_header.swims_with_finals and current_event is not None:
+                event_numbers.add(current_event[0])
+    return event_numbers
 
 
 def extract_psych_entries(psych_pdf: Path, swimmer_name: str) -> tuple[list[PsychEntry], list[dict], list[str]]:
