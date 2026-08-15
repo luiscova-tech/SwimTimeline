@@ -595,7 +595,7 @@ function renderResult(payload) {
       <td data-col="event" data-label="Event">${swimmerChip(swim, payload)}<strong>#${swim.event_number}${swim.type === "relay" ? " Relay" : ""}</strong>${escapeHtml(swim.event_name)}<br>${escapeHtml(swim.event_format || "")}</td>
       <td data-col="seed" data-label="${escapeHtml(seedLabel)}">${seedCell}</td>
       <td data-col="window" data-label="Window">${escapeHtml(swim.window)}</td>
-      <td data-col="benchmark" data-label="Benchmark">${benchmarkLine(swim.benchmarks.usa, swim, "usa")}<br>${benchmarkLine(swim.benchmarks.lsc, swim, "lsc")}${sectionalNationalLines(swim)}${advancedLine(swim)}</td>
+      <td data-col="benchmark" data-label="Benchmark">${benchmarkLine(swim.benchmarks.usa, swim, "usa")}<br>${benchmarkLine(swim.benchmarks.lsc, swim, "lsc")}${sectionalNationalLines(swim)}${confidenceLine(swim)}</td>
       <td data-col="source" data-label="Source">${sourceCell}</td>
     `;
     eventsBody.appendChild(row);
@@ -815,15 +815,13 @@ function sectionalNationalLines(swim) {
   return html;
 }
 
-function advancedLine(swim) {
-  let html = "";
-  if (swim.benchmarks.advanced) {
-    html += `<br>${benchmarkLine(swim.benchmarks.advanced, swim, "advanced")}`;
-  }
-  if (swim.benchmarks.confidence) {
-    html += `<br>${escapeHtml(swim.benchmarks.confidence)}`;
-  }
-  return html;
+function confidenceLine(swim) {
+  // The old "Beyond AAAA" advanced line is gone -- Sectional/National each already collapse to
+  // their own single nearest-unmet-cut line (sectionalNationalLines above), so the advanced line
+  // was a guaranteed verbatim duplicate of whichever of those was nearer. swim.benchmarks.advanced
+  // is still computed server-side (it feeds the calendar .ics description text), just not shown
+  // in this table anymore.
+  return swim.benchmarks.confidence ? `<br>${escapeHtml(swim.benchmarks.confidence)}` : "";
 }
 
 function seedDetails(swim) {
