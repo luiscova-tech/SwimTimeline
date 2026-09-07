@@ -182,6 +182,39 @@
         "Psych/heat sheet",
         "Timeline"
       ]
+    },
+    {
+      "id": "2026-herculean-invitational",
+      "name": "2026 Herculean Invitational",
+      "short_name": "Herculean Invitational",
+      "dates": "2026-09-11 through 2026-09-13",
+      "start_date": "2026-09-11",
+      "end_date": "2026-09-13",
+      "expires_at": "2026-09-14",
+      "state": "AZ",
+      "timezone": "America/Phoenix",
+      "venue": "Kino Junior High, 848 N. Horne, Mesa, AZ 85203",
+      "timeline_type": "projected",
+      "status": "ready",
+      "last_updated": "2026-09-07",
+      "rules_summary": [
+        "Short course yards. Two pools (12&Over and 11&Under) run in parallel each day on separate event numbers, sharing the same warm-up and start time.",
+        "Pre-meet projected timeline is loaded; session times may still shift.",
+        "All events are timed finals -- no prelims/finals.",
+        "Events 400 yards and longer are positive check-in.",
+        "No relay events at this meet."
+      ],
+      "files": {
+        "flyer": "meets/2026-herculean-invitational/input/2026-herculean-invitational-flyer.pdf",
+        "psych": "meets/2026-herculean-invitational/input/2026-herculean-invitational-psych-sheet.pdf",
+        "timeline": "meets/2026-herculean-invitational/input/2026-herculean-invitational-timeline.pdf",
+        "relay": null
+      },
+      "documents": [
+        "Meet flyer",
+        "Psych/heat sheet",
+        "Timeline"
+      ]
     }
   ]
 }

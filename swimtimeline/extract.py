@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pypdf import PdfReader
 
 from .ics import build_ics
-from .standards import SOURCES, event_gender, has_lsc_standards, lookup, parse_age
+from .standards import SOURCES, event_course, event_gender, has_lsc_standards, lookup, parse_age
 
 
 DEFAULT_TZ = "America/Phoenix"
@@ -1541,6 +1541,78 @@ def parse_flyer_sessions(text: str, start_date: date) -> dict[int, dict[str, str
     return sessions
 
 
+# A day-varying, swimmer-universal warm-up stated once per calendar day in a flyer's own
+# event-order section (e.g. "Session 1-- Friday, September 11, 2026" followed on the next line by
+# "4:45 warm up/5:30 start") -- a different shape from parse_flyer_sessions' per-session-number
+# "Warm-up: ..., Meet Start: ..." line, and from a per-team/day warm-up-assignments document. Real
+# flyers are inconsistent about the dash character and the punctuation before the year (an en dash
+# with a comma before "September", vs a plain hyphen with none, vs a period instead of a comma
+# before the year all appear on the SAME real flyer) so this tolerates all of them.
+_FLYER_DAY_HEADER_RE = re.compile(
+    r"Session\s+\d+\s*[-–—]\s*[A-Za-z]+,?\s+(?P<month>[A-Za-z]+)\s+(?P<dom>\d{1,2})[.,]?\s+(?P<year>\d{4})",
+    re.IGNORECASE,
+)
+_FLYER_DAY_WARMUP_START_RE = re.compile(
+    r"^(?P<warm>\d{1,2}:\d{2})\s*warm[- ]?up\s*/\s*(?P<start>\d{1,2}:\d{2})\s*start\b",
+    re.IGNORECASE,
+)
+
+
+def parse_flyer_day_warmups(text: str) -> dict[date, str]:
+    """A day-varying but swimmer-universal warm-up clock string, keyed by the actual calendar
+    DATE parsed from the flyer's own day header -- deliberately NOT by the flyer's "Session N"
+    label. A flyer that groups a whole day's simultaneous multi-pool schedule under one "Session"
+    number (one warm-up for everyone that day) doesn't necessarily share numbering with the meet's
+    own HY-TEK session-report timeline, which assigns a SEPARATE session number to each pool
+    running in parallel that day -- so a 12&Over and 11&Under pool sharing one Friday warm-up show
+    up as two different timeline session numbers. Matching the flyer's "Session 2" against
+    whichever timeline session happens to also be numbered 2 would silently pick up the WRONG
+    day's warm-up whenever the two numbering schemes diverge (exactly what happens here: the
+    flyer's "Session 2" is Saturday, but the timeline's session 2 is Friday's second pool). Keying
+    by date instead sidesteps that mismatch entirely -- whichever session number the timeline
+    assigns, its date always matches the day this warm-up belongs to.
+
+    The returned clock string carries NO am/pm -- the flyer states it bare ("4:45", "8:15"),
+    relying on context a reader infers but code can't -- so resolving it needs the session's own
+    already-parsed, unambiguous start time; see resolve_bare_clock_before_start.
+    """
+    result: dict[date, str] = {}
+    lines = text.splitlines()
+    for index, raw_line in enumerate(lines):
+        header = _FLYER_DAY_HEADER_RE.search(raw_line)
+        if not header:
+            continue
+        month = month_number(header.group("month"))
+        if not month:
+            continue
+        day_date = date(int(header.group("year")), month, int(header.group("dom")))
+        for follow in lines[index + 1 : index + 4]:
+            clean = normalize_space(follow)
+            if not clean:
+                continue
+            times_match = _FLYER_DAY_WARMUP_START_RE.match(clean)
+            if times_match:
+                result[day_date] = times_match.group("warm")
+            break
+    return result
+
+
+def resolve_bare_clock_before_start(bare_clock: str, start_24h: str) -> str:
+    """Resolve a bare 'H:MM' warm-up time (no am/pm -- see parse_flyer_day_warmups) against its
+    session's own already-parsed, unambiguous 24-hour start time. A warm-up always falls shortly
+    BEFORE its start, so whichever am/pm reading lands earlier that day -- and closer to start,
+    when both readings technically qualify -- is the correct one: bare "4:45" next to a 17:30
+    (5:30 PM) start resolves to 16:45 (4:45 PM), not 04:45.
+    """
+    hour, minute = (int(part) for part in bare_clock.split(":"))
+    start_hour, start_minute = (int(part) for part in start_24h.split(":"))
+    start_total = start_hour * 60 + start_minute
+    candidates = [(hour % 12) * 60 + minute, (hour % 12 + 12) * 60 + minute]
+    before = [total for total in candidates if total < start_total]
+    chosen = max(before) if before else min(candidates, key=lambda total: abs(total - start_total))
+    return f"{chosen // 60:02d}:{chosen % 60:02d}"
+
+
 def parse_flyer_location(text: str) -> str | None:
     for line in text.splitlines():
         clean = normalize_space(line)
@@ -1705,6 +1777,7 @@ def cached_timeline(
         raise ValueError("Could not find meet date range in the timeline or flyer.")
     start_date, _end_date = date_range
     flyer_sessions = parse_flyer_sessions(flyer_text, start_date) if flyer_text else {}
+    flyer_day_warmups = parse_flyer_day_warmups(flyer_text) if flyer_text else {}
     flyer_location = parse_flyer_location(flyer_text) if flyer_text else None
     meet_name = parse_meet_name(text)
     flyer_meet_name = parse_meet_name(flyer_text) if flyer_text else "Swim Meet"
@@ -1741,7 +1814,17 @@ def cached_timeline(
                 session_date = start_date + timedelta(days=day_of_meet - 1)
                 start_time = normalize_time_string(day_match.group(2))
                 flyer_session = flyer_sessions.get(number, {})
-                warmup = flyer_session.get("warmup_time") or time_minus_minutes(start_time, 60)
+                # Precedence: the per-session-number "Warm-up: ..., Meet Start: ..." line (existing,
+                # number-keyed) wins when present; then the day-varying-but-universal bare clock
+                # (date-keyed, see parse_flyer_day_warmups -- resolved against this session's own
+                # already-known start_time, since the flyer states it with no am/pm); then the naive
+                # start-minus-60-minutes estimate as the last resort.
+                day_warmup_bare = flyer_day_warmups.get(session_date)
+                warmup = (
+                    flyer_session.get("warmup_time")
+                    or (resolve_bare_clock_before_start(day_warmup_bare, start_time) if day_warmup_bare else None)
+                    or time_minus_minutes(start_time, 60)
+                )
                 # Facility comes from the meet's OWN documents (flyer session line or "Meet
                 # Location:" line) first, then the meet record's explicit venue. Never guessed
                 # from the session name -- a "Finals" session is not evidence of any venue, and
@@ -2174,6 +2257,22 @@ def location_for_session(session: SessionInfo | TimelineEvent) -> str:
     return "Meet facility"
 
 
+# HY-TEK's own wording for each course (see standards.event_course, which reads these same three
+# strings off an event name). Every real meet in this repo was LCM until the first real SCY fixture
+# (Herculean Invitational) -- the "Pool/course:" line below used to hardcode "LC Meter" unconditionally,
+# which nothing had ever caught because nothing SCY/SCM had exercised it before.
+_ENTRY_SHEET_COURSE_LABELS = {"SCY": "SC Yard", "SCM": "SC Meter", "LCM": "LC Meter"}
+
+
+def entry_sheet_course_label(event_name: str) -> str:
+    """The course label for the "Pool/course: ...; entry sheet lists event(s) as X" calendar line,
+    read off the event's own name. Falls back to "LC Meter" (the old unconditional default) only
+    when the course can't be determined at all, so an event_course() miss never regresses a meet
+    that worked before this label became course-aware.
+    """
+    return _ENTRY_SHEET_COURSE_LABELS.get(event_course(event_name) or "", "LC Meter")
+
+
 def _seed_key(value: str) -> str:
     """A seed time reduced to its digits so '39.82L' and '39.82' compare equal across documents."""
     return re.sub(r"[^0-9]", "", value or "")
@@ -2443,6 +2542,11 @@ def checkin_note(event_number: int, flyer_text: str = "") -> str | None:
         return "Positive check-in required; meet flyer says check-in closes one hour after the start of competition for the applicable preliminary session."
     if 53 <= event_number <= 72 and "events 53-72" in lower and "session #7" in lower:
         return "Event is in Events 53-72; meet flyer says check in before Session #7 warm-up."
+    # The flyer's own title wraps "Herculean" and "Invitational" onto separate lines (a plain
+    # substring check -- the style every other branch above uses -- would miss it), so this one
+    # tolerates the line break between the two words.
+    if re.search(r"herculean\s+invitational", lower) and event_number in {21, 22, 31, 32, 125, 126, 139, 140}:
+        return "Positive check-in required; meet flyer says events 400 yards and longer are positive check-in and check-in closes 30 minutes after the start of the session."
     return None
 
 
@@ -2494,7 +2598,7 @@ def build_detailed_payload(
             "",
             f"Day: {meet_day_text(timeline.date, day_numbers.get(timeline.date, 1))}",
             f"Session: #{timeline.session_number} - {timeline.session_name}",
-            f"Pool/course: {location_for_session(timeline)}; entry sheet lists event as LC Meter",
+            f"Pool/course: {location_for_session(timeline)}; entry sheet lists event as {entry_sheet_course_label(psych.event_name)}",
             "",
             f"Event: #{psych.event_number} - {psych.event_name}",
             f"Format: {event_format_label(swim)}",
@@ -2879,6 +2983,7 @@ def build_daily_payload(
         if warmup_hit:
             qualifier = warmup_hit.get("qualifier")
             warmup_first_line = f"Warm-up: {warmup_hit['display']}" + (f" ({qualifier})" if qualifier else "")
+        first_event_name = first.psych.event_name if isinstance(first, SwimEvent) else first.relay.event_name
         lines = [
             *( [warmup_first_line] if warmup_first_line else [] ),
             swimmer_name,
@@ -2888,7 +2993,7 @@ def build_daily_payload(
             f"Session: #{first.timeline.session_number} - {first.timeline.session_name}",
             *( [] if warmup_first_line else [f"Warm-up: {display_time(session_warmup)}"] ),
             f"Meet start: {display_time(session_start)}",
-            f"Pool/course: {location_for_session(first.timeline)}; entry sheet lists events as LC Meter",
+            f"Pool/course: {location_for_session(first.timeline)}; entry sheet lists events as {entry_sheet_course_label(first_event_name)}",
             "",
         ]
         # Kept inside the weekend view's inherited slice (description_lines[9:]) so the whole-meet

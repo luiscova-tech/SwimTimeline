@@ -1,6 +1,6 @@
 """Warm-up window as the first line of the daily calendar.
 
-Two independent sources:
+Two independent AUTHORITATIVE-FIRST-LINE sources:
   * SIMPLE  -- one universal window per meet (a manually set field, or a flyer-stated range),
     shown the same on every day.
   * COMPLEX -- a per-meet warm-up-assignments PDF whose prelim windows vary by BOTH day-of-week and
@@ -13,8 +13,15 @@ line, flyer-derived or estimated, is unaffected).
 Note on the task premise: the flyer parser already DOES extract per-session warm-up times for
 AZ-style flyers, and the daily calendar already shows a "Warm-up:" line -- so this feature adds an
 *authoritative window* first line on top of that, it does not fill a total absence.
+
+A THIRD, separate source feeds that underlying per-session "Warm-up:" line itself (not the
+authoritative first line above): a day-varying but swimmer-universal time stated once per calendar
+day in the flyer's own event-order section (Herculean Invitational: "Session 1-- Friday, September
+11, 2026" followed by "4:45 warm up/5:30 start"), as opposed to parse_flyer_sessions' per-SESSION-
+NUMBER "Warm-up: ..., Meet Start: ..." line. See DayVaryingPerSessionWarmupTest.
 """
 
+from datetime import date
 from pathlib import Path
 import re
 import tempfile
@@ -24,7 +31,9 @@ from swimtimeline.extract import (
     analyze_uploads,
     build_warmup_resolver,
     extract_flyer_warmup_window,
+    parse_flyer_day_warmups,
     parse_warmup_assignments,
+    resolve_bare_clock_before_start,
     warmup_token_to_lsc,
 )
 
@@ -32,6 +41,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WZAG = ROOT / "meets/2026-wzag-championships-boise/input"
 SHARK = ROOT / "meets/2026-shark-open/input"
 NARWHAL = ROOT / "meets/2026-narwhal-invite/input"
+HERCULEAN = ROOT / "meets/2026-herculean-invitational/input"
 WARMUP_PDF = WZAG / "wzag warm-up assignments.pdf"
 
 
@@ -168,6 +178,63 @@ class ComplexPerTeamPerDayCaseTest(unittest.TestCase):
         self.assertIn("Warm-up: 6:30 AM-7:25 AM", by_day["Wednesday"])
         self.assertIn("Warm-up: 7:25 AM-8:20 AM", by_day["Thursday"])
         self.assertIn("SR", by_day["Wednesday"])
+
+
+class DayVaryingPerSessionWarmupTest(unittest.TestCase):
+    """Herculean Invitational's flyer states one warm-up time per calendar day, shared by BOTH
+    pools running that day ("All swimmers will have the same warm up times listed"), bare (no
+    am/pm) and under a "Session N" label that does NOT share numbering with the meet's own HY-TEK
+    session-report timeline (the flyer's "Session 2" is Saturday; the timeline's session 2 is
+    Friday's second, simultaneous 11&Under pool) -- so this must resolve by DATE, not by matching
+    the flyer's own session number against the timeline's.
+    """
+
+    def test_parse_flyer_day_warmups_keys_by_date_not_flyer_session_number(self):
+        from swimtimeline.extract import extract_text_pages
+
+        text = "\n".join(extract_text_pages(HERCULEAN / "2026-herculean-invitational-flyer.pdf"))
+        parsed = parse_flyer_day_warmups(text)
+        self.assertEqual(
+            parsed,
+            {date(2026, 9, 11): "4:45", date(2026, 9, 12): "8:15", date(2026, 9, 13): "8:15"},
+        )
+
+    def test_resolve_bare_clock_picks_the_reading_shortly_before_the_known_start(self):
+        # Bare "4:45" next to a 17:30 (5:30 PM) start is 4:45 PM, not 4:45 AM.
+        self.assertEqual(resolve_bare_clock_before_start("4:45", "17:30"), "16:45")
+        # Bare "8:15" next to a 09:00 (9:00 AM) start is 8:15 AM, not 8:15 PM.
+        self.assertEqual(resolve_bare_clock_before_start("8:15", "09:00"), "08:15")
+
+    def test_generated_calendar_shows_the_correct_day_varying_warmup(self):
+        # Friday's two pools (session 1: 12&Over, session 2: 11&Under) share the SAME warm-up --
+        # proving the date-keyed resolution lands correctly on both, despite the flyer's own
+        # "Session 1/2/3" numbering (by day) diverging from the timeline's "Session: 1-6"
+        # numbering (by day AND pool). Zaffos, Selah (12&Over) and Post, Zoey (11&Under) both swim
+        # Friday.
+        out = Path(tempfile.mkdtemp())
+        analyze_uploads(
+            flyer_pdf=HERCULEAN / "2026-herculean-invitational-flyer.pdf",
+            psych_pdf=HERCULEAN / "2026-herculean-invitational-psych-sheet.pdf",
+            timeline_pdf=HERCULEAN / "2026-herculean-invitational-timeline.pdf",
+            swimmer_name="Zaffos, Selah", output_dir=out, state="AZ",
+            meet_timezone="America/Phoenix", modes=["daily"], timeline_projected=True,
+        )
+        ics = (out / "daily.ics").read_text(encoding="utf-8").replace("\r\n ", "").replace("\n ", "")
+        self.assertIn("Warm-up: 4:45 PM", ics)  # Friday, NOT the naive 4:30 PM (start minus 60min)
+        self.assertIn("Warm-up: 8:15 AM", ics)  # Saturday/Sunday, NOT the naive 8:00 AM
+        self.assertNotIn("Warm-up: 4:30 PM", ics)
+        self.assertNotIn("Warm-up: 8:00 AM", ics)
+
+        out2 = Path(tempfile.mkdtemp())
+        analyze_uploads(
+            flyer_pdf=HERCULEAN / "2026-herculean-invitational-flyer.pdf",
+            psych_pdf=HERCULEAN / "2026-herculean-invitational-psych-sheet.pdf",
+            timeline_pdf=HERCULEAN / "2026-herculean-invitational-timeline.pdf",
+            swimmer_name="Post, Zoey", output_dir=out2, state="AZ",
+            meet_timezone="America/Phoenix", modes=["daily"], timeline_projected=True,
+        )
+        ics2 = (out2 / "daily.ics").read_text(encoding="utf-8").replace("\r\n ", "").replace("\n ", "")
+        self.assertIn("Warm-up: 4:45 PM", ics2)
 
 
 class NoWarmupDataCaseTest(unittest.TestCase):
