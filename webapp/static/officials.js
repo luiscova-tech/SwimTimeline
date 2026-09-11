@@ -15,13 +15,22 @@ const sessionsBody = document.querySelector("#sessionsBody");
 const meetNameEl = document.querySelector("#meetName");
 const summaryEl = document.querySelector("#summary");
 const downloadAll = document.querySelector("#downloadAll");
+const downloadSheet = document.querySelector("#downloadSheet");
+const highlightFilterRow = document.querySelector("#highlightFilterRow");
+const highlightedOnly = document.querySelector("#highlightedOnly");
 const swimmerList = document.querySelector("#swimmerList");
 const addSwimmerButton = document.querySelector("#addSwimmer");
 const warningsEl = document.querySelector("#warnings");
 const highlightSummaryEl = document.querySelector("#highlightSummary");
 
+// The most recently loaded sessions response plus the query base its download links are built
+// from, kept so the highlight filter can re-apply client-side without refetching.
+let loaded = null;
+
 loadHostedMeets();
 updateRemoveButtons();
+
+highlightedOnly.addEventListener("change", applyHighlightFilter);
 
 loadMeetButton.addEventListener("click", () => {
   const meetId = meetSelect.value;
@@ -172,11 +181,58 @@ function renderSessions(payload) {
     `${sessions.length} session${sessions.length === 1 ? "" : "s"} · ` +
     `${totalEvents} events · one 2″×3″ card per session` +
     (starred ? ` · ${starred} starred event${starred === 1 ? "" : "s"}` : "");
-  downloadAll.setAttribute("href", `/api/officials/badges?${query}`);
 
   renderSwimmerFeedback(payload);
   sessionsBody.innerHTML = sessions.map((session) => sessionRow(session, query)).join("");
+
+  // Keep the loaded payload so the filter toggle can re-apply without another round trip -- the
+  // per-session highlighted_events the table needs is already in this response.
+  loaded = { payload, query };
+  const anySwimmers = (payload.swimmer_names || []).length > 0;
+  const anyHighlightedSession = sessions.some(
+    (session) => (session.highlighted_events || []).length > 0
+  );
+  // The toggle is meaningless with no swimmer names, and would silently empty the table if no
+  // session matched at all, so it only appears when it can actually do something.
+  const filterUsable = anySwimmers && anyHighlightedSession;
+  highlightFilterRow.classList.toggle("hidden", !filterUsable);
+  if (!filterUsable) {
+    highlightedOnly.checked = false;
+  }
+  applyHighlightFilter();
   resultEl.classList.remove("hidden");
+}
+
+// Client-side only: hides table rows whose highlighted_events is empty, using the field already
+// present in the sessions response -- no refetch, and no second notion of "has a highlight" that
+// could disagree with the server's. The download links get highlighted_only=1 so the PDFs are
+// filtered by the same rule server-side.
+function applyHighlightFilter() {
+  if (!loaded) return;
+  const on = filterUsable() && highlightedOnly.checked;
+  const rows = [...sessionsBody.querySelectorAll("tr")];
+  let shown = 0;
+  for (const row of rows) {
+    const hasHighlight = row.dataset.highlighted === "1";
+    const hide = on && !hasHighlight;
+    row.hidden = hide;
+    if (!hide) shown += 1;
+  }
+  const suffix = on ? `&highlighted_only=1` : "";
+  downloadAll.setAttribute("href", `/api/officials/badges?${loaded.query}${suffix}`);
+  downloadSheet.setAttribute("href", `/api/officials/badges?${loaded.query}&layout=sheet${suffix}`);
+  if (on) {
+    setStatus(
+      `Showing ${shown} session${shown === 1 ? "" : "s"} with your swimmer(s). Downloads are filtered to match.`,
+      "idle",
+    );
+  } else {
+    setStatus("", "idle");
+  }
+}
+
+function filterUsable() {
+  return !highlightFilterRow.classList.contains("hidden");
 }
 
 function renderSwimmerFeedback(payload) {
@@ -220,7 +276,7 @@ function sessionRow(session, query) {
     ? `<span class="starred-count">★ ${starredEvents.map((n) => `#${escapeHtml(n)}`).join(", ")}</span>`
     : '<span class="muted">—</span>';
   return `
-    <tr${starredEvents.length ? ' class="has-starred"' : ""}>
+    <tr${starredEvents.length ? ' class="has-starred"' : ""} data-highlighted="${starredEvents.length ? "1" : "0"}">
       <td data-col="session" data-label="Session">#${escapeHtml(session.session_number)} ${escapeHtml(session.session_name)}<br>${ageNote}</td>
       <td data-col="sdate" data-label="Day">${escapeHtml(session.date_label)}</td>
       <td data-col="swindow" data-label="Start - Est. finish">${escapeHtml(session.start_label)} &ndash; ${escapeHtml(session.finish_label)}</td>

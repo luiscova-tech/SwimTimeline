@@ -27,11 +27,20 @@ from swimtimeline.badges import (
     CARD_W,
     MAROON,
     NAVY,
+    SHEET_COLS,
+    SHEET_GUTTER,
+    SHEET_H,
+    SHEET_MARGIN_X,
+    SHEET_MARGIN_Y,
+    SHEET_ROWS,
+    SHEET_SLOTS_PER_PAGE,
+    SHEET_W,
     abbreviate_age_qualifier,
     abbreviate_stroke,
     badge_event_name,
     badge_meet_name,
     build_session_cards,
+    card_filename,
     cards_for_timeline,
     compact_heat_interval,
     constant_age_qualifier,
@@ -42,8 +51,10 @@ from swimtimeline.badges import (
     parse_event_name,
     parse_heat_intervals,
     render_cards_pdf,
+    render_sheet_pdf,
     row_time_label,
     session_age_qualifiers,
+    sheet_slot_origin,
     session_crosses_noon,
     swimmer_event_numbers,
 )
@@ -790,6 +801,193 @@ class HighlightLayoutTest(unittest.TestCase):
             self.assertLessEqual(
                 stringWidth(row["name"], "Helvetica", size), col_event_w - 4, row["name"]
             )
+
+
+def page_text(reader: PdfReader, index: int) -> str:
+    """One page's extracted text with whitespace collapsed, so a card's content can be compared
+    across layouts -- the same card drawn at a tiled position has identical text but different
+    coordinates, so the raw content stream can't be compared byte-for-byte."""
+    return " ".join((reader.pages[index].extract_text() or "").split())
+
+
+class SheetGridGeometryTest(unittest.TestCase):
+    """The print-sheet grid itself, checkable without generating a PDF.
+
+    Three columns rather than four: four native-width cards need 4 x 144 = 576pt, leaving only
+    18pt of side margin with a ZERO gutter, and overflowing the sheet (-9pt) with any gutter at
+    all -- and 18pt is exactly the unprintable edge on typical consumer printers, so the outer
+    cards' own borders would be clipped off.
+    """
+
+    def test_sheet_is_us_letter_and_the_grid_lands_on_clean_margins(self):
+        self.assertEqual((SHEET_W, SHEET_H), (612.0, 792.0))
+        self.assertEqual((SHEET_COLS, SHEET_ROWS, SHEET_SLOTS_PER_PAGE), (3, 3, 9))
+        self.assertEqual(SHEET_GUTTER, 18.0)
+        # Derived from the grid, and exact: 1.00" sides, 0.75" top/bottom.
+        self.assertEqual(SHEET_MARGIN_X, 72.0)
+        self.assertEqual(SHEET_MARGIN_Y, 54.0)
+        # The margins really do account for every remaining point of the sheet.
+        self.assertEqual(
+            SHEET_MARGIN_X * 2 + SHEET_COLS * CARD_W + (SHEET_COLS - 1) * SHEET_GUTTER, SHEET_W
+        )
+        self.assertEqual(
+            SHEET_MARGIN_Y * 2 + SHEET_ROWS * CARD_H + (SHEET_ROWS - 1) * SHEET_GUTTER, SHEET_H
+        )
+
+    def test_four_columns_would_not_have_fit(self):
+        """Pins the reason the grid is 3 wide, so nobody 'optimises' it to 4 and clips the cards."""
+        self.assertLess(SHEET_W - 4 * CARD_W, 2 * 18.0 + 1)  # < 0.25" per side even with no gutter
+        self.assertLess(SHEET_W, 4 * CARD_W + 3 * SHEET_GUTTER)  # overflows outright with a gutter
+
+    def test_every_slot_sits_inside_the_sheet_and_none_overlap(self):
+        boxes = [sheet_slot_origin(index) for index in range(SHEET_SLOTS_PER_PAGE)]
+        for index, (x, y) in enumerate(boxes):
+            self.assertGreaterEqual(x, SHEET_MARGIN_X, index)
+            self.assertGreaterEqual(y, SHEET_MARGIN_Y, index)
+            self.assertLessEqual(x + CARD_W, SHEET_W - SHEET_MARGIN_X, index)
+            self.assertLessEqual(y + CARD_H, SHEET_H - SHEET_MARGIN_Y, index)
+        for first in range(len(boxes)):
+            for second in range(first + 1, len(boxes)):
+                (ax, ay), (bx, by) = boxes[first], boxes[second]
+                overlaps = (
+                    ax < bx + CARD_W and bx < ax + CARD_W and ay < by + CARD_H and by < ay + CARD_H
+                )
+                self.assertFalse(overlaps, (first, second))
+
+    def test_slots_run_in_reading_order_left_to_right_top_row_first(self):
+        """PDF user space has y=0 at the BOTTOM, so the top row must be the HIGHEST y -- the easy
+        thing to get backwards here."""
+        first_row = [sheet_slot_origin(index) for index in range(SHEET_COLS)]
+        self.assertEqual([x for x, _y in first_row], sorted(x for x, _y in first_row))
+        self.assertEqual(len({y for _x, y in first_row}), 1)  # one row, one y
+        top_y = sheet_slot_origin(0)[1]
+        middle_y = sheet_slot_origin(SHEET_COLS)[1]
+        bottom_y = sheet_slot_origin(2 * SHEET_COLS)[1]
+        self.assertGreater(top_y, middle_y)
+        self.assertGreater(middle_y, bottom_y)
+        self.assertEqual(top_y + CARD_H, SHEET_H - SHEET_MARGIN_Y)  # flush to the top margin
+        self.assertEqual(bottom_y, SHEET_MARGIN_Y)  # flush to the bottom margin
+
+    def test_a_slot_index_off_the_page_is_refused(self):
+        for bad in (-1, SHEET_SLOTS_PER_PAGE, SHEET_SLOTS_PER_PAGE + 5):
+            with self.assertRaises(ValueError):
+                sheet_slot_origin(bad)
+
+
+class SheetLayoutRenderTest(unittest.TestCase):
+    """The tiled sheet against both real fixtures. The per-page (one-card-per-page) output is
+    unchanged and still tested above -- this is a third option, not a replacement, and explicitly
+    NOT the deferred "12-up" idea (which would repeat ONE session's card many times).
+    """
+
+    def test_both_real_meets_fit_on_exactly_one_letter_sheet(self):
+        for timeline, flyer, expected_sessions in (
+            (HERC_TIMELINE, HERC_FLYER, 6),
+            (WZAG_TIMELINE, WZAG_FLYER, 8),
+        ):
+            _name, cards, _highlights = cards_for_timeline(timeline, flyer_text=flyer_text(flyer))
+            self.assertEqual(len(cards), expected_sessions)
+            self.assertLessEqual(len(cards), SHEET_SLOTS_PER_PAGE)
+            reader = PdfReader(BytesIO(render_sheet_pdf(cards)))
+            self.assertEqual(len(reader.pages), 1, timeline.name)
+            page = reader.pages[0]
+            self.assertAlmostEqual(float(page.mediabox.width), SHEET_W, places=2)
+            self.assertAlmostEqual(float(page.mediabox.height), SHEET_H, places=2)
+
+    def test_each_card_on_the_sheet_is_identical_to_its_standalone_page(self):
+        """The whole point of reusing draw_card() untouched: a card tiled on a sheet carries
+        exactly the content of its own 144x216pt page. Compared as text, since the tiled copy
+        differs only by coordinate translation."""
+        for timeline, flyer in ((HERC_TIMELINE, HERC_FLYER), (WZAG_TIMELINE, WZAG_FLYER)):
+            _name, cards, _highlights = cards_for_timeline(timeline, flyer_text=flyer_text(flyer))
+            per_page = PdfReader(BytesIO(render_cards_pdf(cards)))
+            sheet = PdfReader(BytesIO(render_sheet_pdf(cards)))
+            self.assertEqual(len(per_page.pages), len(cards))
+            tiled = page_text(sheet, 0)
+            for index, card in enumerate(cards):
+                standalone = page_text(per_page, index)
+                self.assertTrue(standalone, (timeline.name, index))
+                # Real content, not just a non-empty string.
+                self.assertIn(card.session_label, standalone)
+                self.assertIn(standalone, tiled, f"{timeline.name} session {card.session_number}")
+
+    def test_sheet_carries_every_session_exactly_once(self):
+        _name, cards, _highlights = cards_for_timeline(
+            WZAG_TIMELINE, flyer_text=flyer_text(WZAG_FLYER)
+        )
+        tiled = page_text(PdfReader(BytesIO(render_sheet_pdf(cards))), 0)
+        for card in cards:
+            self.assertEqual(tiled.count(card.session_label), 1, card.session_label)
+
+    def test_pagination_wraps_past_nine_cards(self):
+        """No SINGLE real meet in this repo exercises this: the largest, WZAG, has 8 sessions and
+        Herculean has 6, so both fit one sheet. To exercise the wrap without fabricating a meet,
+        this concatenates the two real meets' real cards (14 real sessions) -- an artificial
+        COMBINATION, but every card is real fixture data.
+        """
+        _n1, herc, _h1 = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
+        _n2, wzag, _h2 = cards_for_timeline(WZAG_TIMELINE, flyer_text=flyer_text(WZAG_FLYER))
+        combined = herc + wzag
+        self.assertEqual(len(combined), 14)
+        reader = PdfReader(BytesIO(render_sheet_pdf(combined)))
+        self.assertEqual(len(reader.pages), 2)  # 9 on the first sheet, 5 on the second
+        for page in reader.pages:
+            self.assertAlmostEqual(float(page.mediabox.width), SHEET_W, places=2)
+            self.assertAlmostEqual(float(page.mediabox.height), SHEET_H, places=2)
+        first, second = page_text(reader, 0), page_text(reader, 1)
+        self.assertIn(combined[0].session_label, first)
+        self.assertIn(combined[8].session_label, first)  # last slot of sheet one
+        self.assertIn(combined[9].session_label, second)  # first slot of sheet two
+        self.assertNotIn(combined[9].session_label, first)
+
+    def test_a_single_card_still_produces_one_full_letter_sheet(self):
+        _name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
+        reader = PdfReader(BytesIO(render_sheet_pdf([cards[0]])))
+        self.assertEqual(len(reader.pages), 1)
+        self.assertAlmostEqual(float(reader.pages[0].mediabox.width), SHEET_W, places=2)
+        self.assertIn(cards[0].session_label, page_text(reader, 0))
+
+    def test_rendering_no_cards_is_refused(self):
+        with self.assertRaises(ValueError):
+            render_sheet_pdf([])
+
+    def test_the_per_page_layout_is_untouched_by_the_sheet_layout(self):
+        """Guard on the explicit requirement that the cut-out format stays exactly as-is."""
+        _name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
+        reader = PdfReader(BytesIO(render_cards_pdf(cards)))
+        self.assertEqual(len(reader.pages), 6)
+        for page in reader.pages:
+            self.assertAlmostEqual(float(page.mediabox.width), CARD_W, places=2)
+            self.assertAlmostEqual(float(page.mediabox.height), CARD_H, places=2)
+
+
+class SheetFilenameTest(unittest.TestCase):
+    def test_each_download_shape_gets_its_own_name(self):
+        _name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
+        self.assertEqual(
+            card_filename("2026 Herculean Invitational"),
+            "2026-herculean-invitational-badge-cards.pdf",
+        )
+        self.assertEqual(
+            card_filename("2026 Herculean Invitational", layout="sheet"),
+            "2026-herculean-invitational-badge-card-sheets.pdf",
+        )
+        # A specific session wins over the layout -- it is one card either way.
+        self.assertEqual(
+            card_filename("2026 Herculean Invitational", cards[0], layout="sheet"),
+            "2026-herculean-invitational-session-1-badge-card.pdf",
+        )
+
+    def test_a_filtered_download_is_named_differently_from_an_unfiltered_one(self):
+        """Otherwise both land in Downloads as the same name plus "(1)" and become
+        indistinguishable."""
+        plain = card_filename("2026 Herculean Invitational")
+        filtered = card_filename("2026 Herculean Invitational", highlighted_only=True)
+        sheet_plain = card_filename("2026 Herculean Invitational", layout="sheet")
+        sheet_filtered = card_filename("2026 Herculean Invitational", layout="sheet", highlighted_only=True)
+        self.assertEqual(len({plain, filtered, sheet_plain, sheet_filtered}), 4)
+        self.assertIn("highlighted", filtered)
+        self.assertIn("highlighted", sheet_filtered)
 
 
 class CroswhiteNoAgeQualifierEventShapeTest(unittest.TestCase):

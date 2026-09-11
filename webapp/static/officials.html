@@ -113,11 +113,22 @@
             <div class="result-actions">
               <div class="downloads">
                 <a id="downloadAll" href="#">Download All Sessions (PDF)</a>
+                <a id="downloadSheet" class="secondary-button" href="#">Download Print Sheet</a>
               </div>
+              <small class="download-hint">One card per page is sized to cut out for a badge holder. The print sheet tiles the same cards on letter paper.</small>
             </div>
           </div>
           <div id="warnings" class="warnings"></div>
           <div id="highlightSummary" class="highlight-summary hidden"></div>
+          <div id="highlightFilterRow" class="highlight-filter hidden">
+            <label class="check-option">
+              <input type="checkbox" id="highlightedOnly">
+              <span>
+                <strong>Only sessions with my swimmer(s)</strong>
+                <small>Hides sessions none of the named swimmers swim in, in the table and in both downloads.</small>
+              </span>
+            </label>
+          </div>
           <div class="table-wrap">
             <!-- Own data-col names (sdate/swindow, not day/window) so the swimmer table's mobile
                  stacking rules in styles.css can't reorder this one. -->

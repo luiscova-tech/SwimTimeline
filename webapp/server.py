@@ -59,6 +59,7 @@ from swimtimeline.badges import (
     cards_for_timeline,
     is_ambiguous_warning,
     render_cards_pdf,
+    render_sheet_pdf,
 )
 from swimtimeline.extract import analyze_uploads, extract_text_pages, resolve_meet_timezone
 from swimtimeline.ics import build_ics
@@ -386,19 +387,44 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         }
 
     def send_badges_pdf(self, query: dict) -> None:
-        """The badge-card PDF itself: every session of the meet, or one session when `session` is
-        given. Both come from the same per-session draw_card() call, so a single card is simply a
-        one-page version of the combined document.
+        """The badge-card PDF itself. Three shapes, all built from the same per-session draw_card()
+        call, so a card's content never differs between them:
+
+          * default            -- one 144x216pt page per session (a page IS a card, so a printed
+                                  page can be cut out and worn in a badge holder)
+          * ?session=N         -- the same thing for one session, i.e. a one-page version
+          * ?layout=sheet      -- those same native-size cards tiled on shared letter sheets, so a
+                                  whole meet's reference schedule isn't N mostly-blank pages
+
+        `layout` (not `format`) because it selects an arrangement of the same content, whereas
+        "format" would imply a different file type; its values name the arrangement ("cards" /
+        "sheet") rather than being a bare on/off flag, which leaves room for further layouts
+        without another parameter. Unknown values are rejected rather than silently defaulting, so
+        a typo can't quietly hand back the wrong document.
+
+        `highlighted_only=1` drops sessions no named swimmer is entered in. It reads as a filter
+        next to `session`'s selection, and matches the `swimmer_names` it depends on. It is applied
+        AFTER `session`, with no special-casing: asking for one specific session AND a filter that
+        excludes it is contradictory, and falls into the same clear zero-match error below rather
+        than silently ignoring one of the two.
         """
         try:
             meet_id = str((query.get("meet_id") or [""])[0]).strip()
             token = str((query.get("token") or [""])[0]).strip()
             session_raw = str((query.get("session") or [""])[0]).strip()
+            layout = str((query.get("layout") or ["cards"])[0]).strip().lower() or "cards"
+            if layout not in {"cards", "sheet"}:
+                raise ValueError(f"Unknown layout '{layout}'. Use 'cards' or 'sheet'.")
+            highlighted_only = query_bool(query, "highlighted_only")
             # Same "swimmer_names" field name the rest of the app uses, repeated once per swimmer
             # so the page can hand the exact list it already validated straight to the download.
             swimmer_names = unique_swimmer_names(
                 [name.strip() for name in (query.get("swimmer_names") or []) if name.strip()]
             )
+            if highlighted_only and not swimmer_names:
+                raise ValueError(
+                    "highlighted_only needs at least one swimmer name to filter by."
+                )
             if meet_id:
                 meet, cards, _highlights = officials_cards_for_meet(meet_id, swimmer_names)
                 meet_name = str(meet.get("name") or "Swim Meet")
@@ -415,8 +441,25 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
                 if not cards:
                     raise ValueError(f"Session {wanted} is not in this meet's timeline.")
 
-            content = render_cards_pdf(cards)
-            filename = card_filename(meet_name, cards[0] if session_raw else None)
+            if highlighted_only:
+                # Reuses the per-card highlight list the page's own session table already reads --
+                # no second "is this session interesting" rule to drift out of step with it.
+                cards = [card for card in cards if card.highlighted_event_numbers]
+                if not cards:
+                    named = ", ".join(swimmer_names)
+                    raise ValueError(
+                        f"No session at this meet has an event for {named}, so there is nothing "
+                        "to print. Clear the 'only sessions with my swimmer(s)' filter, or check "
+                        "the spelling of the name(s)."
+                    )
+
+            content = render_sheet_pdf(cards) if layout == "sheet" else render_cards_pdf(cards)
+            filename = card_filename(
+                meet_name,
+                cards[0] if session_raw else None,
+                layout=layout,
+                highlighted_only=highlighted_only,
+            )
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/pdf")
             self.send_header("Content-Disposition", f'attachment; filename="{filename}"')

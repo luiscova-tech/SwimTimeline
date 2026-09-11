@@ -1961,3 +1961,28 @@ td strong {
 .sessions-table tr.has-starred td[data-col="session"] {
   box-shadow: inset 3px 0 0 #d9a520;
 }
+
+/* Officials: print-sheet download + the "only my swimmers" session filter. Reuses the family
+   page's .check-option for the toggle itself; only the wrapper and hint are new. */
+
+.download-hint {
+  display: block;
+  max-width: 340px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.highlight-filter {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfcfe;
+}
+
+.highlight-filter .check-option {
+  margin: 0;
+}

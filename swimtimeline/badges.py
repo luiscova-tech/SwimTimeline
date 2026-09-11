@@ -57,6 +57,26 @@ from .extract import (
 CARD_W = 144.0
 CARD_H = 216.0
 
+# Print-sheet geometry: several DIFFERENT sessions' cards tiled on shared letter pages, at native
+# card size. This exists so a whole meet's reference schedule doesn't print as N mostly-blank
+# full sheets, one per session -- it is NOT the cut-out-and-wear format (that is render_cards_pdf's
+# one-card-per-page output, whose page IS the card), and NOT the deferred "12-up" idea from the
+# original spec (which repeats ONE session's card 12 times to hand out to that session's officials).
+SHEET_W = 612.0  # US Letter, 8.5" x 11"
+SHEET_H = 792.0
+SHEET_GUTTER = 18.0  # 0.25" between neighbouring cards, so a cut line is visible between them
+# 3 columns, not 4. Four native-width cards need 4 x 144 = 576pt, which leaves only 18pt of side
+# margin with a ZERO gutter, and overflows the sheet outright (-9pt) once any gutter is added --
+# and 18pt (0.25") is exactly the unprintable edge on typical consumer laser/inkjet printers, so
+# the outer cards' borders would be clipped. Three columns fit with room to spare.
+SHEET_COLS = 3
+SHEET_ROWS = 3
+SHEET_SLOTS_PER_PAGE = SHEET_COLS * SHEET_ROWS
+# Derived, not hardcoded, so changing the grid or gutter keeps the block centred: the 3x3/18pt
+# grid lands on exactly 72pt (1.00") horizontal and 54pt (0.75") vertical margins.
+SHEET_MARGIN_X = (SHEET_W - (SHEET_COLS * CARD_W + (SHEET_COLS - 1) * SHEET_GUTTER)) / 2
+SHEET_MARGIN_Y = (SHEET_H - (SHEET_ROWS * CARD_H + (SHEET_ROWS - 1) * SHEET_GUTTER)) / 2
+
 
 # ---------------------------------------------------------------------------
 # Card rendering -- near-verbatim from badge_lib.py (already built and tested)
@@ -777,10 +797,78 @@ def render_cards_pdf(cards: list[SessionCard]) -> bytes:
     return buffer.getvalue()
 
 
-def card_filename(meet_name: str, card: SessionCard | None = None) -> str:
-    """A safe download filename: whole meet, or one session."""
+def sheet_slot_origin(slot_index: int) -> tuple[float, float]:
+    """The (x, y) lower-left corner of one grid slot on a print sheet, in reading order: left to
+    right, top row first. slot_index is the position WITHIN a page (0 .. SHEET_SLOTS_PER_PAGE-1).
+
+    Split out from render_sheet_pdf so the grid itself is checkable without parsing PDF bytes.
+    PDF user space puts y=0 at the BOTTOM, so the top row is the highest y, not the lowest.
+    """
+    if not 0 <= slot_index < SHEET_SLOTS_PER_PAGE:
+        raise ValueError(f"slot_index {slot_index} is outside a {SHEET_SLOTS_PER_PAGE}-slot page.")
+    row, column = divmod(slot_index, SHEET_COLS)
+    x = SHEET_MARGIN_X + column * (CARD_W + SHEET_GUTTER)
+    y = SHEET_H - SHEET_MARGIN_Y - (row + 1) * CARD_H - row * SHEET_GUTTER
+    return x, y
+
+
+def render_sheet_pdf(cards: list[SessionCard]) -> bytes:
+    """Letter-size sheets with up to SHEET_SLOTS_PER_PAGE different sessions' cards tiled on each,
+    every card drawn at its native 144x216pt size by the SAME draw_card() call the one-card-per-page
+    output uses -- no scaling, no separate drawing path, so a card here is byte-for-byte the same
+    content as its standalone page.
+
+    Cards fill reading order and wrap onto further sheets past nine. That pagination is NOT
+    exercised by any real fixture in this repo today: the largest, WZAG, has 8 sessions and
+    Herculean has 6, so both land on a single sheet. The loop is written for it regardless rather
+    than assuming one page is always enough.
+    """
+    if not cards:
+        raise ValueError("No sessions to render.")
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=(SHEET_W, SHEET_H))
+    pdf.setTitle(f"{cards[0].meet_name} badge card sheets")
+    for index, card in enumerate(cards):
+        slot = index % SHEET_SLOTS_PER_PAGE
+        if slot == 0 and index:
+            pdf.showPage()  # previous sheet is full
+        origin_x, origin_y = sheet_slot_origin(slot)
+        draw_card(
+            pdf,
+            origin_x,
+            origin_y,
+            CARD_W,
+            CARD_H,
+            meet_name=card.meet_name,
+            session_label=card.session_label,
+            date_label=card.date_label,
+            start_label=card.start_label,
+            heat_interval=card.heat_interval,
+            events=card.events,
+            finish_label=card.finish_label,
+        )
+    pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
+
+
+def card_filename(
+    meet_name: str,
+    card: SessionCard | None = None,
+    layout: str = "cards",
+    highlighted_only: bool = False,
+) -> str:
+    """A safe download filename: whole meet, one session, or tiled print sheets.
+
+    highlighted_only is part of the name because a filtered and an unfiltered download of the same
+    meet are different documents -- without it the browser just appends "(1)" and the two are
+    indistinguishable in a Downloads folder.
+    """
     slug = re.sub(r"[^a-z0-9]+", "-", meet_name.lower()).strip("-") or "meet"
     slug = slug[:60].strip("-")
-    if card is None:
-        return f"{slug}-badge-cards.pdf"
-    return f"{slug}-session-{card.session_number}-badge-card.pdf"
+    if card is not None:
+        return f"{slug}-session-{card.session_number}-badge-card.pdf"
+    suffix = "-highlighted" if highlighted_only else ""
+    if layout == "sheet":
+        return f"{slug}-badge-card-sheets{suffix}.pdf"
+    return f"{slug}-badge-cards{suffix}.pdf"
