@@ -1,18 +1,23 @@
-"""/api/officials/badges -- the three download shapes and the highlighted-only filter.
+"""/api/officials/badges -- the four download shapes and the highlighted-only filter.
 
 These drive the REAL HTTP endpoint (the same path the Officials page's download links hit), not
 the badges module directly, because the parameter parsing, the layout selection and the
 highlighted-only filtering all live in send_badges_pdf(). The per-card rendering itself is covered
 in tests/test_badges.py.
 
-Three shapes, all from the same per-session draw_card() call:
-  * default          -- one 144x216pt page per session; a page IS a card, so it can be cut out and
-                        worn in a badge holder. Unchanged by the sheet layout.
-  * ?session=N       -- the same, for one session.
-  * ?layout=sheet    -- those native-size cards tiled on shared 612x792pt letter sheets.
+Four shapes, all from the same per-session draw_card() call:
+  * default            -- one 144x216pt page per session; a page IS a card, so it can be cut out
+                          and worn in a badge holder. Unchanged by either sheet layout.
+  * ?session=N         -- the same, for one session.
+  * ?layout=sheet      -- those native-size cards tiled on shared 612x792pt letter sheets, one
+                          card per session.
+  * ?layout=handout    -- ONE session's card repeated `copies` times, tiled the same way, to hand
+                          out to that session's officials (the original spec's deferred "12-up").
+                          Needs both `session` and `copies` -- see the clear-error tests below for
+                          every way one can be missing or invalid.
 
 `?highlighted_only=1` drops sessions none of the named swimmers swim in, and composes with either
-multi-session layout.
+multi-session layout (not `handout`, which is already pinned to one session).
 
 NOTE on coverage: the equivalent CLIENT-SIDE table filtering in webapp/static/officials.js has no
 automated coverage -- this repo has no JS test runner or harness of any kind, so that half is
@@ -222,6 +227,108 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
         )
         reader = self.assert_pdf(status, headers, body, pages=1, size=(144.0, 216.0))
         self.assertIn("SESSION 1", self.page_text(reader, 0))
+
+    # ---- layout=handout (print copies) -------------------------------------
+
+    def test_handout_under_nine_copies_is_one_sheet(self):
+        status, headers, body = self.badges(
+            meet_id=HERCULEAN, session=1, layout="handout", copies=5
+        )
+        reader = self.assert_pdf(status, headers, body, pages=1, size=(612.0, 792.0))
+        tiled = self.page_text(reader, 0)
+        self.assertEqual(tiled.count("Est. Finish"), 5)
+        self.assertIn("SESSION 1", tiled)
+        self.assertIn("session-1-badge-cards-x5.pdf", headers["Content-Disposition"])
+
+    def test_handout_ten_copies_wraps_to_two_sheets_nine_plus_one(self):
+        status, headers, body = self.badges(
+            meet_id=HERCULEAN, session=1, layout="handout", copies=10
+        )
+        reader = self.assert_pdf(status, headers, body, pages=2, size=(612.0, 792.0))
+        self.assertEqual(self.page_text(reader, 0).count("Est. Finish"), 9)
+        self.assertEqual(self.page_text(reader, 1).count("Est. Finish"), 1)
+        self.assertIn("session-1-badge-cards-x10.pdf", headers["Content-Disposition"])
+
+    def test_handout_content_matches_the_real_single_session_card(self):
+        """The copies must be the SAME real card, not a placeholder -- compares against the
+        existing single-session (?session=1) download's own content."""
+        _s, _h, single_body = self.badges(meet_id=HERCULEAN, session=1)
+        single_text = self.page_text(PdfReader(BytesIO(single_body)), 0)
+        _s, _h2, handout_body = self.badges(
+            meet_id=HERCULEAN, session=1, layout="handout", copies=3
+        )
+        tiled = self.page_text(PdfReader(BytesIO(handout_body)), 0)
+        self.assertEqual(tiled.count(single_text), 3)
+
+    def test_handout_without_a_session_is_a_clear_error(self):
+        status, _headers, body = self.badges(meet_id=HERCULEAN, layout="handout", copies=5)
+        self.assertEqual(status, 400)
+        self.assertIn("explicit session", json.loads(body)["error"])
+
+    def test_copies_without_a_session_is_a_clear_error_even_without_layout_handout(self):
+        status, _headers, body = self.badges(meet_id=HERCULEAN, copies=5)
+        self.assertEqual(status, 400)
+        self.assertIn("explicit session", json.loads(body)["error"])
+
+    def test_copies_without_layout_handout_is_a_clear_error(self):
+        status, _headers, body = self.badges(meet_id=HERCULEAN, session=1, copies=5)
+        self.assertEqual(status, 400)
+        self.assertIn("layout=handout", json.loads(body)["error"])
+
+    def test_handout_without_copies_is_a_clear_error(self):
+        status, _headers, body = self.badges(meet_id=HERCULEAN, session=1, layout="handout")
+        self.assertEqual(status, 400)
+        self.assertIn("copies", json.loads(body)["error"])
+
+    def test_copies_zero_or_negative_is_a_clear_error(self):
+        for bad in (0, -1):
+            status, _headers, body = self.badges(
+                meet_id=HERCULEAN, session=1, layout="handout", copies=bad
+            )
+            self.assertEqual(status, 400, bad)
+            self.assertIn("positive", json.loads(body)["error"])
+
+    def test_copies_non_numeric_is_a_clear_error(self):
+        status, _headers, body = self.badges(
+            meet_id=HERCULEAN, session=1, layout="handout", copies="many"
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("positive", json.loads(body)["error"])
+
+    def test_copies_above_the_cap_is_a_clear_error(self):
+        status, _headers, body = self.badges(
+            meet_id=HERCULEAN, session=1, layout="handout", copies=201
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("capped", json.loads(body)["error"])
+        # Not a broken/truncated PDF either.
+        self.assertNotIn(b"%PDF", body)
+
+    def test_copies_at_the_cap_succeeds(self):
+        status, headers, body = self.badges(
+            meet_id=HERCULEAN, session=1, layout="handout", copies=200
+        )
+        self.assertEqual(status, 200, body[:200])
+        reader = PdfReader(BytesIO(body))
+        self.assertEqual(len(reader.pages), 23)  # ceil(200/9)
+
+    def test_unknown_layout_still_rejected_alongside_handout(self):
+        status, _headers, body = self.badges(meet_id=HERCULEAN, layout="12up")
+        self.assertEqual(status, 400)
+        message = json.loads(body)["error"]
+        self.assertIn("handout", message)
+
+    def test_default_cards_sheet_and_single_session_outputs_are_unaffected(self):
+        """Re-verifies the three pre-existing shapes still work exactly as before, not just
+        assumes they do because handout was added elsewhere."""
+        status, headers, body = self.badges(meet_id=HERCULEAN)
+        self.assert_pdf(status, headers, body, pages=6, size=(144.0, 216.0))
+
+        status, headers, body = self.badges(meet_id=HERCULEAN, layout="sheet")
+        self.assert_pdf(status, headers, body, pages=1, size=(612.0, 792.0))
+
+        status, headers, body = self.badges(meet_id=HERCULEAN, session=3)
+        self.assert_pdf(status, headers, body, pages=1, size=(144.0, 216.0))
 
 
 if __name__ == "__main__":

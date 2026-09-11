@@ -852,21 +852,55 @@ def render_sheet_pdf(cards: list[SessionCard]) -> bytes:
     return buffer.getvalue()
 
 
+# Resource-abuse guard for the "handout" layout below: /api/officials/badges has no auth, and
+# rendering builds the whole PDF in memory before responding, so an unbounded `copies` value from
+# an arbitrary query param is a real DoS/memory vector on a free-tier host -- not a hypothetical
+# one, since nothing else on this request path limits it. Measured cost scales linearly at roughly
+# 0.6ms and 0.6KB PER COPY (benchmarked by rendering a real card 9/100/500/1000/5000 times), so an
+# unbounded request costs the server exactly as much as the attacker asks it to. 200 copies is
+# ~0.12s and ~120KB -- trivial -- while comfortably exceeding any real single-session officiating
+# crew (even a very large meet's session realistically runs a few dozen officials, not hundreds):
+# 200 copies is ~23 letter sheets, already more than anyone would want to cut apart and laminate
+# by hand.
+MAX_HANDOUT_COPIES = 200
+
+
+def render_handout_sheet_pdf(card: SessionCard, copies: int) -> bytes:
+    """`copies` copies of ONE session's card, tiled across as many 9-per-sheet pages as needed.
+
+    This is the original spec's deferred "12-up" idea: enough copies of one session's card to hand
+    out to that session's officials, each cut apart from the sheet. It is built on the exact same
+    grid as the different-sessions sheet layout -- literally render_sheet_pdf() fed `copies`
+    references to the SAME card instead of one card per session -- so the slot geometry and
+    multi-sheet pagination are not reimplemented at all.
+    """
+    if copies < 1:
+        raise ValueError("copies must be at least 1.")
+    if copies > MAX_HANDOUT_COPIES:
+        raise ValueError(f"copies is capped at {MAX_HANDOUT_COPIES} per request.")
+    return render_sheet_pdf([card] * copies)
+
+
 def card_filename(
     meet_name: str,
     card: SessionCard | None = None,
     layout: str = "cards",
     highlighted_only: bool = False,
+    copies: int | None = None,
 ) -> str:
-    """A safe download filename: whole meet, one session, or tiled print sheets.
+    """A safe download filename: whole meet, one session, tiled print sheets, or N copies of one
+    session's card.
 
     highlighted_only is part of the name because a filtered and an unfiltered download of the same
     meet are different documents -- without it the browser just appends "(1)" and the two are
-    indistinguishable in a Downloads folder.
+    indistinguishable in a Downloads folder. copies works the same way: it names the count so a
+    10-copy and a 50-copy handout of the same session don't collide either.
     """
     slug = re.sub(r"[^a-z0-9]+", "-", meet_name.lower()).strip("-") or "meet"
     slug = slug[:60].strip("-")
     if card is not None:
+        if copies:
+            return f"{slug}-session-{card.session_number}-badge-cards-x{copies}.pdf"
         return f"{slug}-session-{card.session_number}-badge-card.pdf"
     suffix = "-highlighted" if highlighted_only else ""
     if layout == "sheet":

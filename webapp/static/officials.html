@@ -151,6 +151,29 @@
             <summary>What's on a card?</summary>
             <p>Each card is one session: event number, event name (gender kept, stroke abbreviated), heat count, and start time, with the session's start time and estimated finish in the header. When every event in a session shares one age group, it's stated once in the header instead of on every row; when a session mixes age groups, each row carries a short tag (11&amp;U, 10-11, 11yo).</p>
           </details>
+
+          <section id="printCopies" class="print-copies">
+            <div class="section-header">
+              <div>
+                <h2>Print Copies <small>(one session)</small></h2>
+                <p class="section-copy">Pick one session and how many copies of its card to print &mdash; tiled 9 to a letter sheet &mdash; to hand out to that session's officials.</p>
+              </div>
+            </div>
+            <div class="print-copies-fields">
+              <label class="officials-field">
+                <span>Session</span>
+                <select id="copiesSession">
+                  <option value="">Select a session&hellip;</option>
+                </select>
+              </label>
+              <label class="officials-field">
+                <span>Copies <small>(max 200)</small></span>
+                <input type="number" id="copiesCount" min="1" max="200" value="9" inputmode="numeric">
+              </label>
+            </div>
+            <p id="copiesEstimate" class="muted">9 copies at 9 per sheet &mdash; 1 sheet.</p>
+            <a id="downloadCopies" class="secondary-button is-disabled" href="#" aria-disabled="true">Download Print Copies</a>
+          </section>
         </section>
       </section>
     </main>

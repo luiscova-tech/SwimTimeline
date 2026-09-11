@@ -59,6 +59,7 @@ from swimtimeline.badges import (
     cards_for_timeline,
     is_ambiguous_warning,
     render_cards_pdf,
+    render_handout_sheet_pdf,
     render_sheet_pdf,
 )
 from swimtimeline.extract import analyze_uploads, extract_text_pages, resolve_meet_timezone
@@ -387,7 +388,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         }
 
     def send_badges_pdf(self, query: dict) -> None:
-        """The badge-card PDF itself. Three shapes, all built from the same per-session draw_card()
+        """The badge-card PDF itself. Four shapes, all built from the same per-session draw_card()
         call, so a card's content never differs between them:
 
           * default            -- one 144x216pt page per session (a page IS a card, so a printed
@@ -395,26 +396,49 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
           * ?session=N         -- the same thing for one session, i.e. a one-page version
           * ?layout=sheet      -- those same native-size cards tiled on shared letter sheets, so a
                                   whole meet's reference schedule isn't N mostly-blank pages
+          * ?layout=handout    -- ONE session's card repeated `copies` times, tiled the same way,
+                                  to hand out to that session's officials (the original spec's
+                                  deferred "12-up" idea)
 
         `layout` (not `format`) because it selects an arrangement of the same content, whereas
         "format" would imply a different file type; its values name the arrangement ("cards" /
-        "sheet") rather than being a bare on/off flag, which leaves room for further layouts
-        without another parameter. Unknown values are rejected rather than silently defaulting, so
-        a typo can't quietly hand back the wrong document.
+        "sheet" / "handout") rather than being a bare on/off flag, which is exactly what let this
+        fourth value slot in without a new parameter. Unknown values are rejected rather than
+        silently defaulting, so a typo can't quietly hand back the wrong document.
 
         `highlighted_only=1` drops sessions no named swimmer is entered in. It reads as a filter
         next to `session`'s selection, and matches the `swimmer_names` it depends on. It is applied
         AFTER `session`, with no special-casing: asking for one specific session AND a filter that
         excludes it is contradictory, and falls into the same clear zero-match error below rather
         than silently ignoring one of the two.
+
+        `copies=N` is only meaningful paired with `layout=handout` AND an explicit `session` --
+        repeating "the meet" doesn't mean anything, so either one missing is a clear error rather
+        than a silent guess. The cap on N (see badges.MAX_HANDOUT_COPIES) is enforced inside
+        render_handout_sheet_pdf(), not here, so there is one place that owns the number.
         """
         try:
             meet_id = str((query.get("meet_id") or [""])[0]).strip()
             token = str((query.get("token") or [""])[0]).strip()
             session_raw = str((query.get("session") or [""])[0]).strip()
             layout = str((query.get("layout") or ["cards"])[0]).strip().lower() or "cards"
-            if layout not in {"cards", "sheet"}:
-                raise ValueError(f"Unknown layout '{layout}'. Use 'cards' or 'sheet'.")
+            if layout not in {"cards", "sheet", "handout"}:
+                raise ValueError(f"Unknown layout '{layout}'. Use 'cards', 'sheet', or 'handout'.")
+            copies_raw = str((query.get("copies") or [""])[0]).strip()
+            if (layout == "handout" or copies_raw) and not session_raw:
+                raise ValueError(
+                    "The handout layout repeats one session's card, so an explicit session is "
+                    "required -- repeating the whole meet's schedule doesn't mean anything."
+                )
+            if copies_raw and layout != "handout":
+                raise ValueError("copies is only used with layout=handout.")
+            copies: int | None = None
+            if layout == "handout":
+                if not copies_raw:
+                    raise ValueError("layout=handout needs a copies=N param saying how many to print.")
+                if not copies_raw.isdigit() or int(copies_raw) < 1:
+                    raise ValueError("copies must be a positive whole number.")
+                copies = int(copies_raw)
             highlighted_only = query_bool(query, "highlighted_only")
             # Same "swimmer_names" field name the rest of the app uses, repeated once per swimmer
             # so the page can hand the exact list it already validated straight to the download.
@@ -453,12 +477,18 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
                         "the spelling of the name(s)."
                     )
 
-            content = render_sheet_pdf(cards) if layout == "sheet" else render_cards_pdf(cards)
+            if layout == "handout":
+                content = render_handout_sheet_pdf(cards[0], copies)
+            elif layout == "sheet":
+                content = render_sheet_pdf(cards)
+            else:
+                content = render_cards_pdf(cards)
             filename = card_filename(
                 meet_name,
                 cards[0] if session_raw else None,
                 layout=layout,
                 highlighted_only=highlighted_only,
+                copies=copies,
             )
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/pdf")

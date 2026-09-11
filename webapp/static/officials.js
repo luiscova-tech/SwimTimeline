@@ -22,6 +22,17 @@ const swimmerList = document.querySelector("#swimmerList");
 const addSwimmerButton = document.querySelector("#addSwimmer");
 const warningsEl = document.querySelector("#warnings");
 const highlightSummaryEl = document.querySelector("#highlightSummary");
+const copiesSession = document.querySelector("#copiesSession");
+const copiesCount = document.querySelector("#copiesCount");
+const copiesEstimate = document.querySelector("#copiesEstimate");
+const downloadCopies = document.querySelector("#downloadCopies");
+
+// Mirrors swimtimeline/badges.py's SHEET_SLOTS_PER_PAGE and MAX_HANDOUT_COPIES. Duplicated here
+// (rather than fetched) because the page-count estimate is meant to update live as the number is
+// typed, with no round trip -- see updateCopiesEstimate. The server is still the one that enforces
+// the cap; this is only a live preview, not the source of truth.
+const HANDOUT_SLOTS_PER_SHEET = 9;
+const MAX_HANDOUT_COPIES = 200;
 
 // The most recently loaded sessions response plus the query base its download links are built
 // from, kept so the highlight filter can re-apply client-side without refetching.
@@ -31,6 +42,15 @@ loadHostedMeets();
 updateRemoveButtons();
 
 highlightedOnly.addEventListener("change", applyHighlightFilter);
+copiesSession.addEventListener("change", updateCopiesEstimate);
+copiesCount.addEventListener("input", updateCopiesEstimate);
+downloadCopies.addEventListener("click", (event) => {
+  // pointer-events:none (via .is-disabled) already blocks mouse clicks; this also blocks
+  // keyboard activation (Enter/Space on a focused disabled link), which CSS alone does not.
+  if (downloadCopies.classList.contains("is-disabled")) {
+    event.preventDefault();
+  }
+});
 
 loadMeetButton.addEventListener("click", () => {
   const meetId = meetSelect.value;
@@ -188,6 +208,18 @@ function renderSessions(payload) {
   // Keep the loaded payload so the filter toggle can re-apply without another round trip -- the
   // per-session highlighted_events the table needs is already in this response.
   loaded = { payload, query };
+
+  // Options reset to "Select a session…" (innerHTML replacement drops any prior selection), which
+  // is correct here: the previous session numbers may not even exist in a newly loaded meet.
+  copiesSession.innerHTML = [
+    '<option value="">Select a session&hellip;</option>',
+    ...sessions.map(
+      (session) =>
+        `<option value="${escapeHtml(session.session_number)}">#${escapeHtml(session.session_number)} ${escapeHtml(session.session_name)}</option>`
+    ),
+  ].join("");
+  updateCopiesEstimate();
+
   const anySwimmers = (payload.swimmer_names || []).length > 0;
   const anyHighlightedSession = sessions.some(
     (session) => (session.highlighted_events || []).length > 0
@@ -233,6 +265,39 @@ function applyHighlightFilter() {
 
 function filterUsable() {
   return !highlightFilterRow.classList.contains("hidden");
+}
+
+// Live page-count preview for the "Print Copies" panel -- plain arithmetic against the two
+// constants mirrored from badges.py above, no round trip. The server (send_badges_pdf) is the one
+// that actually enforces the copies bound; this only keeps the download link's href in sync and
+// disables it until both fields are valid, matching the disabled state set in officials.html.
+function updateCopiesEstimate() {
+  const sessionNumber = copiesSession.value;
+  const rawCopies = copiesCount.value.trim();
+  const copies = Number(rawCopies);
+  const validCopies =
+    rawCopies !== "" && Number.isInteger(copies) && copies >= 1 && copies <= MAX_HANDOUT_COPIES;
+
+  if (validCopies) {
+    const pages = Math.ceil(copies / HANDOUT_SLOTS_PER_SHEET);
+    copiesEstimate.textContent =
+      `${copies} cop${copies === 1 ? "y" : "ies"} at ${HANDOUT_SLOTS_PER_SHEET} per sheet — ` +
+      `${pages} sheet${pages === 1 ? "" : "s"}.`;
+  } else if (rawCopies === "") {
+    copiesEstimate.textContent = `Up to ${MAX_HANDOUT_COPIES} copies, ${HANDOUT_SLOTS_PER_SHEET} per sheet.`;
+  } else {
+    copiesEstimate.textContent = `Enter a whole number from 1 to ${MAX_HANDOUT_COPIES}.`;
+  }
+
+  const ready = Boolean(loaded) && Boolean(sessionNumber) && validCopies;
+  downloadCopies.classList.toggle("is-disabled", !ready);
+  downloadCopies.setAttribute("aria-disabled", ready ? "false" : "true");
+  downloadCopies.setAttribute(
+    "href",
+    ready
+      ? `/api/officials/badges?${loaded.query}&layout=handout&session=${encodeURIComponent(sessionNumber)}&copies=${encodeURIComponent(copies)}`
+      : "#"
+  );
 }
 
 function renderSwimmerFeedback(payload) {

@@ -26,6 +26,7 @@ from swimtimeline.badges import (
     CARD_H,
     CARD_W,
     MAROON,
+    MAX_HANDOUT_COPIES,
     NAVY,
     SHEET_COLS,
     SHEET_GUTTER,
@@ -51,6 +52,7 @@ from swimtimeline.badges import (
     parse_event_name,
     parse_heat_intervals,
     render_cards_pdf,
+    render_handout_sheet_pdf,
     render_sheet_pdf,
     row_time_label,
     session_age_qualifiers,
@@ -988,6 +990,106 @@ class SheetFilenameTest(unittest.TestCase):
         self.assertEqual(len({plain, filtered, sheet_plain, sheet_filtered}), 4)
         self.assertIn("highlighted", filtered)
         self.assertIn("highlighted", sheet_filtered)
+
+
+class HandoutSheetTest(unittest.TestCase):
+    """render_handout_sheet_pdf(): N copies of ONE real session's card (Herculean session 1,
+    "12 & Over") tiled across as many 9-per-sheet pages as needed -- the original spec's deferred
+    "12-up" idea, now built on the same 3x3 grid as the different-sessions sheet layout via
+    render_sheet_pdf() itself (fed `copies` references to the same card), not a separate
+    implementation.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        _name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
+        cls.card = cards[0]
+        cls.standalone_text = page_text(PdfReader(BytesIO(render_cards_pdf([cls.card]))), 0)
+
+    def slot_counts(self, reader: PdfReader) -> list[int]:
+        """Cards actually placed per page, counted by a marker every card has exactly once."""
+        return [page_text(reader, index).count("Est. Finish") for index in range(len(reader.pages))]
+
+    def test_under_nine_copies_is_a_single_sheet_with_the_rest_of_the_grid_blank(self):
+        reader = PdfReader(BytesIO(render_handout_sheet_pdf(self.card, 5)))
+        self.assertEqual(len(reader.pages), 1)
+        self.assertAlmostEqual(float(reader.pages[0].mediabox.width), SHEET_W, places=2)
+        self.assertAlmostEqual(float(reader.pages[0].mediabox.height), SHEET_H, places=2)
+        self.assertEqual(self.slot_counts(reader), [5])
+
+    def test_exactly_nine_copies_fills_one_sheet_completely(self):
+        reader = PdfReader(BytesIO(render_handout_sheet_pdf(self.card, 9)))
+        self.assertEqual(len(reader.pages), 1)
+        self.assertEqual(self.slot_counts(reader), [9])
+
+    def test_ten_copies_wraps_to_a_second_sheet_with_nine_plus_one(self):
+        reader = PdfReader(BytesIO(render_handout_sheet_pdf(self.card, 10)))
+        self.assertEqual(len(reader.pages), 2)
+        self.assertEqual(self.slot_counts(reader), [9, 1])
+        for page in reader.pages:
+            self.assertAlmostEqual(float(page.mediabox.width), SHEET_W, places=2)
+            self.assertAlmostEqual(float(page.mediabox.height), SHEET_H, places=2)
+
+    def test_other_copy_counts_split_across_sheets_correctly(self):
+        for copies, expected_slot_counts in ((18, [9, 9]), (19, [9, 9, 1]), (1, [1])):
+            reader = PdfReader(BytesIO(render_handout_sheet_pdf(self.card, copies)))
+            self.assertEqual(len(reader.pages), len(expected_slot_counts), copies)
+            self.assertEqual(self.slot_counts(reader), expected_slot_counts, copies)
+
+    def test_every_copys_content_is_identical_to_the_real_standalone_card(self):
+        """Same real session, same real event data, in every one of 10 copies across 2 sheets --
+        not just a count check."""
+        reader = PdfReader(BytesIO(render_handout_sheet_pdf(self.card, 10)))
+        tiled = page_text(reader, 0) + " " + page_text(reader, 1)
+        self.assertEqual(tiled.count(self.standalone_text), 10)
+
+    def test_copies_below_one_is_refused(self):
+        for bad in (0, -1, -100):
+            with self.assertRaises(ValueError):
+                render_handout_sheet_pdf(self.card, bad)
+
+    def test_copies_above_the_cap_is_refused(self):
+        with self.assertRaises(ValueError):
+            render_handout_sheet_pdf(self.card, MAX_HANDOUT_COPIES + 1)
+
+    def test_copies_at_exactly_the_cap_is_allowed(self):
+        # Not rendered at full size here (slow-ish and pointless to assert on) -- just confirms the
+        # cap is inclusive, not exclusive.
+        reader = PdfReader(BytesIO(render_handout_sheet_pdf(self.card, MAX_HANDOUT_COPIES)))
+        self.assertEqual(len(reader.pages), -(-MAX_HANDOUT_COPIES // SHEET_SLOTS_PER_PAGE))
+
+    def test_the_cap_is_reasonable_for_the_stated_use_case(self):
+        """Documents WHY 200: generously above a real single-session officiating crew, while
+        keeping worst-case cost trivial."""
+        self.assertEqual(MAX_HANDOUT_COPIES, 200)
+        sheets_at_cap = -(-MAX_HANDOUT_COPIES // SHEET_SLOTS_PER_PAGE)
+        self.assertLessEqual(sheets_at_cap, 25)  # a stack of paper, not a resource-exhaustion vector
+
+    def test_other_sheet_and_cards_layouts_are_unaffected_by_this_addition(self):
+        """Re-verifies the pre-existing outputs, not just assumes they still work."""
+        _name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
+        per_page = PdfReader(BytesIO(render_cards_pdf(cards)))
+        self.assertEqual(len(per_page.pages), 6)
+        for page in per_page.pages:
+            self.assertAlmostEqual(float(page.mediabox.width), CARD_W, places=2)
+        sheet = PdfReader(BytesIO(render_sheet_pdf(cards)))
+        self.assertEqual(len(sheet.pages), 1)
+        self.assertAlmostEqual(float(sheet.pages[0].mediabox.width), SHEET_W, places=2)
+
+
+class HandoutFilenameTest(unittest.TestCase):
+    def test_copy_count_is_named_and_distinct_from_a_plain_single_session_download(self):
+        _name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
+        plain_session = card_filename("2026 Herculean Invitational", cards[0])
+        handout = card_filename("2026 Herculean Invitational", cards[0], copies=10)
+        self.assertNotEqual(plain_session, handout)
+        self.assertEqual(handout, "2026-herculean-invitational-session-1-badge-cards-x10.pdf")
+
+    def test_different_copy_counts_of_the_same_session_are_distinct_filenames(self):
+        _name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
+        ten = card_filename("2026 Herculean Invitational", cards[0], copies=10)
+        fifty = card_filename("2026 Herculean Invitational", cards[0], copies=50)
+        self.assertNotEqual(ten, fifty)
 
 
 class CroswhiteNoAgeQualifierEventShapeTest(unittest.TestCase):
