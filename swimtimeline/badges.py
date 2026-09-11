@@ -588,6 +588,12 @@ def format_clock_label(value: str | None) -> str:
 # shrink-to-fit floors at 3.6pt and then draws anyway: the untrimmed 70-character name overflows
 # the meta line and clips at both ends on a 2" card.
 _SANCTION_SUFFIX_RE = re.compile(r",?\s*Sanction\s*#?\s*:?.*$", re.IGNORECASE)
+# A single-day meet's parsed name carries its own date: parse_meet_name()'s title branch requires
+# the "M/D/YYYY to M/D/YYYY" range shape, so a one-day Session Report ("2026 Croswhite Invite -
+# 9/12/2026") falls through to its keyword branch and keeps the whole line, date included. The
+# card's meta line already prints the date right next to the name, so leaving it in prints it
+# twice and eats header width that shrink-to-fit then has to give back.
+_TRAILING_DATE_RE = re.compile(r"\s*[-–—]\s*\d{1,2}/\d{1,2}/\d{4}\s*$")
 
 
 def badge_meet_name(meet_name: str) -> str:
@@ -595,10 +601,12 @@ def badge_meet_name(meet_name: str) -> str:
 
     Reuses extract.py's short_meet_name() for the shared normalization (drop a leading year, "MAC
     "/"Arizona " prefixes, "Invitational" -> "Invite") and additionally drops a trailing sanction
-    clause. short_meet_name() is deliberately NOT changed to do this itself -- it also names the
-    family-facing calendars, whose titles existing tests pin.
+    clause and a trailing date. short_meet_name() is deliberately NOT changed to do either -- it
+    also names the family-facing calendars, whose titles existing tests pin.
     """
-    cleaned = _SANCTION_SUFFIX_RE.sub("", normalize_space(meet_name)).strip(" ,")
+    cleaned = normalize_space(meet_name)
+    cleaned = _SANCTION_SUFFIX_RE.sub("", cleaned).strip(" ,")
+    cleaned = _TRAILING_DATE_RE.sub("", cleaned).strip(" ,-")
     return short_meet_name(cleaned) if cleaned else normalize_space(meet_name)
 
 

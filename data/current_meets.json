@@ -215,6 +215,30 @@
         "Psych/heat sheet",
         "Timeline"
       ]
+    },
+    {
+      "id": "2026-croswhite-invite",
+      "name": "2026 Croswhite Invite",
+      "short_name": "Croswhite Invite",
+      "dates": "2026-09-12",
+      "start_date": "2026-09-12",
+      "end_date": "2026-09-12",
+      "expires_at": "2026-09-13",
+      "state": "AZ",
+      "timezone": "America/Phoenix",
+      "venue": "Kerry Croswhite Aquatic Center, Chandler High School, 350 N Arizona Ave, Chandler, AZ 85225",
+      "timeline_type": "projected",
+      "status": "ready",
+      "last_updated": "2026-09-11",
+      "files": {
+        "flyer": null,
+        "psych": null,
+        "timeline": "meets/2026-croswhite-invite/input/2026-croswhite-invite-timeline.pdf",
+        "relay": null
+      },
+      "documents": [
+        "Timeline"
+      ]
     }
   ]
 }

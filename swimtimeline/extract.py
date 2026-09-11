@@ -1424,7 +1424,28 @@ def relay_event_name(group_code: str, event_name: str) -> str:
     return normalize_space(f"{prefix} {event_name}")
 
 
+# A HY-TEK export stamps its OWN print date on the software banner line, before the meet's title:
+#   "HY - TEK's MEET MANAGER 8.0 - 9/6/2026  Page 1Rio Salado Swim Club"
+#   "2026 Croswhite Invite - 9/12/2026"
+# Those two dates differ (the sheet was printed six days before the meet), and the wrong one comes
+# FIRST, so the single-date fallback below has to be able to tell them apart.
+_HYTEK_BANNER_RE = re.compile(r"MEET\s*MANAGER", re.IGNORECASE)
+# The meet-title shape: "<meet name> - <M/D/YYYY>" with the date ending the line. Same "<name> - "
+# convention parse_meet_name() keys off.
+_TITLE_SINGLE_DATE_RE = re.compile(r"-\s*(\d{1,2})/(\d{1,2})/(\d{4})\s*$")
+
+
 def parse_date_range(text: str) -> tuple[date, date] | None:
+    """The meet's (start, end) dates, or None when the text states neither.
+
+    Order matters and is load-bearing: both RANGE shapes are tried first, and the single-date
+    fallback runs only if both fail. This function is shared by every meet in the system, so a
+    single-date pattern that ran first (or ran document-wide) could collapse a real multi-day
+    range to one day.
+
+    Known gap, deliberately not built: a lone spelled-out date ("September 12, 2026"). No real
+    fixture in this repo states one, so there is nothing to verify such a pattern against.
+    """
     match = re.search(
         r"(\d{1,2})/(\d{1,2})/(\d{4})\s+to\s+(\d{1,2})/(\d{1,2})/(\d{4})",
         text,
@@ -1442,6 +1463,29 @@ def parse_date_range(text: str) -> tuple[date, date] | None:
         month = month_number(month_name)
         if month:
             return date(int(year), month, int(start_day)), date(int(year), month, int(end_day))
+
+    # Single-day meet: one numeric date, stated once in the title line. Returned as (d, d) --
+    # everything downstream only reads start_date anyway (see cached_timeline, which discards the
+    # end).
+    #
+    # Deliberately line-anchored instead of a document-wide search for any M/D/YYYY: a bare
+    # re.search would hit the HY-TEK banner's print date first and silently date every event in
+    # the meet wrong, which is worse than the "no date range" error this fallback exists to fix.
+    # So the banner line is skipped outright AND the date must end its line, in the title's
+    # "<name> - <date>" shape.
+    for raw_line in text.splitlines():
+        line = normalize_space(raw_line)
+        if not line or _HYTEK_BANNER_RE.search(line):
+            continue
+        single = _TITLE_SINGLE_DATE_RE.search(line)
+        if not single:
+            continue
+        month, day, year = map(int, single.groups())
+        try:
+            single_date = date(year, month, day)
+        except ValueError:  # e.g. a stray "1 - 13/45/2026"; keep looking rather than crash.
+            continue
+        return single_date, single_date
     return None
 
 

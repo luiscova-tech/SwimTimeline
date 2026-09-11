@@ -43,6 +43,7 @@ from swimtimeline.badges import (
     parse_heat_intervals,
     render_cards_pdf,
     row_time_label,
+    session_age_qualifiers,
     session_crosses_noon,
     swimmer_event_numbers,
 )
@@ -56,6 +57,20 @@ HERC_PSYCH = HERC_DIR / "2026-herculean-invitational-psych-sheet.pdf"
 WZAG_DIR = ROOT / "meets/2026-wzag-championships-boise/input"
 WZAG_TIMELINE = WZAG_DIR / "wzag timelines v4.pdf"
 WZAG_FLYER = WZAG_DIR / "Sanctioned_2026 WZAG Championships - Boise (v5.pdf"
+# 2026 Croswhite Invite -- single day, single "Girls" session, no flyer, no psych sheet. Its 11
+# real event names ("Girls 200 Freestyle", "Girls 50 Freestyle", ...) have NO age-qualifier phrase
+# at all -- gender is immediately followed by the distance number -- unlike every event in
+# Herculean or WZAG, which always has one ("12 & Over", "11-12", ...). See
+# CroswhiteNoAgeQualifierEventShapeTest.
+CROS_DIR = ROOT / "meets/2026-croswhite-invite/input"
+CROS_TIMELINE = CROS_DIR / "2026-croswhite-invite-timeline.pdf"
+# Unlike every other field in this meet's data/current_meets.json entry, "venue" is NOT derived
+# from this document -- the timeline states only the host club name ("Rio Salado Swim Club"), no
+# address at all. The venue string registered there (Kerry Croswhite Aquatic Center, Chandler High
+# School, 350 N Arizona Ave, Chandler, AZ 85225) came from external research and was confirmed
+# directly by the site owner, not from any meet document -- unlike, e.g., the Herculean
+# Invitational's venue, which its own flyer states outright. Flagged here rather than asserted as
+# a test, since nothing in the real fixture PDF could confirm or refute it either way.
 
 
 def flyer_text(path: Path) -> str:
@@ -775,6 +790,118 @@ class HighlightLayoutTest(unittest.TestCase):
             self.assertLessEqual(
                 stringWidth(row["name"], "Helvetica", size), col_event_w - 4, row["name"]
             )
+
+
+class CroswhiteNoAgeQualifierEventShapeTest(unittest.TestCase):
+    """A genuinely new real event-name shape, not covered by Herculean or WZAG: Croswhite's 11
+    events are all "<Gender> <Distance> <Stroke>" with NOTHING between gender and the distance
+    number -- no "12 & Over", no "11-12", nothing. _EVENT_NAME_RE's age group is non-greedy but
+    still requires at least one character, so every one of these fails to match.
+
+    That failure is expected to cascade in a specific, already-designed way: badge_event_name()
+    falls through to plain abbreviate_stroke() (still preserving the literal "Girls"/"Boys" prefix
+    gender_color() depends on), and constant_age_qualifier() -- whose own rule is that ANY
+    unparseable event forces a session to be treated as mixed -- reports the whole session as
+    mixed even though every event shares the same (absent) age qualifier. The card header then
+    falls back to the session's own name ("SESSION 1 -- GIRLS") rather than a constant age group.
+    This class confirms all of that against the real fixture, and that the resulting card still
+    renders correctly.
+    """
+
+    REAL_EVENTS = [
+        # (event_number, raw event_name, heats, entries, badge_event_name(), row time)
+        (2, "Girls 200 Medley Relay", 4, 32, "Girls 200 Medley Relay", "6:00"),
+        (4, "Girls 200 Freestyle", 5, 50, "Girls 200 Free", "6:14"),
+        (6, "Girls 200 IM", 5, 50, "Girls 200 IM", "6:29"),
+        (8, "Girls 50 Freestyle", 15, 148, "Girls 50 Free", "6:46"),
+        (10, "Girls 100 Butterfly", 7, 62, "Girls 100 Fly", "7:17"),
+        (12, "Girls 100 Freestyle", 14, 134, "Girls 100 Free", "7:32"),
+        (14, "Girls 500 Freestyle", 4, 40, "Girls 500 Free", "7:57"),
+        (16, "Girls 200 Freestyle Relay", 4, 34, "Girls 200 Free Relay", "8:25"),
+        (18, "Girls 100 Backstroke", 11, 101, "Girls 100 Back", "8:36"),
+        (20, "Girls 100 Breaststroke", 11, 110, "Girls 100 Breast", "9:02"),
+        (22, "Girls 400 Freestyle Relay", 4, 32, "Girls 400 Free Relay", "9:26"),
+    ]
+
+    @classmethod
+    def setUpClass(cls):
+        cls.meet_name, cls.sessions, cls.events = parse_timeline(CROS_TIMELINE)
+        cls.grouped = events_by_session(cls.events)
+        cls.session_events = cls.grouped[1]
+        cls.card_meet_name, cls.cards, cls.highlights = cards_for_timeline(CROS_TIMELINE)
+
+    def test_real_events_match_the_document_exactly(self):
+        self.assertEqual(len(self.events), 11)
+        actual = [
+            (e.event_number, e.event_name, e.heats, e.entries)
+            for e in sorted(self.session_events, key=lambda e: e.event_number)
+        ]
+        expected = [(num, name, heats, entries) for num, name, heats, entries, _badge, _time in self.REAL_EVENTS]
+        self.assertEqual(actual, expected)
+
+    def test_parse_event_name_returns_none_for_every_real_event(self):
+        """The core claim: not one of these 11 real event names matches the age-qualifier regex."""
+        for _num, name, _heats, _entries, _badge, _time in self.REAL_EVENTS:
+            self.assertIsNone(parse_event_name(name), name)
+
+    def test_badge_event_name_falls_through_to_abbreviate_stroke_but_keeps_gender(self):
+        for _num, name, _heats, _entries, expected_badge, _time in self.REAL_EVENTS:
+            for include_age in (True, False):
+                result = badge_event_name(name, include_age=include_age)
+                # include_age is irrelevant here -- there is no age to include or omit, so both
+                # calls produce the identical fallback text.
+                self.assertEqual(result, expected_badge, (name, include_age))
+                self.assertEqual(result, abbreviate_stroke(name))
+            self.assertTrue(result.startswith("Girls"), result)
+
+    def test_session_age_qualifiers_is_empty_and_constant_age_qualifier_is_none(self):
+        """Nothing parsed an age at all (session_age_qualifiers is empty, not a single shared
+        value) -- and constant_age_qualifier()'s own explicit rule is that an unparseable event
+        forces mixed treatment, so it returns None even though every event agrees on having no
+        age qualifier."""
+        self.assertEqual(session_age_qualifiers(self.session_events), [])
+        self.assertIsNone(constant_age_qualifier(self.session_events))
+
+    def test_gender_color_still_keys_off_the_preserved_girls_prefix(self):
+        for _num, name, _heats, _entries, expected_badge, _time in self.REAL_EVENTS:
+            self.assertIs(gender_color(badge_event_name(name, include_age=False)), MAROON, name)
+
+    def test_card_header_falls_back_to_the_session_name_not_a_constant_age_group(self):
+        card = self.cards[0]
+        self.assertEqual(len(self.cards), 1)
+        self.assertIsNone(card.age_qualifier)
+        self.assertEqual(self.sessions[1].name, "Girls")
+        self.assertEqual(card.session_label, "SESSION 1 — GIRLS")
+        self.assertEqual(card.date_label, "Sat, Sept 12")
+        self.assertEqual(card.start_label, "6:00 PM")
+        self.assertEqual(card.finish_label, "9:49 PM")
+
+    def test_card_rows_carry_no_per_row_age_tag_and_match_the_document(self):
+        """With no age qualifier ever resolved, include_age has nothing to add regardless of
+        constant-vs-mixed -- so no row shows an age tag at all, unlike a real mixed WZAG/Herculean
+        session where an unresolved constant still means each row gets its own tag."""
+        card = self.cards[0]
+        actual = [(row["num"], row["name"], row["heats"], row["time"]) for row in card.events]
+        expected = [
+            (num, badge_name, heats, time) for num, _name, heats, _entries, badge_name, time in self.REAL_EVENTS
+        ]
+        self.assertEqual(actual, expected)
+        for row in card.events:
+            self.assertFalse(row["highlight"])
+
+    def test_no_flyer_or_psych_sheet_still_produces_a_working_card(self):
+        """Croswhite has no flyer and no psych sheet on record -- cards_for_timeline() must not
+        require either."""
+        self.assertEqual(self.card_meet_name, "2026 Croswhite Invite - 9/12/2026")
+        self.assertEqual(self.card_meet_name, self.meet_name)
+        self.assertEqual(self.highlights.event_numbers, set())
+
+    def test_the_single_session_card_renders_at_the_exact_card_size(self):
+        reader = PdfReader(BytesIO(render_cards_pdf(self.cards)))
+        self.assertEqual(len(reader.pages), 1)
+        page = reader.pages[0]
+        self.assertAlmostEqual(float(page.mediabox.width), CARD_W, places=2)
+        self.assertAlmostEqual(float(page.mediabox.height), CARD_H, places=2)
 
 
 if __name__ == "__main__":
