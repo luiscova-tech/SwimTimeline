@@ -1836,3 +1836,89 @@ td strong {
     font-size: 12px;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Officials' badge cards (/officials)
+   --------------------------------------------------------------------------- */
+
+.nav-back {
+  margin: 10px 0 0;
+  font-size: 14px;
+}
+
+.nav-back a,
+.nav-officials a {
+  color: var(--accent-dark);
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.nav-back a:hover,
+.nav-officials a:hover {
+  text-decoration: underline;
+}
+
+.nav-officials {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.officials-field {
+  display: block;
+  max-width: 560px;
+  margin: 14px 0 12px;
+}
+
+.officials-field > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.officials-field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+}
+
+.sessions-table td[data-col="session"] {
+  color: var(--navy);
+  font-weight: 800;
+}
+
+.sessions-table td[data-col="interval"] {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.session-card-link {
+  color: var(--accent-dark);
+  font-weight: 750;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.session-card-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 860px) {
+  .sessions-table td[data-col="session"] {
+    padding-bottom: 6px;
+    font-size: 15px;
+  }
+
+  .sessions-table td[data-col="card"] {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+}

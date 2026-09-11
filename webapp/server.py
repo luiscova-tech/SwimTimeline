@@ -54,7 +54,8 @@ UPLOAD_FIELD_LABELS = {
 }
 sys.path.insert(0, str(ROOT))
 
-from swimtimeline.extract import analyze_uploads, resolve_meet_timezone
+from swimtimeline.badges import card_filename, cards_for_timeline, render_cards_pdf
+from swimtimeline.extract import analyze_uploads, extract_text_pages, resolve_meet_timezone
 from swimtimeline.ics import build_ics
 
 
@@ -85,6 +86,17 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         if path == "/api/current-meets":
             self.send_json(public_meets_payload())
             return
+        if path == "/officials":
+            self.send_static(STATIC_DIR / "officials.html")
+            return
+        if path == "/api/officials/meets":
+            self.send_json(officials_meets_payload())
+            return
+        if path == "/api/officials/badges":
+            # A GET (not POST) so the browser can download it with a plain link, same as
+            # /download/... -- there is no request body, only the meet/token the caller already has.
+            self.send_badges_pdf(parse_qs(parsed.query))
+            return
         if path == "/api/usage":
             self.send_json(public_usage_stats())
             return
@@ -102,6 +114,10 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
                 return
             if self.path == "/api/publish-current":
                 result = self.handle_publish_current()
+                self.send_json(result)
+                return
+            if self.path == "/api/officials/sessions":
+                result = self.handle_officials_sessions()
                 self.send_json(result)
                 return
             self.send_error(HTTPStatus.NOT_FOUND)
@@ -312,6 +328,86 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         manifest["published_current_meet_id"] = meet_id
         write_json(manifest_path, manifest)
         return {"current_meet": public_current_meet(entry), "already_saved": False}
+
+    def handle_officials_sessions(self) -> dict:
+        """The session list for the badge-card page: either a hosted meet's own timeline, or one
+        the official uploads. An upload is saved under RUNS_DIR and answered with a token so the
+        follow-up badge download does not have to re-upload the same PDF.
+        """
+        content_type = self.headers.get("Content-Type", "")
+        if "multipart/form-data" in content_type:
+            form = cgi.FieldStorage(
+                fp=self.rfile,
+                headers=self.headers,
+                environ={
+                    "REQUEST_METHOD": "POST",
+                    "CONTENT_TYPE": content_type,
+                    "CONTENT_LENGTH": self.headers.get("Content-Length", "0"),
+                },
+            )
+            run_id = f"{int(time.time())}-{uuid4().hex[:8]}"
+            upload_dir = RUNS_DIR / run_id / "uploads"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            timeline_path = save_upload(form, "timeline_pdf", upload_dir, required=True)
+            assert timeline_path is not None
+            meet_name, cards = cards_for_timeline(timeline_path)
+            return {
+                "source": "upload",
+                "token": run_id,
+                "meet_id": None,
+                "meet_name": meet_name,
+                "sessions": [officials_session_summary(card) for card in cards],
+            }
+
+        length = int(self.headers.get("Content-Length", "0"))
+        payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        meet_id = str(payload.get("meet_id", "")).strip()
+        if not meet_id:
+            raise ValueError("Choose a hosted meet or upload a Session Report PDF.")
+        meet, cards = officials_cards_for_meet(meet_id)
+        return {
+            "source": "current_meet",
+            "token": None,
+            "meet_id": meet_id,
+            "meet_name": str(meet.get("name") or "Swim Meet"),
+            "sessions": [officials_session_summary(card) for card in cards],
+        }
+
+    def send_badges_pdf(self, query: dict) -> None:
+        """The badge-card PDF itself: every session of the meet, or one session when `session` is
+        given. Both come from the same per-session draw_card() call, so a single card is simply a
+        one-page version of the combined document.
+        """
+        try:
+            meet_id = str((query.get("meet_id") or [""])[0]).strip()
+            token = str((query.get("token") or [""])[0]).strip()
+            session_raw = str((query.get("session") or [""])[0]).strip()
+            if meet_id:
+                meet, cards = officials_cards_for_meet(meet_id)
+                meet_name = str(meet.get("name") or "Swim Meet")
+            elif token:
+                meet_name, cards = officials_cards_for_token(token)
+            else:
+                raise ValueError("A hosted meet id or an upload token is required.")
+
+            if session_raw:
+                if not session_raw.isdigit():
+                    raise ValueError("Session must be a number.")
+                wanted = int(session_raw)
+                cards = [card for card in cards if card.session_number == wanted]
+                if not cards:
+                    raise ValueError(f"Session {wanted} is not in this meet's timeline.")
+
+            content = render_cards_pdf(cards)
+            filename = card_filename(meet_name, cards[0] if session_raw else None)
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/pdf")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+        except Exception as exc:  # Same visible-error contract as the JSON endpoints.
+            self.send_json({"error": str(exc)}, status=400)
 
     def send_subscribe_ics(self, query: dict[str, list[str]]) -> None:
         try:
@@ -879,6 +975,92 @@ def public_meets_payload() -> dict:
         else:
             past_meets.append(public_meet)
     return {"current_meets": current_meets, "past_meets": past_meets}
+
+
+# ---------------------------------------------------------------------------
+# Officials' badge cards (/officials)
+# ---------------------------------------------------------------------------
+
+
+def officials_meets_payload() -> dict:
+    """Hosted meets whose own timeline can drive badge cards, split current/past by exactly the
+    same expiry rule the family-facing list uses (current_meet_is_active), so the two lists can't
+    disagree about what "current" means.
+
+    Extra filter beyond that: the meet must actually have a timeline file, and must not be in a
+    NOT_READY status -- "schedule-only" meets carry a meet-packet schedule rather than a HY-TEK
+    Session Report, which has no heat counts to put on a card.
+    """
+    current_meets: list[dict] = []
+    past_meets: list[dict] = []
+    for meet in load_current_meets():
+        files = meet.get("files", {})
+        if not files.get("timeline"):
+            continue
+        if str(meet.get("status") or "") in NOT_READY_STATUSES:
+            continue
+        entry = {
+            "id": meet.get("id"),
+            "name": meet.get("name"),
+            "short_name": meet.get("short_name"),
+            "dates": meet.get("dates"),
+            "state": meet.get("state"),
+            "timeline_label": timeline_document_label(meet),
+        }
+        if current_meet_is_active(meet):
+            current_meets.append(entry)
+        else:
+            past_meets.append(entry)
+    return {"current_meets": current_meets, "past_meets": past_meets}
+
+
+def officials_session_summary(card) -> dict:
+    """One session as the page's picker needs it -- no PDF, just what to label the option with."""
+    return {
+        "session_number": card.session_number,
+        "session_name": card.session_name,
+        "session_label": card.session_label,
+        "date_label": card.date_label,
+        "start_label": card.start_label,
+        "finish_label": card.finish_label,
+        "heat_interval": card.heat_interval,
+        "age_qualifier": card.age_qualifier,
+        "event_count": card.event_count,
+    }
+
+
+def officials_cards_for_meet(meet_id: str):
+    """(meet record, cards) for a hosted meet, reusing resolve_current_meet for the lookup and
+    resolve_repo_file for the same path-containment check every other hosted document goes
+    through. Only the timeline is required here -- the flyer is read when present because
+    parse_timeline uses it to fall back on a date range the timeline itself may not state.
+    """
+    meet = resolve_current_meet(meet_id)
+    files = meet.get("files", {})
+    timeline_path = resolve_repo_file(files.get("timeline"), required=True, label="Timeline")
+    assert timeline_path is not None
+    flyer_path = resolve_repo_file(files.get("flyer"), required=False, label="Meet Flyer")
+    flyer_text = "\n".join(extract_text_pages(flyer_path)) if flyer_path else ""
+    _meet_name, cards = cards_for_timeline(
+        timeline_path, flyer_text=flyer_text, meet_venue=meet.get("venue") or None
+    )
+    return meet, cards
+
+
+def officials_cards_for_token(token: str):
+    """(meet_name, cards) for a timeline an official uploaded a moment ago. The token is a run id,
+    validated and resolved under RUNS_DIR the same way /download/... and publish-current do, so it
+    can't be pointed at a path outside the run directory.
+    """
+    if not re.match(r"^[0-9]+-[a-f0-9]{8}$", token):
+        raise ValueError("Upload token is invalid.")
+    upload_dir = (RUNS_DIR / token / "uploads").resolve()
+    if RUNS_DIR.resolve() not in upload_dir.parents or not upload_dir.is_dir():
+        raise ValueError("That upload has expired. Please upload the Session Report again.")
+    pdfs = sorted(upload_dir.glob("*.pdf"))
+    if not pdfs:
+        raise ValueError("That upload has expired. Please upload the Session Report again.")
+    return cards_for_timeline(pdfs[0])
 
 
 # Statuses that block clickable calendar-generation regardless of which

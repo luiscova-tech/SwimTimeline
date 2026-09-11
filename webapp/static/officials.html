@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>SwimTimeline for Officials</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="app-header">
+        <div>
+          <div class="header-meta">
+            <p class="eyebrow">Officials</p>
+            <span class="version-pill">Badge cards</span>
+          </div>
+          <h1>Badge Card Schedules</h1>
+          <p class="header-copy">Turn a meet's session timeline into printable 2"&times;3" badge cards &mdash; one per session, with every event's number, heat count, and start time. Sized for a credential holder.</p>
+          <p class="nav-back"><a href="/">&larr; Back to swimmer calendars</a></p>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <form id="badgeForm" class="panel">
+          <div class="workflow-strip" aria-label="Badge card steps">
+            <div>
+              <strong>1</strong>
+              <span>Choose meet</span>
+            </div>
+            <div>
+              <strong>2</strong>
+              <span>Load sessions</span>
+            </div>
+            <div>
+              <strong>3</strong>
+              <span>Download cards</span>
+            </div>
+          </div>
+
+          <section class="current-meets">
+            <div class="section-header">
+              <div>
+                <h2>Hosted Meets</h2>
+                <p class="section-copy">Meets already loaded here generate cards straight from their own timeline &mdash; no upload needed.</p>
+              </div>
+            </div>
+            <label class="officials-field">
+              <span>Meet</span>
+              <select id="meetSelect">
+                <option value="">Loading hosted meets&hellip;</option>
+              </select>
+            </label>
+            <button id="loadMeet" class="primary" type="button">Load Sessions</button>
+          </section>
+
+          <details id="uploadTimeline" class="upload-section">
+            <summary>
+              <span>Meet not listed?</span>
+              <small>Upload a HY-TEK Session Report PDF</small>
+            </summary>
+            <div class="upload-panel">
+              <div class="section-header upload-header">
+                <div>
+                  <h2>Upload Session Report</h2>
+                  <p class="section-copy">The timeline export from Meet Manager &mdash; the document whose pages begin "Session: 1 &hellip;".</p>
+                </div>
+                <div class="upload-submit-group">
+                  <button class="primary" type="button" id="loadUpload">Load Sessions From Upload</button>
+                  <small class="upload-requirement-hint">Nothing is saved to the site.</small>
+                </div>
+              </div>
+              <div class="upload-grid">
+                <label class="file-input">
+                  <span>Session Report / Timeline</span>
+                  <input type="file" id="timelineInput" name="timeline_pdf" accept="application/pdf">
+                </label>
+              </div>
+            </div>
+          </details>
+        </form>
+
+        <section id="status" class="status hidden" aria-live="polite"></section>
+
+        <section id="result" class="result hidden">
+          <div class="result-header">
+            <div>
+              <h2 id="meetName"></h2>
+              <p id="summary" class="muted"></p>
+            </div>
+            <div class="result-actions">
+              <div class="downloads">
+                <a id="downloadAll" href="#">Download All Sessions (PDF)</a>
+              </div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <!-- Own data-col names (sdate/swindow, not day/window) so the swimmer table's mobile
+                 stacking rules in styles.css can't reorder this one. -->
+            <table class="sessions-table">
+              <thead>
+                <tr>
+                  <th data-col="session">Session</th>
+                  <th data-col="sdate">Day</th>
+                  <th data-col="swindow">Start &ndash; Est. finish</th>
+                  <th data-col="events">Events</th>
+                  <th data-col="interval">Heat interval</th>
+                  <th data-col="card">Card</th>
+                </tr>
+              </thead>
+              <tbody id="sessionsBody"></tbody>
+            </table>
+          </div>
+          <details class="term-hint">
+            <summary>What's on a card?</summary>
+            <p>Each card is one session: event number, event name (gender kept, stroke abbreviated), heat count, and start time, with the session's start time and estimated finish in the header. When every event in a session shares one age group, it's stated once in the header instead of on every row; when a session mixes age groups, each row carries a short tag (11&amp;U, 10-11, 11yo).</p>
+          </details>
+        </section>
+      </section>
+    </main>
+    <script src="/static/officials.js"></script>
+  </body>
+</html>
