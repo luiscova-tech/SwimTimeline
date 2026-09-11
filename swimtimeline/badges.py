@@ -33,6 +33,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime
 from io import BytesIO
+import math
 from pathlib import Path
 import re
 
@@ -41,8 +42,10 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 
 from .extract import (
+    AMBIGUOUS_NAME_MARKER,
     SessionInfo,
     TimelineEvent,
+    extract_psych_entries,
     extract_text_pages,
     normalize_space,
     parse_timeline,
@@ -66,10 +69,46 @@ GRAY_TXT = colors.HexColor("#3A3A3A")
 GRAY_LINE = colors.HexColor("#C9C9C9")
 STRIPE = colors.HexColor("#F5F6F8")
 HEADER_SUB = colors.HexColor("#C7D2E3")
+# Watched-swimmer highlight: a warm fill that stays legible behind the same GRAY_TXT row text and
+# is clearly distinct from STRIPE's near-white zebra banding, plus a deeper gold for the star.
+GOLD = colors.HexColor("#FDF0C2")
+GOLD_MARK = colors.HexColor("#A8760B")
 
 
 def gender_color(event_name):
     return NAVY if event_name.startswith("Boys") else MAROON
+
+
+def draw_star(c, cx, cy, radius, points=5):
+    """A filled five-pointed star centred on (cx, cy), drawn with canvas path primitives.
+
+    Deliberately NOT a text glyph. Helvetica's WinAnsiEncoding contains no star at all, yet
+    stringWidth("★", "Helvetica", 8) still returns a plausible 6.53 -- so glyph code looks
+    correct, raises nothing, and measures fine. What actually happens is that reportlab silently
+    substitutes a ZapfDingbats resource into the PDF for U+2605 (verified by inspecting the
+    generated file's /Font dict), while its near neighbour U+2606 renders as a tofu box. That
+    substitution is outside our control and viewer-dependent, which is unacceptable for a card
+    whose whole purpose is to be printed. A vector path renders identically everywhere, and stays
+    crisp at the ~3pt marker size a 28-event session's row height forces.
+    """
+    outer = radius
+    inner = radius * 0.42
+    path = c.beginPath()
+    for index in range(points * 2):
+        # Start at the TOP point and alternate outer/inner vertices. PDF user space has y
+        # increasing upward, so "up" is +pi/2 here -- using -pi/2 (as screen coordinates would)
+        # draws the star point-down, which is a recognisably wrong star rather than an obvious
+        # bug, so it is worth being explicit about.
+        angle = math.pi / 2 + index * math.pi / points
+        r = outer if index % 2 == 0 else inner
+        x = cx + r * math.cos(angle)
+        y = cy + r * math.sin(angle)
+        if index == 0:
+            path.moveTo(x, y)
+        else:
+            path.lineTo(x, y)
+    path.close()
+    c.drawPath(path, stroke=0, fill=1)
 
 
 def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label,
@@ -77,6 +116,11 @@ def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label
     """Draws one badge card with its lower-left corner at (ox, oy) in canvas c,
     occupying a W x H box. Reusable for a single-card PDF or stamped many
     times onto one sheet.
+
+    Each entry in `events` is a dict of {num, name, heats, time}, plus an optional truthy
+    "highlight" key marking an event a watched swimmer is entered in: that row takes a gold fill
+    instead of its normal/zebra one and gains a vector star in the # column (see draw_star). Rows
+    without the key render exactly as before.
 
     NOTE on heat_interval: this parameter is declared (and callers pass the real parsed value,
     see build_session_cards) but the current two-line header design does not render it -- the
@@ -147,7 +191,12 @@ def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label
     row_h = table_h / units
     hdr_row_h = row_h * HEADER_ROW_FRAC
 
-    col_num_w = content_w * 0.10
+    # The # column normally takes 10% of the card, which a 3-digit event number already nearly
+    # fills on its own. When this card has any starred row, it widens ONCE for the whole card --
+    # not per row -- so the star and the number both sit at full size and every row's columns stay
+    # aligned. The extra comes out of EVENT, which has the most slack and its own shrink-to-fit.
+    any_highlight = any(ev.get("highlight") for ev in events)
+    col_num_w = content_w * (0.145 if any_highlight else 0.10)
     col_time_w = content_w * 0.225
     col_ht_w = content_w * 0.20
     col_event_w = content_w - col_num_w - col_time_w - col_ht_w
@@ -171,18 +220,47 @@ def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label
     c.drawCentredString(x_ht + col_ht_w / 2, y + hdr_row_h / 2 - hdr_fs * 0.32, "HEATS")
     c.drawRightString(x_time + col_time_w - 2, y + hdr_row_h / 2 - hdr_fs * 0.32, "TIME")
 
+    accent_w = max(1.2, W * 0.012)
     for i, ev in enumerate(events):
         y = table_top - hdr_row_h - row_h * (i + 1)
-        if i % 2 == 1:
+        highlighted = bool(ev.get("highlight"))
+        if highlighted:
+            # Gold REPLACES this row's normal/zebra fill (it must win on both odd and even rows),
+            # and is painted before the accent bar so the bar still reads on top of it.
+            c.setFillColor(GOLD)
+            c.rect(x0, y, content_w, row_h, stroke=0, fill=1)
+        elif i % 2 == 1:
             c.setFillColor(STRIPE)
             c.rect(x0, y, content_w, row_h, stroke=0, fill=1)
 
         c.setFillColor(gender_color(ev["name"]))
-        c.rect(x0, y, max(1.2, W * 0.012), row_h, stroke=0, fill=1)
+        c.rect(x0, y, accent_w, row_h, stroke=0, fill=1)
+
+        num_text = str(ev["num"])
+        num_x = x_num + 3
+        num_fs = base_fs
+        if highlighted:
+            # Star first, then the number. The star gives up size before the number does: it is
+            # sized to whatever is left beside a full-size number (down to a still-visible floor),
+            # and only if that floor still does not fit does the number shrink -- the same
+            # measured-width idiom the event name and header lines already use, rather than
+            # letting either spill into the EVENT column.
+            slot_left = x_num + accent_w + 0.6
+            slot_right = x_event - 1.0
+            room = (slot_right - slot_left) - stringWidth(num_text, "Helvetica-Bold", base_fs) - 0.8
+            star_r = min(row_h * 0.24, base_fs * 0.34, 2.6, max(room, 0.0) / 2)
+            star_r = max(star_r, min(1.15, row_h * 0.24))
+            star_cx = slot_left + star_r
+            c.setFillColor(GOLD_MARK)
+            draw_star(c, star_cx, y + row_h / 2, star_r)
+            num_x = star_cx + star_r + 0.8
+            available = slot_right - num_x
+            while stringWidth(num_text, "Helvetica-Bold", num_fs) > available and num_fs > 3.6:
+                num_fs -= 0.2
 
         c.setFillColor(GRAY_TXT)
-        c.setFont("Helvetica-Bold", base_fs)
-        c.drawString(x_num + 3, y + row_h / 2 - base_fs * 0.33, str(ev["num"]))
+        c.setFont("Helvetica-Bold", num_fs)
+        c.drawString(num_x, y + row_h / 2 - num_fs * 0.33, num_text)
 
         name = ev["name"]
         max_w = col_event_w - 4
@@ -356,6 +434,72 @@ def badge_event_name(event_name: str, include_age: bool) -> str:
 
 
 # ---------------------------------------------------------------------------
+# New: which events a watched swimmer is entered in
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class SwimmerHighlights:
+    """Which event numbers to star, plus who resolved and who didn't.
+
+    event_numbers is the UNION across every name that resolved -- highlighting is deliberately
+    uniform, with no per-swimmer colour, so an official scanning the card sees "one of mine" at a
+    glance rather than decoding a legend.
+    """
+
+    event_numbers: set[int]
+    matched: dict[str, list[int]]  # typed name -> that swimmer's own event numbers
+    warnings: list[str]
+
+    @property
+    def any_matched(self) -> bool:
+        return bool(self.event_numbers)
+
+
+def swimmer_event_numbers(psych_pdf: Path, swimmer_names: list[str]) -> SwimmerHighlights:
+    """Resolve each typed name against the meet's psych sheet and collect the event numbers.
+
+    Matching itself is entirely extract_psych_entries() -- the same machinery the family calendar
+    flow uses, including its exact/fuzzy passes and its ambiguity guard -- so a name behaves here
+    exactly as it does there. The only new part is the reduction to a set of event numbers.
+
+    Each name is processed INDEPENDENTLY: extract_psych_entries() reports an ambiguous or
+    unresolvable name by returning no entries plus a warning string (ambiguity is flagged by
+    AMBIGUOUS_NAME_MARKER appearing in that string, not by an exception), so one bad name
+    contributes no highlights and its warning is surfaced, while every other name in the batch
+    still highlights normally.
+    """
+    event_numbers: set[int] = set()
+    matched: dict[str, list[int]] = {}
+    warnings: list[str] = []
+    for swimmer_name in swimmer_names:
+        name = swimmer_name.strip()
+        if not name:
+            continue
+        try:
+            entries, _page_counts, name_warnings = extract_psych_entries(Path(psych_pdf), name)
+        except Exception as exc:  # A bad psych sheet must not take the whole card down.
+            warnings.append(f"Could not search the psych sheet for '{name}': {exc}")
+            continue
+        warnings.extend(name_warnings)
+        numbers = sorted({entry.event_number for entry in entries})
+        if numbers:
+            matched[name] = numbers
+            event_numbers.update(numbers)
+        elif not name_warnings:
+            # No entries and nothing already said why -- say it, rather than silently
+            # highlighting nothing.
+            warnings.append(f"'{name}' was not found in this meet's psych sheet.")
+    return SwimmerHighlights(event_numbers=event_numbers, matched=matched, warnings=warnings)
+
+
+def is_ambiguous_warning(warning: str) -> bool:
+    """Whether a warning from swimmer_event_numbers is the "be more specific" kind, so the page can
+    say that instead of "not found" (the same distinction the family payload draws)."""
+    return AMBIGUOUS_NAME_MARKER in warning
+
+
+# ---------------------------------------------------------------------------
 # New: grouping and per-session age analysis
 # ---------------------------------------------------------------------------
 
@@ -484,12 +628,18 @@ class SessionCard:
     def event_count(self) -> int:
         return len(self.events)
 
+    @property
+    def highlighted_event_numbers(self) -> list[int]:
+        """The starred event numbers on this card, for the page's own session list."""
+        return [row["num"] for row in self.events if row.get("highlight")]
+
 
 def build_session_cards(
     meet_name: str,
     sessions: dict[int, SessionInfo],
     events: list[TimelineEvent],
     heat_intervals: dict[int, str] | None = None,
+    highlight_events: set[int] | None = None,
 ) -> list[SessionCard]:
     """One SessionCard per session, in meet order (session number).
 
@@ -497,8 +647,13 @@ def build_session_cards(
     when the session is mixed it carries the meet's own session name instead ("SESSION 2 - FRIDAY
     PM 11&UNDER") so a two-pool meet's cards stay distinguishable, and each row keeps its own age
     tag.
+
+    highlight_events is a set of event numbers (see swimmer_event_numbers) whose rows draw_card
+    should star. Event numbers are unique across a whole Session Report, so a set is enough to
+    place every watched swimmer's events on whichever cards they fall on.
     """
     heat_intervals = heat_intervals or {}
+    highlight_events = highlight_events or set()
     grouped = events_by_session(events)
     card_meet_name = badge_meet_name(meet_name)
     cards: list[SessionCard] = []
@@ -515,6 +670,7 @@ def build_session_cards(
                 "name": badge_event_name(event.event_name, include_age=constant_age is None),
                 "heats": event.heats if event.heats is not None else "",
                 "time": row_time_label(event.start, keep_meridiem),
+                "highlight": event.event_number in highlight_events,
             }
             for event in session_events
         ]
@@ -538,19 +694,45 @@ def build_session_cards(
 
 
 def cards_for_timeline(
-    timeline_pdf: Path, flyer_text: str = "", meet_venue: str | None = None
-) -> tuple[str, list[SessionCard]]:
-    """Read a Session Report PDF straight through to card data: (meet_name, cards).
+    timeline_pdf: Path,
+    flyer_text: str = "",
+    meet_venue: str | None = None,
+    psych_pdf: Path | None = None,
+    swimmer_names: list[str] | None = None,
+) -> tuple[str, list[SessionCard], SwimmerHighlights]:
+    """Read a Session Report PDF straight through to card data:
+    (meet_name, cards, highlights).
 
     parse_timeline() supplies every field except the heat interval, which parse_heat_intervals()
     adds from its own isolated scan of the same pages.
+
+    When both a psych sheet and swimmer names are given, those swimmers' events are resolved
+    through swimmer_event_numbers() and starred on whichever cards they fall on. With either
+    missing, highlights come back empty and every row renders exactly as it did before this
+    feature existed.
     """
     timeline_pdf = Path(timeline_pdf)
     meet_name, sessions, events = parse_timeline(timeline_pdf, flyer_text=flyer_text, meet_venue=meet_venue)
     if not events:
         raise ValueError("No sessions or events were found in that timeline PDF.")
     intervals = parse_heat_intervals(timeline_pdf)
-    return meet_name, build_session_cards(meet_name, sessions, events, intervals)
+    if psych_pdf and swimmer_names:
+        highlights = swimmer_event_numbers(Path(psych_pdf), swimmer_names)
+    elif swimmer_names:
+        highlights = SwimmerHighlights(
+            event_numbers=set(),
+            matched={},
+            warnings=[
+                "No psych sheet is available for this meet, so swimmer events can't be "
+                "highlighted. Upload a psych/heat sheet alongside the timeline to highlight them."
+            ],
+        )
+    else:
+        highlights = SwimmerHighlights(event_numbers=set(), matched={}, warnings=[])
+    cards = build_session_cards(
+        meet_name, sessions, events, intervals, highlight_events=highlights.event_numbers
+    )
+    return meet_name, cards, highlights
 
 
 # ---------------------------------------------------------------------------

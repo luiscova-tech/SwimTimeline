@@ -15,10 +15,12 @@ No synthetic PDFs: every assertion below is pinned to values read out of those t
 """
 
 from io import BytesIO
+import math
 from pathlib import Path
 import unittest
 
 from pypdf import PdfReader
+from reportlab.pdfbase.pdfmetrics import stringWidth
 
 from swimtimeline.badges import (
     CARD_H,
@@ -33,13 +35,16 @@ from swimtimeline.badges import (
     cards_for_timeline,
     compact_heat_interval,
     constant_age_qualifier,
+    draw_star,
     events_by_session,
     gender_color,
+    is_ambiguous_warning,
     parse_event_name,
     parse_heat_intervals,
     render_cards_pdf,
     row_time_label,
     session_crosses_noon,
+    swimmer_event_numbers,
 )
 from swimtimeline.extract import extract_text_pages, parse_timeline
 
@@ -47,6 +52,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HERC_DIR = ROOT / "meets/2026-herculean-invitational/input"
 HERC_TIMELINE = HERC_DIR / "2026-herculean-invitational-timeline.pdf"
 HERC_FLYER = HERC_DIR / "2026-herculean-invitational-flyer.pdf"
+HERC_PSYCH = HERC_DIR / "2026-herculean-invitational-psych-sheet.pdf"
 WZAG_DIR = ROOT / "meets/2026-wzag-championships-boise/input"
 WZAG_TIMELINE = WZAG_DIR / "wzag timelines v4.pdf"
 WZAG_FLYER = WZAG_DIR / "Sanctioned_2026 WZAG Championships - Boise (v5.pdf"
@@ -282,7 +288,7 @@ class NoonBoundaryTest(unittest.TestCase):
 
 class SessionCardTest(unittest.TestCase):
     def test_herculean_cards_carry_constant_age_in_the_header(self):
-        meet_name, cards = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
+        meet_name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
         self.assertEqual(meet_name, "2026 Herculean Invitational")
         self.assertEqual(len(cards), 6)
         session_one = cards[0]
@@ -304,7 +310,7 @@ class SessionCardTest(unittest.TestCase):
         )
 
     def test_herculean_mixed_session_labels_by_session_name_and_tags_rows(self):
-        _meet_name, cards = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
+        _meet_name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
         session_two = cards[1]
         self.assertIsNone(session_two.age_qualifier)
         self.assertEqual(session_two.session_label, "SESSION 2 — FRIDAY PM 11&UNDER")
@@ -314,7 +320,7 @@ class SessionCardTest(unittest.TestCase):
         )
 
     def test_wzag_cards_use_the_three_part_interval_and_meridiem_rows(self):
-        meet_name, cards = cards_for_timeline(WZAG_TIMELINE, flyer_text=flyer_text(WZAG_FLYER))
+        meet_name, cards, _highlights = cards_for_timeline(WZAG_TIMELINE, flyer_text=flyer_text(WZAG_FLYER))
         self.assertIn("Western Zone Age Group", meet_name)
         self.assertEqual(len(cards), 8)
         prelims = cards[0]
@@ -325,13 +331,18 @@ class SessionCardTest(unittest.TestCase):
         self.assertEqual(prelims.events[0]["time"], "8:30a")
         self.assertEqual(cards[1].heat_interval, "50s/Back+25")
 
-    def test_every_card_row_has_the_four_keys_draw_card_reads(self):
+    def test_every_card_row_has_exactly_the_keys_draw_card_reads(self):
+        """The four content keys, plus the "highlight" flag the swimmer-highlighting feature
+        added. With no swimmer names given it is False on every row, so cards render exactly as
+        they did before that feature existed."""
         for timeline, flyer in ((HERC_TIMELINE, HERC_FLYER), (WZAG_TIMELINE, WZAG_FLYER)):
-            _meet_name, cards = cards_for_timeline(timeline, flyer_text=flyer_text(flyer))
+            _meet_name, cards, _highlights = cards_for_timeline(timeline, flyer_text=flyer_text(flyer))
             for card in cards:
                 self.assertTrue(card.events)
                 for row in card.events:
-                    self.assertEqual(set(row), {"num", "name", "heats", "time"})
+                    self.assertEqual(set(row), {"num", "name", "heats", "time", "highlight"})
+                    self.assertIs(row["highlight"], False)
+                self.assertEqual(card.highlighted_event_numbers, [])
 
     def test_build_session_cards_survives_a_missing_heat_interval(self):
         """An interval is optional -- a timeline without one still produces cards."""
@@ -369,7 +380,7 @@ class MeetNameFitTest(unittest.TestCase):
 
         max_w = CARD_W * 0.94
         for timeline, flyer in ((HERC_TIMELINE, HERC_FLYER), (WZAG_TIMELINE, WZAG_FLYER)):
-            _meet_name, cards = cards_for_timeline(timeline, flyer_text=flyer_text(flyer))
+            _meet_name, cards, _highlights = cards_for_timeline(timeline, flyer_text=flyer_text(flyer))
             for card in cards:
                 # Mirrors draw_card's own two loops, including their font floors.
                 meta = f"{card.meet_name} • {card.date_label} • Start {card.start_label}"
@@ -398,7 +409,7 @@ class RenderedPdfTest(unittest.TestCase):
             (HERC_TIMELINE, HERC_FLYER, 6),
             (WZAG_TIMELINE, WZAG_FLYER, 8),
         ):
-            _meet_name, cards = cards_for_timeline(timeline, flyer_text=flyer_text(flyer))
+            _meet_name, cards, _highlights = cards_for_timeline(timeline, flyer_text=flyer_text(flyer))
             self.assertEqual(len(cards), expected_pages)
             reader = PdfReader(BytesIO(render_cards_pdf(cards)))
             self.assertEqual(len(reader.pages), expected_pages, timeline.name)
@@ -408,7 +419,7 @@ class RenderedPdfTest(unittest.TestCase):
         self.assertEqual((CARD_W, CARD_H), (144.0, 216.0))
 
     def test_single_session_pdf_is_one_page_at_the_same_size(self):
-        _meet_name, cards = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
+        _meet_name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
         for card in cards:
             reader = PdfReader(BytesIO(render_cards_pdf([card])))
             self.assertEqual(len(reader.pages), 1, card.session_number)
@@ -419,7 +430,7 @@ class RenderedPdfTest(unittest.TestCase):
     def test_largest_real_session_still_renders(self):
         """WZAG's Thursday Finals is the biggest real session (28 events) -- the row-height and
         shrink-to-fit math has to survive it, not just the 10-14 the spec sampled."""
-        _meet_name, cards = cards_for_timeline(WZAG_TIMELINE, flyer_text=flyer_text(WZAG_FLYER))
+        _meet_name, cards, _highlights = cards_for_timeline(WZAG_TIMELINE, flyer_text=flyer_text(WZAG_FLYER))
         biggest = max(cards, key=lambda card: card.event_count)
         self.assertEqual(biggest.event_count, 28)
         reader = PdfReader(BytesIO(render_cards_pdf([biggest])))
@@ -428,6 +439,342 @@ class RenderedPdfTest(unittest.TestCase):
     def test_rendering_no_cards_is_refused(self):
         with self.assertRaises(ValueError):
             render_cards_pdf([])
+
+
+class SwimmerHighlightMatchingTest(unittest.TestCase):
+    """Which events get starred. Matching itself is extract_psych_entries() -- the same machinery
+    the family calendar uses -- so these tests pin the reduction to event numbers and, above all,
+    the per-name independence: one unusable name must not cost the others their highlights.
+    """
+
+    def test_cova_resolves_to_exactly_her_five_real_events(self):
+        highlights = swimmer_event_numbers(HERC_PSYCH, ["Cova, Mila"])
+        self.assertEqual(sorted(highlights.event_numbers), [1, 5, 7, 27, 29])
+        self.assertEqual(highlights.matched, {"Cova, Mila": [1, 5, 7, 27, 29]})
+        self.assertEqual(highlights.warnings, [])
+        self.assertTrue(highlights.any_matched)
+
+    def test_each_real_ambiguous_surname_warns_and_highlights_nothing(self):
+        """The three real same-surname groups at this meet. Each must refuse rather than merge."""
+        expected_candidates = {
+            "Vickers": ("Grace Vickers", "Natalie Vickers"),
+            "Post": ("Harper Post", "Reagan Post", "Zoey Post"),
+            "Beltran": ("Adrian Beltran", "Christian Beltran"),
+        }
+        for surname, candidates in expected_candidates.items():
+            highlights = swimmer_event_numbers(HERC_PSYCH, [surname])
+            self.assertEqual(highlights.event_numbers, set(), surname)
+            self.assertEqual(highlights.matched, {}, surname)
+            self.assertEqual(len(highlights.warnings), 1, surname)
+            warning = highlights.warnings[0]
+            self.assertTrue(is_ambiguous_warning(warning), warning)
+            for candidate in candidates:
+                self.assertIn(candidate, warning)
+
+    def test_an_ambiguous_name_does_not_block_the_rest_of_the_batch(self):
+        """The independence requirement: 'Vickers' is ambiguous and contributes nothing, while
+        'Cova, Mila' and 'Vickers, Natalie' in the same batch still highlight normally."""
+        highlights = swimmer_event_numbers(
+            HERC_PSYCH, ["Cova, Mila", "Vickers", "Vickers, Natalie"]
+        )
+        self.assertEqual(sorted(highlights.matched), ["Cova, Mila", "Vickers, Natalie"])
+        self.assertEqual(highlights.matched["Cova, Mila"], [1, 5, 7, 27, 29])
+        self.assertTrue(highlights.matched["Vickers, Natalie"])
+        # The union of both resolved swimmers, and nothing from the ambiguous name.
+        self.assertEqual(
+            highlights.event_numbers,
+            set(highlights.matched["Cova, Mila"]) | set(highlights.matched["Vickers, Natalie"]),
+        )
+        self.assertEqual(len(highlights.warnings), 1)
+        self.assertTrue(is_ambiguous_warning(highlights.warnings[0]))
+
+    def test_siblings_resolve_individually_by_full_name(self):
+        """Each half of an ambiguous pair is reachable with "Last, First", and the two really are
+        different swimmers (different event sets)."""
+        grace = swimmer_event_numbers(HERC_PSYCH, ["Vickers, Grace"])
+        natalie = swimmer_event_numbers(HERC_PSYCH, ["Vickers, Natalie"])
+        for highlights in (grace, natalie):
+            self.assertEqual(highlights.warnings, [])
+            self.assertTrue(highlights.event_numbers)
+        self.assertNotEqual(grace.event_numbers, natalie.event_numbers)
+
+    def test_a_name_nobody_matches_warns_without_claiming_ambiguity(self):
+        highlights = swimmer_event_numbers(HERC_PSYCH, ["Nobody, Atall"])
+        self.assertEqual(highlights.event_numbers, set())
+        self.assertEqual(len(highlights.warnings), 1)
+        self.assertFalse(is_ambiguous_warning(highlights.warnings[0]))
+        self.assertIn("Nobody, Atall", highlights.warnings[0])
+
+    def test_blank_and_duplicate_names_are_harmless(self):
+        highlights = swimmer_event_numbers(HERC_PSYCH, ["Cova, Mila", "   ", "Cova, Mila"])
+        self.assertEqual(sorted(highlights.event_numbers), [1, 5, 7, 27, 29])
+        self.assertEqual(highlights.warnings, [])
+
+
+class SwimmerHighlightCardTest(unittest.TestCase):
+    """The starred rows as they reach draw_card, and the cards they land on."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.meet_name, cls.cards, cls.highlights = cards_for_timeline(
+            HERC_TIMELINE,
+            flyer_text=flyer_text(HERC_FLYER),
+            psych_pdf=HERC_PSYCH,
+            swimmer_names=["Cova, Mila"],
+        )
+
+    def test_only_covas_events_are_flagged_across_the_whole_meet(self):
+        flagged = {
+            row["num"] for card in self.cards for row in card.events if row["highlight"]
+        }
+        self.assertEqual(flagged, {1, 5, 7, 27, 29})
+        # Every other row in all 6 sessions is untouched -- 72 events total, 5 starred.
+        total_rows = sum(card.event_count for card in self.cards)
+        self.assertEqual(total_rows, 72)
+        self.assertEqual(
+            sum(1 for card in self.cards for row in card.events if not row["highlight"]), 67
+        )
+
+    def test_the_stars_land_on_the_sessions_those_events_belong_to(self):
+        by_session = {card.session_number: card.highlighted_event_numbers for card in self.cards}
+        # Cova swims the 12&Over pool: #1/5/7 are Friday (session 1), #27/29 Sunday (session 5).
+        self.assertEqual(by_session[1], [1, 5, 7])
+        self.assertEqual(by_session[5], [27, 29])
+        for empty_session in (2, 3, 4, 6):
+            self.assertEqual(by_session[empty_session], [], empty_session)
+
+    def test_multi_swimmer_batch_stars_the_union_with_identical_treatment(self):
+        _name, cards, highlights = cards_for_timeline(
+            HERC_TIMELINE,
+            flyer_text=flyer_text(HERC_FLYER),
+            psych_pdf=HERC_PSYCH,
+            swimmer_names=["Cova, Mila", "Vickers, Natalie"],
+        )
+        flagged = {row["num"] for card in cards for row in card.events if row["highlight"]}
+        self.assertEqual(flagged, highlights.event_numbers)
+        self.assertTrue({1, 5, 7, 27, 29}.issubset(flagged))
+        # Union, not just one swimmer: Natalie brings events Cova is not in.
+        self.assertGreater(len(flagged), 5)
+        # "highlight" is a plain bool for every starred row -- no per-swimmer distinction exists
+        # to render, which is the point: an official just needs "one of mine".
+        for card in cards:
+            for row in card.events:
+                self.assertIn(row["highlight"], (True, False))
+
+    def test_no_swimmer_names_leaves_every_row_unhighlighted(self):
+        _name, cards, highlights = cards_for_timeline(
+            HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER), psych_pdf=HERC_PSYCH
+        )
+        self.assertEqual(highlights.event_numbers, set())
+        self.assertFalse(any(row["highlight"] for card in cards for row in card.events))
+
+    def test_names_without_a_psych_sheet_say_so_instead_of_silently_not_highlighting(self):
+        _name, cards, highlights = cards_for_timeline(
+            HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER), swimmer_names=["Cova, Mila"]
+        )
+        self.assertEqual(highlights.event_numbers, set())
+        self.assertEqual(len(highlights.warnings), 1)
+        self.assertIn("psych sheet", highlights.warnings[0])
+        self.assertFalse(any(row["highlight"] for card in cards for row in card.events))
+
+    def test_ambiguous_only_batch_renders_a_clean_unhighlighted_card_set(self):
+        _name, cards, highlights = cards_for_timeline(
+            HERC_TIMELINE,
+            flyer_text=flyer_text(HERC_FLYER),
+            psych_pdf=HERC_PSYCH,
+            swimmer_names=["Vickers", "Post", "Beltran"],
+        )
+        self.assertEqual(highlights.event_numbers, set())
+        self.assertEqual(len(highlights.warnings), 3)
+        self.assertTrue(all(is_ambiguous_warning(w) for w in highlights.warnings))
+        self.assertFalse(any(row["highlight"] for card in cards for row in card.events))
+        # Still a usable set of cards, just with nothing starred.
+        reader = PdfReader(BytesIO(render_cards_pdf(cards)))
+        self.assertEqual(len(reader.pages), 6)
+
+
+class StarGlyphTest(unittest.TestCase):
+    """The star is a vector path, not a text glyph, and this is the evidence for why.
+
+    Helvetica's WinAnsiEncoding contains no star at all, yet stringWidth("★", "Helvetica", 8)
+    returns a plausible 6.53 -- so glyph-based code raises nothing and measures fine while
+    reportlab quietly swaps in a ZapfDingbats resource whose rendering is outside our control
+    (U+2606, right next door, renders as a tofu box). These cards get printed, so that is not
+    good enough.
+    """
+
+    def test_helvetica_really_has_no_star_glyph_despite_reporting_a_width(self):
+        from reportlab.pdfbase import pdfmetrics
+
+        self.assertGreater(stringWidth("★", "Helvetica", 8), 0)  # the misleading part
+        encoding = pdfmetrics.getEncoding(pdfmetrics.getFont("Helvetica").encName)
+        glyph_names = [name for name in encoding.vector if name]
+        self.assertEqual([name for name in glyph_names if "star" in name.lower()], [])
+
+    def test_highlighted_cards_declare_only_the_two_helvetica_faces(self):
+        """A text star would add a /ZapfDingbats font resource to the PDF; the vector path does
+        not, which is the check that proves no substitution is happening."""
+        _name, cards, _highlights = cards_for_timeline(
+            HERC_TIMELINE,
+            flyer_text=flyer_text(HERC_FLYER),
+            psych_pdf=HERC_PSYCH,
+            swimmer_names=["Cova, Mila"],
+        )
+        starred = next(card for card in cards if card.highlighted_event_numbers)
+        reader = PdfReader(BytesIO(render_cards_pdf([starred])))
+        fonts = reader.pages[0]["/Resources"].get("/Font", {})
+        base_fonts = sorted(str(font.get_object().get("/BaseFont")) for font in fonts.values())
+        self.assertEqual(base_fonts, ["/Helvetica", "/Helvetica-Bold"])
+
+    def test_the_star_emits_real_fill_geometry(self):
+        """The path has to actually reach the page, not merely be computed. Session 1 stars three
+        of Cova's events, and each star is one closed, filled subpath -- so the highlighted card's
+        content stream carries exactly three more closepath ("h") and three more fill ("f*")
+        operators than the identical unhighlighted card. Rects never emit "h", so that count
+        isolates the stars."""
+        kwargs = dict(flyer_text=flyer_text(HERC_FLYER), psych_pdf=HERC_PSYCH)
+        _n, plain_cards, _h = cards_for_timeline(HERC_TIMELINE, **kwargs)
+        _n, starred_cards, _h = cards_for_timeline(
+            HERC_TIMELINE, swimmer_names=["Cova, Mila"], **kwargs
+        )
+        self.assertEqual(starred_cards[0].highlighted_event_numbers, [1, 5, 7])
+
+        def stream(card):
+            reader = PdfReader(BytesIO(render_cards_pdf([card])))
+            return reader.pages[0].get_contents().get_data().decode("latin-1")
+
+        plain, starred = stream(plain_cards[0]), stream(starred_cards[0])
+        self.assertEqual(plain.count("h\n"), 0)
+        self.assertEqual(starred.count("h\n"), 3)
+        self.assertEqual(starred.count(" f*\n") - plain.count(" f*\n"), 3)
+
+    def test_star_geometry_is_a_closed_ten_vertex_outline(self):
+        """Five points means five outer and five inner vertices, all within the requested radius."""
+        captured = {}
+
+        class FakePath:
+            def __init__(self):
+                self.points = []
+                self.closed = False
+
+            def moveTo(self, x, y):
+                self.points.append((x, y))
+
+            def lineTo(self, x, y):
+                self.points.append((x, y))
+
+            def close(self):
+                self.closed = True
+
+        class FakeCanvas:
+            def beginPath(self):
+                captured["path"] = FakePath()
+                return captured["path"]
+
+            def drawPath(self, path, stroke=0, fill=1):
+                captured["drawn"] = (path, stroke, fill)
+
+        draw_star(FakeCanvas(), 10.0, 20.0, 2.0)
+        path = captured["path"]
+        self.assertEqual(len(path.points), 10)
+        self.assertTrue(path.closed)
+        self.assertEqual(captured["drawn"][1:], (0, 1))  # filled, not stroked
+        for x, y in path.points:
+            self.assertLessEqual(math.dist((x, y), (10.0, 20.0)), 2.0 + 1e-9)
+        # The star points UP. PDF user space has y increasing upward, so the first (top) vertex
+        # sits at cy + radius; computing it the screen-coordinate way instead silently produces a
+        # point-down star, which is why this is pinned.
+        self.assertAlmostEqual(path.points[0][0], 10.0, places=6)
+        self.assertAlmostEqual(path.points[0][1], 22.0, places=6)
+        self.assertAlmostEqual(max(y for _x, y in path.points), 22.0, places=6)
+        # Five outer vertices at the full radius, five inner ones pulled in.
+        radii = sorted(round(math.dist((x, y), (10.0, 20.0)), 6) for x, y in path.points)
+        self.assertEqual(radii[5:], [2.0] * 5)
+        self.assertTrue(all(r < 2.0 for r in radii[:5]))
+
+
+class HighlightLayoutTest(unittest.TestCase):
+    """A starred row must not cost the card its legibility: the # column widens once for the whole
+    card so the star and the event number both fit at full size, and nothing overflows."""
+
+    def test_number_column_widens_only_when_a_card_has_stars(self):
+        kwargs = dict(flyer_text=flyer_text(HERC_FLYER), psych_pdf=HERC_PSYCH)
+        _n, plain, _h = cards_for_timeline(HERC_TIMELINE, **kwargs)
+        # Post, Zoey swims the 11&Under pool, whose event numbers are 3 digits -- the tight case.
+        _n, starred, _h = cards_for_timeline(
+            HERC_TIMELINE, swimmer_names=["Post, Zoey"], **kwargs
+        )
+        self.assertTrue(starred[1].highlighted_event_numbers)
+        self.assertEqual(plain[1].highlighted_event_numbers, [])
+        # Same session, same events -- only the highlight flags differ.
+        self.assertEqual(
+            [row["num"] for row in plain[1].events], [row["num"] for row in starred[1].events]
+        )
+
+    def test_star_plus_a_three_digit_number_fits_the_widened_column(self):
+        """Replays draw_card's own geometry for the worst real case: 14 rows (smallest font) with
+        3-digit numbers, and checks the number never has to shrink below the base font."""
+        _n, cards, _h = cards_for_timeline(
+            HERC_TIMELINE,
+            flyer_text=flyer_text(HERC_FLYER),
+            psych_pdf=HERC_PSYCH,
+            swimmer_names=["Post, Zoey"],
+        )
+        card = cards[1]  # Session 2: 14 events, numbers 101-114, three of them starred
+        self.assertEqual(card.event_count, 14)
+        margin = max(3.5, CARD_W * 0.035)
+        content_w = CARD_W - 2 * margin
+        table_h = (CARD_H - 0.13 * CARD_H) - (0.08 * CARD_H) - 0.02 * CARD_H
+        row_h = table_h / (card.event_count + 0.62)
+        base_fs = max(5.0, min(8.3, row_h * 0.5))
+        col_num_w = content_w * 0.145  # widened, because this card has stars
+        accent_w = max(1.2, CARD_W * 0.012)
+        slot = (col_num_w - 1.0) - (accent_w + 0.6)
+        for row in card.events:
+            if not row["highlight"]:
+                continue
+            num_w = stringWidth(str(row["num"]), "Helvetica-Bold", base_fs)
+            room = slot - num_w - 0.8
+            star_r = min(row_h * 0.24, base_fs * 0.34, 2.6, max(room, 0.0) / 2)
+            star_r = max(star_r, min(1.15, row_h * 0.24))
+            # Star and a FULL-SIZE number both fit inside the widened column.
+            self.assertLessEqual(2 * star_r + 0.8 + num_w, slot + 1e-9, row)
+            self.assertGreater(star_r, 0.9, row)  # still a visible marker
+
+    def test_highlighted_cards_still_render_at_the_exact_card_size(self):
+        for names in (["Cova, Mila"], ["Post, Zoey"], ["Cova, Mila", "Vickers, Natalie"]):
+            _n, cards, _h = cards_for_timeline(
+                HERC_TIMELINE,
+                flyer_text=flyer_text(HERC_FLYER),
+                psych_pdf=HERC_PSYCH,
+                swimmer_names=names,
+            )
+            reader = PdfReader(BytesIO(render_cards_pdf(cards)))
+            self.assertEqual(len(reader.pages), 6, names)
+            for page in reader.pages:
+                self.assertAlmostEqual(float(page.mediabox.width), CARD_W, places=2)
+                self.assertAlmostEqual(float(page.mediabox.height), CARD_H, places=2)
+
+    def test_event_names_still_fit_after_the_column_widens(self):
+        """EVENT gives up the width, so its shrink-to-fit has to absorb it on the worst real
+        session (WZAG Thursday Finals: 28 rows, longest relay names)."""
+        _n, cards, _h = cards_for_timeline(
+            WZAG_TIMELINE, flyer_text=flyer_text(WZAG_FLYER), psych_pdf=HERC_PSYCH
+        )
+        biggest = max(cards, key=lambda card: card.event_count)
+        margin = max(3.5, CARD_W * 0.035)
+        content_w = CARD_W - 2 * margin
+        table_h = (CARD_H - 0.13 * CARD_H) - (0.08 * CARD_H) - 0.02 * CARD_H
+        row_h = table_h / (biggest.event_count + 0.62)
+        base_fs = max(5.0, min(8.3, row_h * 0.5))
+        col_event_w = content_w - content_w * 0.145 - content_w * 0.225 - content_w * 0.20
+        for row in biggest.events:
+            size = base_fs
+            while stringWidth(row["name"], "Helvetica", size) > col_event_w - 4 and size > 4.0:
+                size -= 0.2
+            self.assertLessEqual(
+                stringWidth(row["name"], "Helvetica", size), col_event_w - 4, row["name"]
+            )
 
 
 if __name__ == "__main__":

@@ -54,7 +54,12 @@ UPLOAD_FIELD_LABELS = {
 }
 sys.path.insert(0, str(ROOT))
 
-from swimtimeline.badges import card_filename, cards_for_timeline, render_cards_pdf
+from swimtimeline.badges import (
+    card_filename,
+    cards_for_timeline,
+    is_ambiguous_warning,
+    render_cards_pdf,
+)
 from swimtimeline.extract import analyze_uploads, extract_text_pages, resolve_meet_timezone
 from swimtimeline.ics import build_ics
 
@@ -348,15 +353,20 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             run_id = f"{int(time.time())}-{uuid4().hex[:8]}"
             upload_dir = RUNS_DIR / run_id / "uploads"
             upload_dir.mkdir(parents=True, exist_ok=True)
-            timeline_path = save_upload(form, "timeline_pdf", upload_dir, required=True)
-            assert timeline_path is not None
-            meet_name, cards = cards_for_timeline(timeline_path)
+            # Saved under FIXED names, and read back by name -- see officials_upload_paths. The
+            # psych sheet is optional: without it there is nothing to match swimmers against, so
+            # cards still generate, just with no highlights.
+            save_officials_upload(form, "timeline_pdf", upload_dir / "timeline.pdf", required=True)
+            save_officials_upload(form, "psych_pdf", upload_dir / "psych.pdf", required=False)
+            swimmer_names = swimmer_names_from_form(form)
+            meet_name, cards, highlights = officials_cards_for_token(run_id, swimmer_names)
             return {
                 "source": "upload",
                 "token": run_id,
                 "meet_id": None,
                 "meet_name": meet_name,
                 "sessions": [officials_session_summary(card) for card in cards],
+                **officials_highlight_payload(highlights, swimmer_names),
             }
 
         length = int(self.headers.get("Content-Length", "0"))
@@ -364,13 +374,15 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         meet_id = str(payload.get("meet_id", "")).strip()
         if not meet_id:
             raise ValueError("Choose a hosted meet or upload a Session Report PDF.")
-        meet, cards = officials_cards_for_meet(meet_id)
+        swimmer_names = swimmer_names_from_payload(payload)
+        meet, cards, highlights = officials_cards_for_meet(meet_id, swimmer_names)
         return {
             "source": "current_meet",
             "token": None,
             "meet_id": meet_id,
             "meet_name": str(meet.get("name") or "Swim Meet"),
             "sessions": [officials_session_summary(card) for card in cards],
+            **officials_highlight_payload(highlights, swimmer_names),
         }
 
     def send_badges_pdf(self, query: dict) -> None:
@@ -382,11 +394,16 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             meet_id = str((query.get("meet_id") or [""])[0]).strip()
             token = str((query.get("token") or [""])[0]).strip()
             session_raw = str((query.get("session") or [""])[0]).strip()
+            # Same "swimmer_names" field name the rest of the app uses, repeated once per swimmer
+            # so the page can hand the exact list it already validated straight to the download.
+            swimmer_names = unique_swimmer_names(
+                [name.strip() for name in (query.get("swimmer_names") or []) if name.strip()]
+            )
             if meet_id:
-                meet, cards = officials_cards_for_meet(meet_id)
+                meet, cards, _highlights = officials_cards_for_meet(meet_id, swimmer_names)
                 meet_name = str(meet.get("name") or "Swim Meet")
             elif token:
-                meet_name, cards = officials_cards_for_token(token)
+                meet_name, cards, _highlights = officials_cards_for_token(token, swimmer_names)
             else:
                 raise ValueError("A hosted meet id or an upload token is required.")
 
@@ -1026,14 +1043,36 @@ def officials_session_summary(card) -> dict:
         "heat_interval": card.heat_interval,
         "age_qualifier": card.age_qualifier,
         "event_count": card.event_count,
+        "highlighted_events": card.highlighted_event_numbers,
     }
 
 
-def officials_cards_for_meet(meet_id: str):
-    """(meet record, cards) for a hosted meet, reusing resolve_current_meet for the lookup and
-    resolve_repo_file for the same path-containment check every other hosted document goes
-    through. Only the timeline is required here -- the flyer is read when present because
-    parse_timeline uses it to fall back on a date range the timeline itself may not state.
+def officials_highlight_payload(highlights, swimmer_names: list[str]) -> dict:
+    """The swimmer-highlight half of the sessions response.
+
+    Warnings are split so the page can distinguish "be more specific" from "not found" -- the same
+    distinction the family payload draws off AMBIGUOUS_NAME_MARKER -- and matched swimmers are
+    reported per name so an official can see WHY a name contributed nothing.
+    """
+    return {
+        "swimmer_names": swimmer_names,
+        "highlighted_events": sorted(highlights.event_numbers),
+        "matched_swimmers": [
+            {"name": name, "event_numbers": numbers} for name, numbers in highlights.matched.items()
+        ],
+        "swimmer_warnings": [
+            {"message": warning, "ambiguous": is_ambiguous_warning(warning)}
+            for warning in highlights.warnings
+        ],
+    }
+
+
+def officials_cards_for_meet(meet_id: str, swimmer_names: list[str] | None = None):
+    """(meet record, cards, highlights) for a hosted meet, reusing resolve_current_meet for the
+    lookup and resolve_repo_file for the same path-containment check every other hosted document
+    goes through. Only the timeline is required here -- the flyer is read when present because
+    parse_timeline uses it to fall back on a date range the timeline itself may not state, and the
+    meet's own psych sheet is read when swimmer names were given, to star their events.
     """
     meet = resolve_current_meet(meet_id)
     files = meet.get("files", {})
@@ -1041,26 +1080,79 @@ def officials_cards_for_meet(meet_id: str):
     assert timeline_path is not None
     flyer_path = resolve_repo_file(files.get("flyer"), required=False, label="Meet Flyer")
     flyer_text = "\n".join(extract_text_pages(flyer_path)) if flyer_path else ""
-    _meet_name, cards = cards_for_timeline(
-        timeline_path, flyer_text=flyer_text, meet_venue=meet.get("venue") or None
+    psych_path = (
+        resolve_repo_file(files.get("psych"), required=False, label="Psych Sheet or Heat Sheet")
+        if swimmer_names
+        else None
     )
-    return meet, cards
+    _meet_name, cards, highlights = cards_for_timeline(
+        timeline_path,
+        flyer_text=flyer_text,
+        meet_venue=meet.get("venue") or None,
+        psych_pdf=psych_path,
+        swimmer_names=swimmer_names,
+    )
+    return meet, cards, highlights
 
 
-def officials_cards_for_token(token: str):
-    """(meet_name, cards) for a timeline an official uploaded a moment ago. The token is a run id,
-    validated and resolved under RUNS_DIR the same way /download/... and publish-current do, so it
-    can't be pointed at a path outside the run directory.
+def officials_upload_paths(token: str) -> tuple[Path, Path | None]:
+    """(timeline, psych-or-None) for an official's upload, addressed by FIXED filenames.
+
+    This used to glob "*.pdf" and take the first result, which was a latent bug the moment a
+    second file joined the directory: "psych.pdf" sorts before "timeline.pdf", so the psych sheet
+    would silently have been parsed AS the timeline. Uploads are written under known names by
+    handle_officials_sessions and read back by those names here, so neither file can stand in for
+    the other.
     """
     if not re.match(r"^[0-9]+-[a-f0-9]{8}$", token):
         raise ValueError("Upload token is invalid.")
     upload_dir = (RUNS_DIR / token / "uploads").resolve()
     if RUNS_DIR.resolve() not in upload_dir.parents or not upload_dir.is_dir():
         raise ValueError("That upload has expired. Please upload the Session Report again.")
-    pdfs = sorted(upload_dir.glob("*.pdf"))
-    if not pdfs:
+    timeline_path = upload_dir / "timeline.pdf"
+    if not timeline_path.is_file():
         raise ValueError("That upload has expired. Please upload the Session Report again.")
-    return cards_for_timeline(pdfs[0])
+    psych_path = upload_dir / "psych.pdf"
+    return timeline_path, (psych_path if psych_path.is_file() else None)
+
+
+def officials_cards_for_token(token: str, swimmer_names: list[str] | None = None):
+    """(meet_name, cards, highlights) for a timeline an official uploaded a moment ago. The token
+    is a run id, validated and resolved under RUNS_DIR the same way /download/... and
+    publish-current do, so it can't be pointed at a path outside the run directory.
+    """
+    timeline_path, psych_path = officials_upload_paths(token)
+    return cards_for_timeline(
+        timeline_path, psych_pdf=psych_path, swimmer_names=swimmer_names
+    )
+
+
+def save_officials_upload(
+    form: cgi.FieldStorage, field: str, target: Path, required: bool
+) -> Path | None:
+    """Save one officials upload to an EXACT path (not the client's filename).
+
+    save_upload() keeps the uploaded file's own name, which is what the family flow wants for its
+    manifest; here the names must be predictable so officials_upload_paths can tell the timeline
+    and the psych sheet apart without guessing. Also refuses a non-PDF outright rather than
+    letting the parser fail obscurely later.
+    """
+    if field not in form:
+        if required:
+            raise ValueError(f"{UPLOAD_FIELD_LABELS.get(field, field)} is required.")
+        return None
+    item = form[field]
+    if isinstance(item, list):
+        item = item[0]
+    if not item.filename:
+        if required:
+            raise ValueError(f"{UPLOAD_FIELD_LABELS.get(field, field)} is required.")
+        return None
+    if not str(item.filename).lower().endswith(".pdf"):
+        raise ValueError(f"{UPLOAD_FIELD_LABELS.get(field, field)} must be a PDF.")
+    with target.open("wb") as handle:
+        shutil.copyfileobj(item.file, handle)
+    return target
 
 
 # Statuses that block clickable calendar-generation regardless of which

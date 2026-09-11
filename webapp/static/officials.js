@@ -10,12 +10,18 @@ const meetSelect = document.querySelector("#meetSelect");
 const loadMeetButton = document.querySelector("#loadMeet");
 const loadUploadButton = document.querySelector("#loadUpload");
 const timelineInput = document.querySelector("#timelineInput");
+const psychInput = document.querySelector("#psychInput");
 const sessionsBody = document.querySelector("#sessionsBody");
 const meetNameEl = document.querySelector("#meetName");
 const summaryEl = document.querySelector("#summary");
 const downloadAll = document.querySelector("#downloadAll");
+const swimmerList = document.querySelector("#swimmerList");
+const addSwimmerButton = document.querySelector("#addSwimmer");
+const warningsEl = document.querySelector("#warnings");
+const highlightSummaryEl = document.querySelector("#highlightSummary");
 
 loadHostedMeets();
+updateRemoveButtons();
 
 loadMeetButton.addEventListener("click", () => {
   const meetId = meetSelect.value;
@@ -23,7 +29,7 @@ loadMeetButton.addEventListener("click", () => {
     setStatus("Choose a hosted meet, or upload a Session Report below.", "error");
     return;
   }
-  loadSessions({ meet_id: meetId });
+  loadSessions({ meet_id: meetId, swimmer_names: getSwimmerNames() });
 });
 
 loadUploadButton.addEventListener("click", () => {
@@ -34,8 +40,62 @@ loadUploadButton.addEventListener("click", () => {
   }
   const body = new FormData();
   body.append("timeline_pdf", file);
+  const psych = psychInput.files && psychInput.files[0];
+  if (psych) {
+    body.append("psych_pdf", psych);
+  }
+  // Same repeated "swimmer_names" field the family upload form posts, so the server's existing
+  // swimmer_names_from_form reads it with no special-casing.
+  for (const name of getSwimmerNames()) {
+    body.append("swimmer_names", name);
+  }
   loadSessions(body);
 });
+
+// Same shape as the family page's swimmer rows (see app.js addSwimmerRow/updateRemoveButtons),
+// restated here because this page is deliberately its own script.
+addSwimmerButton.addEventListener("click", () => addSwimmerRow());
+
+swimmerList.addEventListener("click", (event) => {
+  const button = event.target.closest(".remove-swimmer");
+  if (!button) return;
+  button.closest(".swimmer-row").remove();
+  if (!swimmerList.querySelector(".swimmer-row")) addSwimmerRow();
+  updateRemoveButtons();
+});
+
+function getSwimmerNames() {
+  const seen = new Set();
+  const names = [];
+  for (const input of swimmerList.querySelectorAll('input[name="swimmer_names"]')) {
+    const value = input.value.trim();
+    // De-duplicated case-insensitively, matching the server's unique_swimmer_names.
+    if (value && !seen.has(value.toLowerCase())) {
+      seen.add(value.toLowerCase());
+      names.push(value);
+    }
+  }
+  return names;
+}
+
+function addSwimmerRow(value = "") {
+  const row = document.createElement("div");
+  row.className = "swimmer-row";
+  row.innerHTML = `
+    <input name="swimmer_names" placeholder="Last, First" autocomplete="off" value="${escapeHtml(value)}">
+    <button class="icon-button remove-swimmer" type="button" aria-label="Remove swimmer">&times;</button>
+  `;
+  swimmerList.appendChild(row);
+  updateRemoveButtons();
+  row.querySelector("input").focus();
+}
+
+function updateRemoveButtons() {
+  const rows = swimmerList.querySelectorAll(".swimmer-row");
+  for (const row of rows) {
+    row.querySelector(".remove-swimmer").classList.toggle("hidden", rows.length === 1);
+  }
+}
 
 async function loadHostedMeets() {
   try {
@@ -95,20 +155,59 @@ function renderSessions(payload) {
     return;
   }
   // The badge endpoint takes either a hosted meet id or an upload token -- whichever this load
-  // came from -- so every download link below is built off the same query base.
-  const query = payload.meet_id
-    ? `meet_id=${encodeURIComponent(payload.meet_id)}`
-    : `token=${encodeURIComponent(payload.token)}`;
+  // came from -- plus the same swimmer names, so a downloaded PDF is starred identically to what
+  // the table below reports.
+  const parts = [
+    payload.meet_id
+      ? `meet_id=${encodeURIComponent(payload.meet_id)}`
+      : `token=${encodeURIComponent(payload.token)}`,
+    ...(payload.swimmer_names || []).map((name) => `swimmer_names=${encodeURIComponent(name)}`),
+  ];
+  const query = parts.join("&");
 
   meetNameEl.textContent = payload.meet_name || "Swim Meet";
   const totalEvents = sessions.reduce((sum, session) => sum + (session.event_count || 0), 0);
+  const starred = (payload.highlighted_events || []).length;
   summaryEl.textContent =
     `${sessions.length} session${sessions.length === 1 ? "" : "s"} · ` +
-    `${totalEvents} events · one 2″×3″ card per session`;
+    `${totalEvents} events · one 2″×3″ card per session` +
+    (starred ? ` · ${starred} starred event${starred === 1 ? "" : "s"}` : "");
   downloadAll.setAttribute("href", `/api/officials/badges?${query}`);
 
+  renderSwimmerFeedback(payload);
   sessionsBody.innerHTML = sessions.map((session) => sessionRow(session, query)).join("");
   resultEl.classList.remove("hidden");
+}
+
+function renderSwimmerFeedback(payload) {
+  // Same per-warning markup the family page uses (app.js: div.warning inside #warnings).
+  warningsEl.innerHTML = "";
+  for (const warning of payload.swimmer_warnings || []) {
+    const item = document.createElement("div");
+    item.className = "warning";
+    item.textContent = warning.ambiguous
+      ? `${warning.message} (no events were highlighted for that name)`
+      : warning.message;
+    warningsEl.appendChild(item);
+  }
+
+  const matched = payload.matched_swimmers || [];
+  if (!matched.length) {
+    highlightSummaryEl.classList.add("hidden");
+    highlightSummaryEl.innerHTML = "";
+    return;
+  }
+  highlightSummaryEl.innerHTML =
+    `<strong>Highlighted on the cards:</strong> ` +
+    matched
+      .map(
+        (entry) =>
+          `${escapeHtml(entry.name)} <span class="muted">(${entry.event_numbers
+            .map((number) => `#${escapeHtml(number)}`)
+            .join(", ")})</span>`
+      )
+      .join(" · ");
+  highlightSummaryEl.classList.remove("hidden");
 }
 
 function sessionRow(session, query) {
@@ -116,12 +215,17 @@ function sessionRow(session, query) {
     ? escapeHtml(session.age_qualifier)
     : '<span class="muted">mixed ages</span>';
   const href = `/api/officials/badges?${query}&session=${encodeURIComponent(session.session_number)}`;
+  const starredEvents = session.highlighted_events || [];
+  const starredCell = starredEvents.length
+    ? `<span class="starred-count">★ ${starredEvents.map((n) => `#${escapeHtml(n)}`).join(", ")}</span>`
+    : '<span class="muted">—</span>';
   return `
-    <tr>
+    <tr${starredEvents.length ? ' class="has-starred"' : ""}>
       <td data-col="session" data-label="Session">#${escapeHtml(session.session_number)} ${escapeHtml(session.session_name)}<br>${ageNote}</td>
       <td data-col="sdate" data-label="Day">${escapeHtml(session.date_label)}</td>
       <td data-col="swindow" data-label="Start - Est. finish">${escapeHtml(session.start_label)} &ndash; ${escapeHtml(session.finish_label)}</td>
       <td data-col="events" data-label="Events">${escapeHtml(session.event_count)}</td>
+      <td data-col="starred" data-label="Starred">${starredCell}</td>
       <td data-col="interval" data-label="Heat interval">${escapeHtml(session.heat_interval || "—")}</td>
       <td data-col="card" data-label="Card"><a class="session-card-link" href="${href}">Download card</a></td>
     </tr>

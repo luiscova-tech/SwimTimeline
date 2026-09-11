@@ -1922,3 +1922,42 @@ td strong {
     border-top: 1px solid var(--line);
   }
 }
+
+/* Officials: watched-swimmer highlighting. Reuses the family page's .swimmer-list/.swimmer-row/
+   .icon-button/.add-swimmer-button rules for the name inputs; only the pieces with no existing
+   equivalent are defined here. */
+
+.swimmer-highlight {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.swimmer-highlight .swimmer-fieldset {
+  max-width: 560px;
+  margin-top: 12px;
+}
+
+.highlight-summary {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e5d089;
+  border-radius: 6px;
+  background: #fdf6df;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sessions-table td[data-col="starred"] {
+  white-space: nowrap;
+}
+
+.starred-count {
+  color: #8a6100;
+  font-weight: 800;
+}
+
+.sessions-table tr.has-starred td[data-col="session"] {
+  box-shadow: inset 3px 0 0 #d9a520;
+}

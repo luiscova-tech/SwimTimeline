@@ -53,6 +53,24 @@
             <button id="loadMeet" class="primary" type="button">Load Sessions</button>
           </section>
 
+          <section class="swimmer-highlight">
+            <div class="section-header">
+              <div>
+                <h2>Highlight Swimmers <small>(optional)</small></h2>
+                <p class="section-copy">Their events are shaded gold with a star on the cards. Use "Last, First" when a meet has siblings or two swimmers sharing a surname.</p>
+              </div>
+            </div>
+            <div class="swimmer-fieldset">
+              <div id="swimmerList" class="swimmer-list">
+                <div class="swimmer-row">
+                  <input name="swimmer_names" placeholder="Last, First" autocomplete="off">
+                  <button class="icon-button remove-swimmer hidden" type="button" aria-label="Remove swimmer">&times;</button>
+                </div>
+              </div>
+              <button id="addSwimmer" class="add-swimmer-button" type="button">+ Add another swimmer</button>
+            </div>
+          </section>
+
           <details id="uploadTimeline" class="upload-section">
             <summary>
               <span>Meet not listed?</span>
@@ -74,6 +92,11 @@
                   <span>Session Report / Timeline</span>
                   <input type="file" id="timelineInput" name="timeline_pdf" accept="application/pdf">
                 </label>
+                <label class="file-input">
+                  <span>Psych Sheet or Heat Sheet <small>(optional)</small></span>
+                  <small>Only needed to highlight swimmers &mdash; cards generate without it.</small>
+                  <input type="file" id="psychInput" name="psych_pdf" accept="application/pdf">
+                </label>
               </div>
             </div>
           </details>
@@ -93,6 +116,8 @@
               </div>
             </div>
           </div>
+          <div id="warnings" class="warnings"></div>
+          <div id="highlightSummary" class="highlight-summary hidden"></div>
           <div class="table-wrap">
             <!-- Own data-col names (sdate/swindow, not day/window) so the swimmer table's mobile
                  stacking rules in styles.css can't reorder this one. -->
@@ -103,6 +128,7 @@
                   <th data-col="sdate">Day</th>
                   <th data-col="swindow">Start &ndash; Est. finish</th>
                   <th data-col="events">Events</th>
+                  <th data-col="starred">Starred</th>
                   <th data-col="interval">Heat interval</th>
                   <th data-col="card">Card</th>
                 </tr>
