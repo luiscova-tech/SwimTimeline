@@ -124,7 +124,16 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
                 self.send_json(result)
                 return
             if self.path == "/api/officials/sessions":
-                result = self.handle_officials_sessions()
+                # Its own try/except, not the blanket one below: every failure here (a bad upload,
+                # a real PDF that just isn't a valid Session Report, an unknown meet id) is a
+                # client-input problem, not a server bug, so it gets 400 -- the same contract
+                # send_badges_pdf() already uses for the rest of this feature (see its own
+                # docstring), not the generic 500 every other JSON endpoint below falls through to.
+                try:
+                    result = self.handle_officials_sessions()
+                except Exception as exc:
+                    self.send_json({"error": str(exc)}, status=400)
+                    return
                 self.send_json(result)
                 return
             self.send_error(HTTPStatus.NOT_FOUND)
