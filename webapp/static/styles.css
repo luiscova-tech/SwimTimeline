@@ -1856,18 +1856,26 @@ td strong {
 }
 
 .nav-back a,
-.nav-officials a {
+.nav-officials a,
+.nav-support a {
   color: var(--accent-dark);
   font-weight: 750;
   text-decoration: none;
 }
 
 .nav-back a:hover,
-.nav-officials a:hover {
+.nav-officials a:hover,
+.nav-support a:hover {
   text-decoration: underline;
 }
 
 .nav-officials {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.nav-support {
   margin: 8px 0 0;
   color: var(--muted);
   font-size: 14px;
