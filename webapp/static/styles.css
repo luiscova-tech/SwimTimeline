@@ -448,6 +448,15 @@ h2 {
   margin-top: 12px;
 }
 
+/* A lone ready current meet only fills column 1 of the 2-column grid, leaving column 2 empty.
+   That leftover space cramps the card's height, and .meet-card's align-items: stretch then
+   stretches the "Use this meet" button to match while it stays intrinsically narrow, wrapping its
+   text. Scoped to #currentMeetList only -- #pastMeetList already has a fine single-item layout
+   and shares the .meet-list class, so this must not touch it. */
+#currentMeetList > .meet-card:only-child {
+  grid-column: 1 / -1;
+}
+
 .featured-meet {
   margin-top: 14px;
 }
