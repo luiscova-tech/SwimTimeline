@@ -1,15 +1,19 @@
 """Where this app lives, in one place.
 
-The deployed host is Render's default domain for the service named "swimtimeline" in render.yaml,
-so the two move together: rename the service and this constant has to change with it. Everything
-that prints, emails, or links to the live site reads it from here rather than repeating the string
--- including the URL printed on every badge card (swimtimeline/badges.py), which is the one copy
-that ends up on paper in an official's hand and cannot be corrected after the fact.
+The canonical domain is swimtimeline.org, verified with TLS on Render as a custom domain.
+Render's own subdomain (swimtimeline.onrender.com) stays enabled alongside it and keeps
+resolving to the same service -- it is NOT being retired, because badge cards already printed
+with that URL (swimtimeline/badges.py's CARD_CREDIT_URL) can't be corrected after the fact.
+This constant only changes which one is canonical going forward.
+
+Everything that prints, emails, or links to the live site reads it from here rather than
+repeating the string -- including the URL printed on every new badge card, which is the one
+copy that ends up on paper in an official's hand.
 """
 
 from __future__ import annotations
 
-SITE_DOMAIN = "swimtimeline.onrender.com"
+SITE_DOMAIN = "swimtimeline.org"
 SITE_URL = f"https://{SITE_DOMAIN}"
 
 OFFICIALS_PATH = "/officials"

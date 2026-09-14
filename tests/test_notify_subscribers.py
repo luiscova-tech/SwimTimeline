@@ -21,6 +21,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from swimtimeline.site import SITE_URL  # noqa: E402
+
 try:
     from scripts.notify_subscribers import (
         NOTIFY_LOG_PATH,
@@ -190,7 +192,7 @@ class EmailContentTest(unittest.TestCase):
         self.assertIn("2026 Western Zone Age Group Championships", subject)
         self.assertIn("A new meet has been added for Cova, Mila L", body)
         self.assertIn("2026-08-05 through 2026-08-08", body)
-        self.assertIn("https://swimtimeline.onrender.com", body)
+        self.assertIn(SITE_URL, body)
 
     def test_body_always_carries_an_opt_out_line(self):
         _subject, body = build_email(self.MEET, [SwimmerMatch(name="Cova, Mila L", status="matched")])

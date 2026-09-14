@@ -36,8 +36,11 @@ Each Current Meets entry has `start_date`, `end_date`, and `expires_at`. The pub
 The app can report aggregate usage at:
 
 ```text
-https://swimtimeline.onrender.com/api/usage
+https://swimtimeline.org/api/usage
 ```
+
+(The Render subdomain, `swimtimeline.onrender.com`, still resolves to the same service and answers
+the same endpoints -- it just isn't the canonical URL to hand out anymore.)
 
 The counter stores total lookups and hashed normalized swimmer names, not swimmer names in plain text. It is useful for estimating distinct swimmer-name searches, but on Render's free filesystem it may reset after restarts or redeploys unless persistent storage is added later.
 
@@ -46,7 +49,7 @@ The counter stores total lookups and hashed normalized swimmer names, not swimme
 The app exposes a lightweight health endpoint:
 
 ```text
-https://swimtimeline.onrender.com/api/health
+https://swimtimeline.org/api/health
 ```
 
 If Render cold starts become annoying during a meet weekend, add an UptimeRobot HTTP monitor for that endpoint. Use the health endpoint, not the homepage and not a PDF parsing route.
@@ -54,7 +57,7 @@ If Render cold starts become annoying during a meet weekend, add an UptimeRobot 
 Recommended setup:
 
 - Monitor type: `HTTP(s)`
-- URL: `https://swimtimeline.onrender.com/api/health`
+- URL: `https://swimtimeline.org/api/health`
 - Interval: `14 minutes` if available, or the closest free interval
 - Alerting: optional
 
