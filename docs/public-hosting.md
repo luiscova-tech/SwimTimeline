@@ -44,7 +44,7 @@ the same endpoints -- it just isn't the canonical URL to hand out anymore.)
 
 The counter stores total lookups and hashed normalized swimmer names, not swimmer names in plain text. It is useful for estimating distinct swimmer-name searches, but on Render's free filesystem it may reset after restarts or redeploys unless persistent storage is added later.
 
-## Optional Warm Monitoring
+## Warm Monitoring
 
 The app exposes a lightweight health endpoint:
 
@@ -52,13 +52,14 @@ The app exposes a lightweight health endpoint:
 https://swimtimeline.org/api/health
 ```
 
-If Render cold starts become annoying during a meet weekend, add an UptimeRobot HTTP monitor for that endpoint. Use the health endpoint, not the homepage and not a PDF parsing route.
+Three cron-job.org jobs ping it every 10 minutes, scoped to when people actually check the site
+rather than running continuously, to stay well under Render's 750 free instance-hours/month cap
+(this schedule is ~430 hrs/month):
 
-Recommended setup:
+- `SwimTimeline warm — Mon-Thu`: hours 10-21, Mon/Tue/Wed/Thu (America/Phoenix)
+- `SwimTimeline warm — Fri-Sat`: hours 5-23, Fri/Sat (America/Phoenix)
+- `SwimTimeline warm — Sunday`: hours 5-17, Sun (America/Phoenix)
 
-- Monitor type: `HTTP(s)`
-- URL: `https://swimtimeline.org/api/health`
-- Interval: `14 minutes` if available, or the closest free interval
-- Alerting: optional
-
-Keep this off unless users complain about cold starts. A keep-warm monitor intentionally keeps the free service active, so it should be treated as a meet-weekend convenience rather than a permanent production strategy.
+All three GET the health endpoint above -- never the homepage or a PDF parsing route. Outside
+these windows the service is allowed to spin down normally; the first request after a gap still
+pays the ~30-60s free-tier cold start.
