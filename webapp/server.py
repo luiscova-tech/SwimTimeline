@@ -1432,7 +1432,7 @@ def public_relay_options(meet: dict) -> list[dict]:
 def current_meet_is_active(meet: dict) -> bool:
     expires_at = parse_iso_date(str(meet.get("expires_at") or ""))
     if expires_at:
-        return date.today() <= expires_at
+        return date.today() < expires_at
     end_date = parse_iso_date(str(meet.get("end_date") or ""))
     if end_date:
         return date.today() <= end_date
