@@ -2029,3 +2029,50 @@ td strong {
   pointer-events: none;
   opacity: 0.5;
 }
+
+/* Officials: shareable ?meet_id= link. Same readonly-input + Copy-button shape as app.js's
+   subscribe-link copy control, so the clipboard-unavailable fallback (select the field, copy by
+   hand) behaves identically on both pages. */
+
+.share-link {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfcfe;
+}
+
+.share-link-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.share-link-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.share-link-input {
+  flex: 1 1 280px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.share-link-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}

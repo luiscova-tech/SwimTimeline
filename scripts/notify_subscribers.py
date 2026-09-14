@@ -32,13 +32,18 @@ import os
 from pathlib import Path
 import sys
 import time
-import urllib.error
-import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from swimtimeline.extract import (  # noqa: E402  (path setup must precede the import)
+from swimtimeline.resend_email import (  # noqa: E402  (path setup must precede the import)
+    DEFAULT_FROM,
+    RESEND_ENDPOINT,
+    ResendError,
+)
+from swimtimeline.resend_email import send_via_resend as shared_send_via_resend  # noqa: E402
+from swimtimeline.site import SITE_URL  # noqa: E402
+from swimtimeline.extract import (  # noqa: E402
     AMBIGUOUS_NAME_MARKER,
     extract_psych_entries,
     lsc_from_team_code,
@@ -53,12 +58,6 @@ from webapp.server import (  # noqa: E402
 
 SUBSCRIBERS_PATH = ROOT / "data" / "subscribers.local.json"
 NOTIFY_LOG_PATH = ROOT / "data" / "notify_log.local.json"
-RESEND_ENDPOINT = "https://api.resend.com/emails"
-SITE_URL = "https://swimtimeline.onrender.com"
-# Resend's shared sandbox sender works with no domain verification, but it can only deliver to the
-# Resend account owner's own address. Set NOTIFY_FROM_EMAIL to a verified-domain sender before
-# emailing anyone else -- see docs/subscriber-notifications.md.
-DEFAULT_FROM = "SwimTimeline <onboarding@resend.dev>"
 API_KEY_ENV = "RESEND_API_KEY"
 FROM_ENV = "NOTIFY_FROM_EMAIL"
 
@@ -316,54 +315,18 @@ def build_email(meet: dict, matches: list[SwimmerMatch]) -> tuple[str, str]:
 
 
 def send_via_resend(api_key: str, from_address: str, to_address: str, subject: str, body: str) -> str:
-    """POST one email to Resend with the stdlib. Returns Resend's message id.
+    """One email to Resend, via the shared sender in swimtimeline/resend_email.py.
 
-    urllib rather than requests on purpose: this repo ships exactly one pip dependency
-    (requirements.txt) and a notifier is not a good reason to add a second.
+    That module owns the request details (notably the User-Agent header Cloudflare requires) so the
+    live web service's failure alerts can reuse exactly the same, already-proven send path. The only
+    thing added here is the exception type: this script's callers treat NotifyError as "this one
+    send failed, keep going", so a ResendError is translated rather than leaking a new type into
+    them.
     """
-    payload = json.dumps({"from": from_address, "to": [to_address], "subject": subject, "text": body}).encode("utf-8")
-    request = urllib.request.Request(
-        RESEND_ENDPOINT,
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            # Required in practice, not politeness: Resend sits behind Cloudflare, which rejects
-            # urllib's default "Python-urllib/3.12" agent outright with 403 error code 1010
-            # ("banned browser signature") before the request ever reaches the API. That looks
-            # exactly like an auth failure in the logs. Found by an actual send -- no mocked test
-            # could have caught it.
-            "User-Agent": "SwimTimeline-Notifier/1.0 (+https://swimtimeline.onrender.com)",
-        },
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            raw = response.read().decode("utf-8", errors="replace")
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:500]
-        # Deliberately reports status + Resend's own message and never the key or the header.
-        raise NotifyError(f"Resend rejected the send ({exc.code} {exc.reason}): {detail}") from exc
-    except urllib.error.URLError as exc:
-        raise NotifyError(f"Could not reach Resend: {exc.reason}") from exc
-    except OSError as exc:
-        # urllib only wraps CONNECT-time errors in URLError. A timeout or a dropped connection
-        # while reading the response surfaces as a bare TimeoutError/OSError from getresponse(),
-        # which is NOT a URLError -- so without this it escaped the whole run, abandoning every
-        # remaining subscriber. Caught as NotifyError so the caller treats it as one failed send.
-        raise NotifyError(f"Lost the connection to Resend while reading its reply: {exc!r}") from exc
-
-    # A 2xx whose body isn't the JSON object we expect must fail this ONE send, not the batch.
-    try:
-        parsed = json.loads(raw or "{}")
-    except json.JSONDecodeError as exc:
-        raise NotifyError(f"Resend returned a non-JSON success body: {raw[:200]!r} ({exc})") from exc
-    if not isinstance(parsed, dict):
-        raise NotifyError(f"Resend returned an unexpected success body: {raw[:200]!r}")
-    message_id = str(parsed.get("id") or "")
-    if not message_id:
-        raise NotifyError(f"Resend accepted the request but returned no message id: {parsed!r}")
-    return message_id
+        return shared_send_via_resend(api_key, from_address, to_address, subject, body)
+    except ResendError as exc:
+        raise NotifyError(str(exc)) from exc
 
 
 def resolve_meet_and_psych(meet_id: str) -> tuple[dict, Path]:

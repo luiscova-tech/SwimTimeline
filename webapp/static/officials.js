@@ -26,6 +26,9 @@ const copiesSession = document.querySelector("#copiesSession");
 const copiesCount = document.querySelector("#copiesCount");
 const copiesEstimate = document.querySelector("#copiesEstimate");
 const downloadCopies = document.querySelector("#downloadCopies");
+const shareLinkRow = document.querySelector("#shareLinkRow");
+const shareLinkInput = document.querySelector("#shareLinkInput");
+const copyShareLinkButton = document.querySelector("#copyShareLink");
 
 // Mirrors swimtimeline/badges.py's SHEET_SLOTS_PER_PAGE and MAX_HANDOUT_COPIES. Duplicated here
 // (rather than fetched) because the page-count estimate is meant to update live as the number is
@@ -38,8 +41,48 @@ const MAX_HANDOUT_COPIES = 200;
 // from, kept so the highlight filter can re-apply client-side without refetching.
 let loaded = null;
 
-loadHostedMeets();
+// Chained, not fired-and-forgotten: the ?meet_id= shortcut can only pick an option once
+// loadHostedMeets() has actually populated the dropdown.
+loadHostedMeets().then(autoLoadMeetFromUrl);
 updateRemoveButtons();
+
+copyShareLinkButton.addEventListener("click", async () => {
+  // Same shape as app.js's subscribe-link copy: select the field first so that, if the Clipboard
+  // API is unavailable (a non-secure context, an older browser), the user can still copy by hand
+  // rather than being left with a button that silently does nothing.
+  shareLinkInput.select();
+  try {
+    await navigator.clipboard.writeText(shareLinkInput.value);
+    copyShareLinkButton.textContent = "Copied!";
+    setTimeout(() => {
+      copyShareLinkButton.textContent = "Copy link";
+    }, 1500);
+  } catch (error) {
+    // Field is already selected above -- nothing further to do.
+  }
+});
+
+shareLinkInput.addEventListener("click", () => shareLinkInput.select());
+
+// A ?meet_id=... link (the one the Copy link button hands out) lands here: pick that meet in the
+// dropdown and run the very same load the "Load Sessions" button runs, so the recipient arrives
+// with sessions already on screen. Everything else -- session, copies, swimmer names -- is
+// deliberately NOT carried in the link; they choose their own.
+function autoLoadMeetFromUrl() {
+  const requested = new URLSearchParams(window.location.search).get("meet_id");
+  if (!requested) return;
+  const known = [...meetSelect.options].some((option) => option.value === requested);
+  if (!known) {
+    // An expired or renamed meet, rather than silently ignoring the link.
+    setStatus(
+      `That link points at a meet ("${requested}") that is no longer listed here. Pick a meet below.`,
+      "error",
+    );
+    return;
+  }
+  meetSelect.value = requested;
+  loadSessions({ meet_id: requested, swimmer_names: getSwimmerNames() });
+}
 
 highlightedOnly.addEventListener("change", applyHighlightFilter);
 copiesSession.addEventListener("change", updateCopiesEstimate);
@@ -208,6 +251,18 @@ function renderSessions(payload) {
   // Keep the loaded payload so the filter toggle can re-apply without another round trip -- the
   // per-session highlighted_events the table needs is already in this response.
   loaded = { payload, query };
+
+  // Only a HOSTED meet is shareable. An upload's token names a throwaway run directory on this
+  // server that expires and is meaningless to anyone else, so there is nothing useful to hand out.
+  if (payload.meet_id) {
+    const shareUrl = new URL("/officials", window.location.origin);
+    shareUrl.searchParams.set("meet_id", payload.meet_id);
+    shareLinkInput.value = shareUrl.toString();
+    shareLinkRow.classList.remove("hidden");
+  } else {
+    shareLinkInput.value = "";
+    shareLinkRow.classList.add("hidden");
+  }
 
   // Options reset to "Select a session…" (innerHTML replacement drops any prior selection), which
   // is correct here: the previous session numbers may not even exist in a newly loaded meet.

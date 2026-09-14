@@ -23,7 +23,10 @@ from pypdf import PdfReader
 from reportlab.pdfbase.pdfmetrics import stringWidth
 
 from swimtimeline.badges import (
+    CARD_FOOTER_FRAC,
     CARD_H,
+    CARD_HEADER_FRAC,
+    CARD_TABLE_GAP_FRAC,
     CARD_W,
     MAROON,
     MAX_HANDOUT_COPIES,
@@ -752,7 +755,14 @@ class HighlightLayoutTest(unittest.TestCase):
         self.assertEqual(card.event_count, 14)
         margin = max(3.5, CARD_W * 0.035)
         content_w = CARD_W - 2 * margin
-        table_h = (CARD_H - 0.13 * CARD_H) - (0.08 * CARD_H) - 0.02 * CARD_H
+        # Reads draw_card's own fractions rather than repeating them -- these two copies
+        # silently drifted out of sync once the footer grew a second line for the site URL.
+        table_h = (
+            CARD_H
+            - CARD_HEADER_FRAC * CARD_H
+            - CARD_FOOTER_FRAC * CARD_H
+            - 2 * CARD_TABLE_GAP_FRAC * CARD_H
+        )
         row_h = table_h / (card.event_count + 0.62)
         base_fs = max(5.0, min(8.3, row_h * 0.5))
         col_num_w = content_w * 0.145  # widened, because this card has stars
@@ -792,7 +802,14 @@ class HighlightLayoutTest(unittest.TestCase):
         biggest = max(cards, key=lambda card: card.event_count)
         margin = max(3.5, CARD_W * 0.035)
         content_w = CARD_W - 2 * margin
-        table_h = (CARD_H - 0.13 * CARD_H) - (0.08 * CARD_H) - 0.02 * CARD_H
+        # Reads draw_card's own fractions rather than repeating them -- these two copies
+        # silently drifted out of sync once the footer grew a second line for the site URL.
+        table_h = (
+            CARD_H
+            - CARD_HEADER_FRAC * CARD_H
+            - CARD_FOOTER_FRAC * CARD_H
+            - 2 * CARD_TABLE_GAP_FRAC * CARD_H
+        )
         row_h = table_h / (biggest.event_count + 0.62)
         base_fs = max(5.0, min(8.3, row_h * 0.5))
         col_event_w = content_w - content_w * 0.145 - content_w * 0.225 - content_w * 0.20

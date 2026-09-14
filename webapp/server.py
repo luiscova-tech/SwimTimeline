@@ -62,6 +62,7 @@ from swimtimeline.badges import (
     render_handout_sheet_pdf,
     render_sheet_pdf,
 )
+from swimtimeline.failure_alerts import FailureReport, InputError, notify_failure
 from swimtimeline.extract import analyze_uploads, extract_text_pages, resolve_meet_timezone
 from swimtimeline.ics import build_ics
 
@@ -97,12 +98,25 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             self.send_static(STATIC_DIR / "officials.html")
             return
         if path == "/api/officials/meets":
-            self.send_json(officials_meets_payload())
+            # do_GET has no blanket handler of its own, so without this an exception here would be
+            # an unhandled 500 with a traceback and no alert at all. That is exactly the case
+            # worth an email -- nobody's input can make listing the hosted meets fail.
+            try:
+                self.send_json(officials_meets_payload())
+            except Exception as exc:
+                self.send_json({"error": str(exc)}, status=500)
+                self.report_officials_failure("/api/officials/meets", exc, {})
             return
         if path == "/api/officials/badges":
             # A GET (not POST) so the browser can download it with a plain link, same as
             # /download/... -- there is no request body, only the meet/token the caller already has.
-            self.send_badges_pdf(parse_qs(parsed.query))
+            query = parse_qs(parsed.query)
+            try:
+                self.send_badges_pdf(query)
+            except Exception as exc:
+                # send_badges_pdf already answers its own errors with a 400; reaching here means
+                # even that failed (e.g. the write itself), which is never routine input.
+                self.report_officials_failure("/api/officials/badges", exc, query, stage="responding")
             return
         if path == "/api/usage":
             self.send_json(public_usage_stats())
@@ -132,7 +146,13 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
                 try:
                     result = self.handle_officials_sessions()
                 except Exception as exc:
+                    # Response first, alert second, and only for real failures -- a psych sheet
+                    # uploaded as a timeline is a genuine document-processing failure worth an
+                    # email, while "choose a meet" is not. See failure_alerts.
                     self.send_json({"error": str(exc)}, status=400)
+                    self.report_officials_failure(
+                        "/api/officials/sessions", exc, getattr(self, "_officials_params", {})
+                    )
                     return
                 self.send_json(result)
                 return
@@ -350,8 +370,12 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         the official uploads. An upload is saved under RUNS_DIR and answered with a token so the
         follow-up badge download does not have to re-upload the same PDF.
         """
+        # Recorded as they are parsed so a failure email can say what was asked for even when
+        # the request blew up partway through -- read back by do_POST's alert path.
+        self._officials_params = {}
         content_type = self.headers.get("Content-Type", "")
         if "multipart/form-data" in content_type:
+            self._officials_params["token"] = "(upload)"
             form = cgi.FieldStorage(
                 fp=self.rfile,
                 headers=self.headers,
@@ -370,7 +394,11 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             save_officials_upload(form, "timeline_pdf", upload_dir / "timeline.pdf", required=True)
             save_officials_upload(form, "psych_pdf", upload_dir / "psych.pdf", required=False)
             swimmer_names = swimmer_names_from_form(form)
+            self._officials_params.update({"token": run_id, "swimmer_names": swimmer_names})
             meet_name, cards, highlights = officials_cards_for_token(run_id, swimmer_names)
+            self.report_officials_psych_failures(
+                "/api/officials/sessions", highlights, self._officials_params
+            )
             return {
                 "source": "upload",
                 "token": run_id,
@@ -384,9 +412,13 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
         meet_id = str(payload.get("meet_id", "")).strip()
         if not meet_id:
-            raise ValueError("Choose a hosted meet or upload a Session Report PDF.")
+            raise InputError("Choose a hosted meet or upload a Session Report PDF.")
         swimmer_names = swimmer_names_from_payload(payload)
+        self._officials_params.update({"meet_id": meet_id, "swimmer_names": swimmer_names})
         meet, cards, highlights = officials_cards_for_meet(meet_id, swimmer_names)
+        self.report_officials_psych_failures(
+            "/api/officials/sessions", highlights, self._officials_params
+        )
         return {
             "source": "current_meet",
             "token": None,
@@ -432,21 +464,21 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             session_raw = str((query.get("session") or [""])[0]).strip()
             layout = str((query.get("layout") or ["cards"])[0]).strip().lower() or "cards"
             if layout not in {"cards", "sheet", "handout"}:
-                raise ValueError(f"Unknown layout '{layout}'. Use 'cards', 'sheet', or 'handout'.")
+                raise InputError(f"Unknown layout '{layout}'. Use 'cards', 'sheet', or 'handout'.")
             copies_raw = str((query.get("copies") or [""])[0]).strip()
             if (layout == "handout" or copies_raw) and not session_raw:
-                raise ValueError(
+                raise InputError(
                     "The handout layout repeats one session's card, so an explicit session is "
                     "required -- repeating the whole meet's schedule doesn't mean anything."
                 )
             if copies_raw and layout != "handout":
-                raise ValueError("copies is only used with layout=handout.")
+                raise InputError("copies is only used with layout=handout.")
             copies: int | None = None
             if layout == "handout":
                 if not copies_raw:
-                    raise ValueError("layout=handout needs a copies=N param saying how many to print.")
+                    raise InputError("layout=handout needs a copies=N param saying how many to print.")
                 if not copies_raw.isdigit() or int(copies_raw) < 1:
-                    raise ValueError("copies must be a positive whole number.")
+                    raise InputError("copies must be a positive whole number.")
                 copies = int(copies_raw)
             highlighted_only = query_bool(query, "highlighted_only")
             # Same "swimmer_names" field name the rest of the app uses, repeated once per swimmer
@@ -455,24 +487,24 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
                 [name.strip() for name in (query.get("swimmer_names") or []) if name.strip()]
             )
             if highlighted_only and not swimmer_names:
-                raise ValueError(
+                raise InputError(
                     "highlighted_only needs at least one swimmer name to filter by."
                 )
             if meet_id:
-                meet, cards, _highlights = officials_cards_for_meet(meet_id, swimmer_names)
+                meet, cards, highlights = officials_cards_for_meet(meet_id, swimmer_names)
                 meet_name = str(meet.get("name") or "Swim Meet")
             elif token:
-                meet_name, cards, _highlights = officials_cards_for_token(token, swimmer_names)
+                meet_name, cards, highlights = officials_cards_for_token(token, swimmer_names)
             else:
-                raise ValueError("A hosted meet id or an upload token is required.")
+                raise InputError("A hosted meet id or an upload token is required.")
 
             if session_raw:
                 if not session_raw.isdigit():
-                    raise ValueError("Session must be a number.")
+                    raise InputError("Session must be a number.")
                 wanted = int(session_raw)
                 cards = [card for card in cards if card.session_number == wanted]
                 if not cards:
-                    raise ValueError(f"Session {wanted} is not in this meet's timeline.")
+                    raise InputError(f"Session {wanted} is not in this meet's timeline.")
 
             if highlighted_only:
                 # Reuses the per-card highlight list the page's own session table already reads --
@@ -480,7 +512,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
                 cards = [card for card in cards if card.highlighted_event_numbers]
                 if not cards:
                     named = ", ".join(swimmer_names)
-                    raise ValueError(
+                    raise InputError(
                         f"No session at this meet has an event for {named}, so there is nothing "
                         "to print. Clear the 'only sessions with my swimmer(s)' filter, or check "
                         "the spelling of the name(s)."
@@ -505,8 +537,42 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
             self.wfile.write(content)
+            self.report_officials_psych_failures("/api/officials/badges", highlights, query)
         except Exception as exc:  # Same visible-error contract as the JSON endpoints.
+            # The response goes out FIRST and is never affected by the alerting: notify_failure()
+            # cannot raise, and only emails when this is a real failure rather than an InputError
+            # the caller simply needs to correct.
             self.send_json({"error": str(exc)}, status=400)
+            self.report_officials_failure("/api/officials/badges", exc, query)
+
+    def report_officials_psych_failures(self, endpoint: str, highlights, query: dict) -> None:
+        """Alert on psych-sheet failures that swimmer_event_numbers() deliberately swallowed.
+
+        Those are caught per name on purpose -- one unreadable name must not cost the others their
+        highlights -- so they never reach an except block and would otherwise be invisible. The
+        request still succeeded, so this changes nothing the caller sees; it only means a psych
+        sheet that will not parse reaches the maintainer instead of dying as a page warning.
+        """
+        for name, exc in getattr(highlights, "processing_errors", []) or []:
+            self.report_officials_failure(
+                endpoint, exc, query, stage=f"matching swimmer {name!r} against the psych sheet"
+            )
+
+    def report_officials_failure(self, endpoint: str, exc: BaseException, query: dict, stage: str = "") -> None:
+        """Email one Officials failure, if it is a real one. Deliberately the LAST thing any
+        handler does, after the response is already written, and incapable of raising -- see
+        failure_alerts.notify_failure. Scoped to the Officials endpoints on purpose: the family
+        flow has its own long-standing behaviour and is not part of this alerting.
+        """
+        notify_failure(
+            FailureReport(
+                endpoint=endpoint,
+                exc=exc,
+                params=officials_failure_params(query),
+                stage=stage,
+            ),
+            logger=lambda message: self.log_message("%s", message),
+        )
 
     def send_subscribe_ics(self, query: dict[str, list[str]]) -> None:
         try:
@@ -1113,6 +1179,23 @@ def officials_meets_payload() -> dict:
     return {"current_meets": current_meets, "past_meets": past_meets}
 
 
+def officials_failure_params(query: dict) -> dict:
+    """The request params worth repeating back in a failure email, flattened out of either a
+    parsed query string (lists per key, from /api/officials/badges) or an already-flat dict (from
+    the POST handler). Never includes uploaded file contents -- only what someone would retype.
+    """
+    flattened: dict = {}
+    for key, value in (query or {}).items():
+        if isinstance(value, (list, tuple)):
+            if not value:
+                continue
+            # swimmer_names is legitimately repeated; everything else uses its first value.
+            flattened[key] = list(value) if key == "swimmer_names" else value[0]
+        else:
+            flattened[key] = value
+    return flattened
+
+
 def officials_session_summary(card) -> dict:
     """One session as the page's picker needs it -- no PDF, just what to label the option with."""
     return {
@@ -1187,13 +1270,13 @@ def officials_upload_paths(token: str) -> tuple[Path, Path | None]:
     the other.
     """
     if not re.match(r"^[0-9]+-[a-f0-9]{8}$", token):
-        raise ValueError("Upload token is invalid.")
+        raise InputError("Upload token is invalid.")
     upload_dir = (RUNS_DIR / token / "uploads").resolve()
     if RUNS_DIR.resolve() not in upload_dir.parents or not upload_dir.is_dir():
-        raise ValueError("That upload has expired. Please upload the Session Report again.")
+        raise InputError("That upload has expired. Please upload the Session Report again.")
     timeline_path = upload_dir / "timeline.pdf"
     if not timeline_path.is_file():
-        raise ValueError("That upload has expired. Please upload the Session Report again.")
+        raise InputError("That upload has expired. Please upload the Session Report again.")
     psych_path = upload_dir / "psych.pdf"
     return timeline_path, (psych_path if psych_path.is_file() else None)
 
@@ -1221,17 +1304,17 @@ def save_officials_upload(
     """
     if field not in form:
         if required:
-            raise ValueError(f"{UPLOAD_FIELD_LABELS.get(field, field)} is required.")
+            raise InputError(f"{UPLOAD_FIELD_LABELS.get(field, field)} is required.")
         return None
     item = form[field]
     if isinstance(item, list):
         item = item[0]
     if not item.filename:
         if required:
-            raise ValueError(f"{UPLOAD_FIELD_LABELS.get(field, field)} is required.")
+            raise InputError(f"{UPLOAD_FIELD_LABELS.get(field, field)} is required.")
         return None
     if not str(item.filename).lower().endswith(".pdf"):
-        raise ValueError(f"{UPLOAD_FIELD_LABELS.get(field, field)} must be a PDF.")
+        raise InputError(f"{UPLOAD_FIELD_LABELS.get(field, field)} must be a PDF.")
     with target.open("wb") as handle:
         shutil.copyfileobj(item.file, handle)
     return target
@@ -1380,7 +1463,7 @@ def resolve_current_meet(meet_id: str) -> dict:
     for meet in load_current_meets():
         if meet.get("id") == meet_id:
             return meet
-    raise ValueError(f"Unknown current meet: {meet_id}")
+    raise InputError(f"Unknown current meet: {meet_id}")
 
 
 def resolve_current_meet_relay_sources(meet: dict, relay_option_ids: list[str]) -> list[Path]:

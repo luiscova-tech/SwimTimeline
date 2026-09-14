@@ -30,7 +30,7 @@ carried over -- real card data comes from build_session_cards() below.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from io import BytesIO
 import math
@@ -41,6 +41,8 @@ from reportlab.lib import colors
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 
+from .failure_alerts import InputError
+from .site import CARD_CREDIT_URL
 from .extract import (
     AMBIGUOUS_NAME_MARKER,
     SessionInfo,
@@ -56,6 +58,14 @@ from .extract import (
 # Card geometry: 2" x 3" at 72pt/inch, per the spec.
 CARD_W = 144.0
 CARD_H = 216.0
+# Vertical budget, as fractions of card height, shared with anything that has to reason about the
+# table's available space (tests/test_badges.py replicates draw_card's row-height math to check
+# that a star or an event name still fits). These were duplicated as bare literals in both places
+# until the footer grew a second line for the site URL and the copies silently disagreed -- one
+# definition now, so that can't happen again.
+CARD_HEADER_FRAC = 0.13
+CARD_FOOTER_FRAC = 0.10  # two lines: "Est. Finish ..." plus site.CARD_CREDIT_URL
+CARD_TABLE_GAP_FRAC = 0.01  # breathing room above AND below the table, so 2x this in total
 
 # Print-sheet geometry: several DIFFERENT sessions' cards tiled on shared letter pages, at native
 # card size. This exists so a whole meet's reference schedule doesn't print as N mostly-blank
@@ -162,7 +172,7 @@ def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label
     top = oy + H
 
     # ---------- HEADER (2 lines: session label + compact meta line) ----------
-    header_h = 0.13 * H
+    header_h = CARD_HEADER_FRAC * H
     c.setFillColor(NAVY)
     c.rect(ox, top - header_h, W, header_h, stroke=0, fill=1)
 
@@ -191,19 +201,33 @@ def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label
     c.setFont("Helvetica", fs2)
     c.drawCentredString(ox + W / 2, ln2, meta)
 
-    # ---------- FOOTER ----------
-    footer_h = 0.08 * H
+    # ---------- FOOTER (2 lines: est. finish + where to make your own) ----------
+    # Taller than the original single-line footer by 0.02*H to make room for the URL line. That
+    # 4.3pt comes out of the table, which at the worst real case (WZAG's 28-event session) is
+    # already at its 5.0pt font floor either way -- so it costs a little row padding, not
+    # legibility. Verified by rasterizing that exact session, not assumed.
+    footer_h = CARD_FOOTER_FRAC * H
     fin_fs = max(6, W * 0.048)
     c.setStrokeColor(GRAY_LINE)
     c.setLineWidth(0.4)
     c.line(x0, oy + footer_h, x0 + content_w, oy + footer_h)
     c.setFillColor(NAVY)
     c.setFont("Helvetica-Bold", fin_fs)
-    c.drawCentredString(ox + W / 2, oy + footer_h * 0.32, f"Est. Finish {finish_label}")
+    c.drawCentredString(ox + W / 2, oy + footer_h * 0.50, f"Est. Finish {finish_label}")
+    # Whoever is handed this card can get their own. Deliberately the bare base path from
+    # site.CARD_CREDIT_URL -- no scheme, no query string -- since this is read off paper and
+    # retyped. Smaller and grey so it stays clearly secondary to the finish time, with the same
+    # shrink-to-fit guard every other text element here has.
+    url_fs = max(4.0, W * 0.035)
+    while stringWidth(CARD_CREDIT_URL, "Helvetica", url_fs) > content_w and url_fs > 3.2:
+        url_fs -= 0.1
+    c.setFillColor(GRAY_TXT)
+    c.setFont("Helvetica", url_fs)
+    c.drawCentredString(ox + W / 2, oy + footer_h * 0.14, CARD_CREDIT_URL)
 
     # ---------- TABLE ----------
-    table_top = top - header_h - 0.01 * H
-    table_bottom = oy + footer_h + 0.01 * H
+    table_top = top - header_h - CARD_TABLE_GAP_FRAC * H
+    table_bottom = oy + footer_h + CARD_TABLE_GAP_FRAC * H
     table_h = table_top - table_bottom
 
     HEADER_ROW_FRAC = 0.62
@@ -470,6 +494,12 @@ class SwimmerHighlights:
     event_numbers: set[int]
     matched: dict[str, list[int]]  # typed name -> that swimmer's own event numbers
     warnings: list[str]
+    # Raw exceptions from reading the psych sheet, kept alongside the human-readable warning. The
+    # per-name swallow below is deliberate (one unreadable name must not cost the other names
+    # their highlights), but a psych sheet that will not parse is still a real document failure
+    # someone should hear about -- so the library REPORTS it here and the server layer decides
+    # whether to email, rather than this module knowing anything about alerting.
+    processing_errors: list[tuple[str, Exception]] = field(default_factory=list)
 
     @property
     def any_matched(self) -> bool:
@@ -492,6 +522,7 @@ def swimmer_event_numbers(psych_pdf: Path, swimmer_names: list[str]) -> SwimmerH
     event_numbers: set[int] = set()
     matched: dict[str, list[int]] = {}
     warnings: list[str] = []
+    processing_errors: list[tuple[str, Exception]] = []
     for swimmer_name in swimmer_names:
         name = swimmer_name.strip()
         if not name:
@@ -500,6 +531,7 @@ def swimmer_event_numbers(psych_pdf: Path, swimmer_names: list[str]) -> SwimmerH
             entries, _page_counts, name_warnings = extract_psych_entries(Path(psych_pdf), name)
         except Exception as exc:  # A bad psych sheet must not take the whole card down.
             warnings.append(f"Could not search the psych sheet for '{name}': {exc}")
+            processing_errors.append((name, exc))
             continue
         warnings.extend(name_warnings)
         numbers = sorted({entry.event_number for entry in entries})
@@ -510,7 +542,12 @@ def swimmer_event_numbers(psych_pdf: Path, swimmer_names: list[str]) -> SwimmerH
             # No entries and nothing already said why -- say it, rather than silently
             # highlighting nothing.
             warnings.append(f"'{name}' was not found in this meet's psych sheet.")
-    return SwimmerHighlights(event_numbers=event_numbers, matched=matched, warnings=warnings)
+    return SwimmerHighlights(
+        event_numbers=event_numbers,
+        matched=matched,
+        warnings=warnings,
+        processing_errors=processing_errors,
+    )
 
 
 def is_ambiguous_warning(warning: str) -> bool:
@@ -875,9 +912,9 @@ def render_handout_sheet_pdf(card: SessionCard, copies: int) -> bytes:
     multi-sheet pagination are not reimplemented at all.
     """
     if copies < 1:
-        raise ValueError("copies must be at least 1.")
+        raise InputError("copies must be at least 1.")
     if copies > MAX_HANDOUT_COPIES:
-        raise ValueError(f"copies is capped at {MAX_HANDOUT_COPIES} per request.")
+        raise InputError(f"copies is capped at {MAX_HANDOUT_COPIES} per request.")
     return render_sheet_pdf([card] * copies)
 
 
