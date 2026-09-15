@@ -104,24 +104,24 @@ class HeatIntervalTest(unittest.TestCase):
 
     def test_herculean_two_part_interval_on_every_session(self):
         intervals = parse_heat_intervals(HERC_TIMELINE)
-        self.assertEqual(sorted(intervals), [1, 2, 3, 4, 5, 6])
+        self.assertEqual(sorted(intervals), ["1", "2", "3", "4", "5", "6"])
         for session_number, interval in intervals.items():
             self.assertEqual(interval, "25 Seconds / Back +15 Seconds", session_number)
 
     def test_wzag_three_part_prelims_and_two_part_finals(self):
         intervals = parse_heat_intervals(WZAG_TIMELINE)
-        self.assertEqual(sorted(intervals), [1, 2, 3, 4, 5, 6, 7, 8])
+        self.assertEqual(sorted(intervals), ["1", "2", "3", "4", "5", "6", "7", "8"])
         # Prelims (odd sessions) carry the third "Chase" part; finals (even) do not.
-        for session_number in (1, 3, 5, 7):
+        for session_number in ("1", "3", "5", "7"):
             self.assertEqual(
                 intervals[session_number],
                 "20 Seconds / Back +10 Seconds / Chase -30",
                 session_number,
             )
-        self.assertEqual(intervals[2], "50 Seconds / Back +25 Seconds")
-        self.assertEqual(intervals[4], "50 Seconds / Back +40 Seconds")
-        self.assertEqual(intervals[6], "50 Seconds / Back +40 Seconds")
-        self.assertEqual(intervals[8], "50 Seconds / Back +40 Seconds")
+        self.assertEqual(intervals["2"], "50 Seconds / Back +25 Seconds")
+        self.assertEqual(intervals["4"], "50 Seconds / Back +40 Seconds")
+        self.assertEqual(intervals["6"], "50 Seconds / Back +40 Seconds")
+        self.assertEqual(intervals["8"], "50 Seconds / Back +40 Seconds")
 
     def test_compaction_follows_the_sample_convention_for_both_shapes(self):
         self.assertEqual(compact_heat_interval("25 Seconds / Back +15 Seconds"), "25s/Back+15")
@@ -162,13 +162,13 @@ class AgeQualifierTest(unittest.TestCase):
         grouped = events_by_session(events)
         constants = {number: constant_age_qualifier(grouped[number]) for number in sorted(grouped)}
         # The 12&Over pool (sessions 1/3/5) really is constant; the 11&Under pool is not.
-        self.assertEqual(constants[1], "12 & Over")
-        self.assertEqual(constants[3], "12 & Over")
-        self.assertEqual(constants[5], "12 & Over")
-        self.assertIsNone(constants[2])
-        self.assertIsNone(constants[4])
-        self.assertIsNone(constants[6])
-        self.assertEqual(sessions[1].name, "Friday PM 12&Over")
+        self.assertEqual(constants["1"], "12 & Over")
+        self.assertEqual(constants["3"], "12 & Over")
+        self.assertEqual(constants["5"], "12 & Over")
+        self.assertIsNone(constants["2"])
+        self.assertIsNone(constants["4"])
+        self.assertIsNone(constants["6"])
+        self.assertEqual(sessions["1"].name, "Friday PM 12&Over")
 
     def test_every_wzag_session_is_mixed(self):
         _name, _sessions, events = parsed(WZAG_TIMELINE, WZAG_FLYER)
@@ -179,7 +179,7 @@ class AgeQualifierTest(unittest.TestCase):
     def test_wzag_mixed_session_produces_the_actual_expected_tags(self):
         """Not just "it's mixed" -- these are the tags WZAG's Wednesday Prelims really renders."""
         _name, _sessions, events = parsed(WZAG_TIMELINE, WZAG_FLYER)
-        session_one = events_by_session(events)[1]
+        session_one = events_by_session(events)["1"]
         names = [badge_event_name(event.event_name, include_age=True) for event in session_one]
         self.assertIn("Girls 11-12 400 IM", names)
         self.assertIn("Boys 11-12 400 IM", names)
@@ -192,7 +192,7 @@ class AgeQualifierTest(unittest.TestCase):
     def test_herculean_year_olds_tag_appears_in_its_only_real_session(self):
         """"11 Year Olds" -> "11yo" occurs nowhere else in either fixture -- only Herculean S6."""
         _name, _sessions, events = parsed(HERC_TIMELINE, HERC_FLYER)
-        session_six = events_by_session(events)[6]
+        session_six = events_by_session(events)["6"]
         names = [badge_event_name(event.event_name, include_age=True) for event in session_six]
         self.assertIn("Girls 11yo 400 IM", names)
         tags = {name.split()[1] for name in names}
@@ -264,9 +264,9 @@ class SessionGroupingTest(unittest.TestCase):
     def test_herculean_six_sessions_with_exact_real_event_and_heat_counts(self):
         _name, _sessions, events = parsed(HERC_TIMELINE, HERC_FLYER)
         grouped = events_by_session(events)
-        self.assertEqual(sorted(grouped), [1, 2, 3, 4, 5, 6])
+        self.assertEqual(sorted(grouped), ["1", "2", "3", "4", "5", "6"])
         # (event count, summed heat count) straight off the Session Report's own rows.
-        expected = {1: (10, 71), 2: (14, 77), 3: (12, 57), 4: (12, 61), 5: (10, 52), 6: (14, 67)}
+        expected = {"1": (10, 71), "2": (14, 77), "3": (12, 57), "4": (12, 61), "5": (10, 52), "6": (14, 67)}
         for number, (event_count, heat_total) in expected.items():
             session_events = grouped[number]
             self.assertEqual(len(session_events), event_count, number)
@@ -275,8 +275,8 @@ class SessionGroupingTest(unittest.TestCase):
     def test_wzag_eight_sessions_with_exact_real_event_counts(self):
         _name, _sessions, events = parsed(WZAG_TIMELINE, WZAG_FLYER)
         grouped = events_by_session(events)
-        self.assertEqual(sorted(grouped), [1, 2, 3, 4, 5, 6, 7, 8])
-        expected = {1: 22, 2: 25, 3: 22, 4: 28, 5: 20, 6: 23, 7: 20, 8: 26}
+        self.assertEqual(sorted(grouped), ["1", "2", "3", "4", "5", "6", "7", "8"])
+        expected = {"1": 22, "2": 25, "3": 22, "4": 28, "5": 20, "6": 23, "7": 20, "8": 26}
         self.assertEqual({n: len(evs) for n, evs in grouped.items()}, expected)
 
     def test_grouping_preserves_every_event_and_orders_by_start(self):
@@ -302,15 +302,15 @@ class NoonBoundaryTest(unittest.TestCase):
     def test_wzag_morning_prelims_do_cross_noon(self):
         _name, sessions, events = parsed(WZAG_TIMELINE, WZAG_FLYER)
         grouped = events_by_session(events)
-        for number in (1, 3, 7):
+        for number in ("1", "3", "7"):
             self.assertTrue(session_crosses_noon(grouped[number]), number)
             self.assertTrue(sessions[number].finish_time > "12:00", number)
-        self.assertFalse(session_crosses_noon(grouped[2]))
+        self.assertFalse(session_crosses_noon(grouped["2"]))
 
     def test_row_times_drop_the_meridiem_only_when_unambiguous(self):
         _name, _sessions, events = parsed(WZAG_TIMELINE, WZAG_FLYER)
         grouped = events_by_session(events)
-        crossing = grouped[1]
+        crossing = grouped["1"]
         self.assertEqual(row_time_label(crossing[0].start, True), "8:30a")
         self.assertEqual(row_time_label(crossing[0].start, False), "8:30")
         first_pm = next(e for e in crossing if e.start.strftime("%p") == "PM")
@@ -569,9 +569,9 @@ class SwimmerHighlightCardTest(unittest.TestCase):
     def test_the_stars_land_on_the_sessions_those_events_belong_to(self):
         by_session = {card.session_number: card.highlighted_event_numbers for card in self.cards}
         # Cova swims the 12&Over pool: #1/5/7 are Friday (session 1), #27/29 Sunday (session 5).
-        self.assertEqual(by_session[1], [1, 5, 7])
-        self.assertEqual(by_session[5], [27, 29])
-        for empty_session in (2, 3, 4, 6):
+        self.assertEqual(by_session["1"], [1, 5, 7])
+        self.assertEqual(by_session["5"], [27, 29])
+        for empty_session in ("2", "3", "4", "6"):
             self.assertEqual(by_session[empty_session], [], empty_session)
 
     def test_multi_swimmer_batch_stars_the_union_with_identical_treatment(self):
@@ -1144,7 +1144,7 @@ class CroswhiteNoAgeQualifierEventShapeTest(unittest.TestCase):
     def setUpClass(cls):
         cls.meet_name, cls.sessions, cls.events = parse_timeline(CROS_TIMELINE)
         cls.grouped = events_by_session(cls.events)
-        cls.session_events = cls.grouped[1]
+        cls.session_events = cls.grouped["1"]
         cls.card_meet_name, cls.cards, cls.highlights = cards_for_timeline(CROS_TIMELINE)
 
     def test_real_events_match_the_document_exactly(self):
@@ -1187,7 +1187,7 @@ class CroswhiteNoAgeQualifierEventShapeTest(unittest.TestCase):
         card = self.cards[0]
         self.assertEqual(len(self.cards), 1)
         self.assertIsNone(card.age_qualifier)
-        self.assertEqual(self.sessions[1].name, "Girls")
+        self.assertEqual(self.sessions["1"].name, "Girls")
         self.assertEqual(card.session_label, "SESSION 1 — GIRLS")
         self.assertEqual(card.date_label, "Sat, Sept 12")
         self.assertEqual(card.start_label, "6:00 PM")

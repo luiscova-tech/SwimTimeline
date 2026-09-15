@@ -499,12 +499,23 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
                 raise InputError("A hosted meet id or an upload token is required.")
 
             if session_raw:
-                if not session_raw.isdigit():
-                    raise InputError("Session must be a number.")
-                wanted = int(session_raw)
+                # Compared as a string, with no isdigit() precondition: a session id is the meet's
+                # own LABEL, and a meet running two pools in parallel labels them "1B"/"1G". The
+                # only thing that makes a value valid is matching a real session in THIS meet,
+                # which the filter below already decides -- and a miss is still a clean 400.
+                # (This must move in lockstep with SessionCard.session_number becoming a str:
+                # `"3" == 3` is legal Python that is simply always False, so leaving an int() here
+                # would silently break every single-session download without raising anything.)
+                wanted = session_raw.strip()
+                # A purely numeric token is normalized the same way parse_flyer_sessions
+                # normalizes its own: the old int() comparison accepted "03" for session 3, and a
+                # hand-typed or hand-edited URL shouldn't start 400ing on that spelling. A
+                # lettered id is left exactly as the meet prints it.
+                if wanted.isdigit():
+                    wanted = str(int(wanted))
                 cards = [card for card in cards if card.session_number == wanted]
                 if not cards:
-                    raise InputError(f"Session {wanted} is not in this meet's timeline.")
+                    raise InputError(f"Session {session_raw.strip()} is not in this meet's timeline.")
 
             if highlighted_only:
                 # Reuses the per-card highlight list the page's own session table already reads --

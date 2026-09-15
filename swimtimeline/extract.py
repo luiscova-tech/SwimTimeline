@@ -298,7 +298,10 @@ class Fragment:
 
 @dataclass
 class SessionInfo:
-    number: int
+    # A LABEL, not a quantity: meets that run two pools in parallel number their sessions "1B"/"1G"
+    # (boys pool / girls pool), so this is the meet's own token, stored and displayed verbatim.
+    # Nothing does arithmetic on it; see session_sort_key() in badges.py for ordering.
+    number: str
     name: str
     day_of_meet: int
     date: date
@@ -313,7 +316,8 @@ class TimelineEvent:
     event_number: int
     event_name: str
     round_name: str
-    session_number: int
+    # A label, matching SessionInfo.number -- "3" or "1B", never coerced to an int.
+    session_number: str
     session_name: str
     date: date
     start: datetime
@@ -1554,8 +1558,11 @@ def display_window(start: datetime, end: datetime) -> str:
     return f"{display_time(start)}-{display_time(end)}"
 
 
-def parse_flyer_sessions(text: str, start_date: date) -> dict[int, dict[str, str]]:
-    sessions: dict[int, dict[str, str]] = {}
+def parse_flyer_sessions(text: str, start_date: date) -> dict[str, dict[str, str]]:
+    # Keyed by session LABEL (str), because parse_timeline looks these up with
+    # SessionInfo.number. Keeping this int-keyed while that became a str would make every lookup
+    # miss silently, quietly dropping flyer-sourced warm-up times and facilities from every meet.
+    sessions: dict[str, dict[str, str]] = {}
     line_pattern = re.compile(
         r"Session\s+#?(?P<num>\d+),?\s+(?P<day>[A-Za-z]+),?\s+(?P<month>[A-Za-z]+)\s+(?P<dom>\d+)\s+(?P<name>.+?)\s+at\s+(?P<facility>[^:]+):\s*Warm[- ]?up:?\s*(?P<warm>\d{1,2}:\d{2})\s*(?P<warm_ampm>[ap]\.?m\.?)\s*,?\s*Meet\s+Start:?\s*(?P<start>\d{1,2}:\d{2})\s*(?P<start_ampm>[ap]\.?m\.?)",
         flags=re.IGNORECASE,
@@ -1568,7 +1575,12 @@ def parse_flyer_sessions(text: str, start_date: date) -> dict[int, dict[str, str
         clean = normalize_space(line).replace("a m", "am").replace("p m", "pm")
         match = line_pattern.search(clean)
         if match:
-            num = int(match.group("num"))
+            # str(int(...)), not the raw token: a flyer writing "Session #01" must still match the
+            # Session Report's "Session: 1". The old int keys compared equal across that spelling
+            # difference for free, and dropping to raw strings would have quietly stopped matching.
+            # No real document in meets/ writes a leading zero today -- this keeps the previous
+            # semantics exactly rather than narrowing them.
+            num = str(int(match.group("num")))
             facility = normalize_space(match.group("facility")).upper().replace("SKYLINE", "Skyline")
             sessions[num] = {
                 "warmup_time": normalize_pdf_time(match.group("warm"), match.group("warm_ampm")),
@@ -1772,7 +1784,13 @@ def top_seed_count_from_text(text: str) -> int | None:
     return None
 
 
-def parse_roman_session_numbers(value: str) -> list[int]:
+def parse_roman_session_numbers(value: str) -> list[str]:
+    """Roman session numerals from a flyer ("Sessions I, II") as session LABELS.
+
+    Returns str to match the keys parse_flyer_sessions builds, which parse_timeline looks up by
+    SessionInfo.number. A flyer writes these in Roman numerals but a Session Report writes the same
+    session as "1"/"2", so they are normalized to the Arabic label the report uses.
+    """
     roman_map = {
         "I": 1,
         "II": 2,
@@ -1783,7 +1801,7 @@ def parse_roman_session_numbers(value: str) -> list[int]:
         "VII": 7,
         "VIII": 8,
     }
-    return [roman_map[token.upper()] for token in re.findall(r"\b[IVX]+\b", value) if token.upper() in roman_map]
+    return [str(roman_map[token.upper()]) for token in re.findall(r"\b[IVX]+\b", value) if token.upper() in roman_map]
 
 
 def normalize_pdf_time(value: str, meridiem: str) -> str:
@@ -1799,7 +1817,7 @@ def session_is_finals(session_name: str) -> bool:
 
 def parse_timeline(
     timeline_pdf: Path, flyer_text: str = "", meet_venue: str | None = None
-) -> tuple[str, dict[int, SessionInfo], list[TimelineEvent]]:
+) -> tuple[str, dict[str, SessionInfo], list[TimelineEvent]]:
     cache_key = pdf_cache_key(timeline_pdf)
     return cached_timeline(*cache_key, flyer_text, meet_venue)
 
@@ -1811,7 +1829,7 @@ def cached_timeline(
     size: int,
     flyer_text: str = "",
     meet_venue: str | None = None,
-) -> tuple[str, dict[int, SessionInfo], list[TimelineEvent]]:
+) -> tuple[str, dict[str, SessionInfo], list[TimelineEvent]]:
     del mtime_ns, size
     timeline_pdf = Path(path)
     pages = extract_text_pages(timeline_pdf)
@@ -1828,10 +1846,15 @@ def cached_timeline(
     if "sarastoa" in meet_name.lower() and flyer_meet_name != "Swim Meet":
         meet_name = flyer_meet_name
 
-    sessions: dict[int, SessionInfo] = {}
+    sessions: dict[str, SessionInfo] = {}
     events: list[TimelineEvent] = []
 
-    session_header = re.compile(r"Session:\s*(\d+)\s+(.+)")
+    # (\S+), not (\d+): a meet running two pools in parallel labels its sessions "1B"/"1G" (boys
+    # pool / girls pool). With (\d+) the "1" matched but the required \s+ after it did not, so the
+    # line never matched at all -- pending_session stayed None, the following "Day of Meet:" line
+    # was skipped, current_session stayed None, and EVERY event in that session was silently
+    # dropped rather than misfiled. See tests/test_az_sc_lettered_sessions.py.
+    session_header = re.compile(r"Session:\s*(\S+)\s+(.+)")
     day_header = re.compile(r"Day of Meet:\s*(\d+)\s+Starts at\s+(\d{1,2}:\d{2}\s*[AP]M)", re.IGNORECASE)
     event_line = re.compile(
         r"^(Prelims|Finals(?:-[A-Za-z0-9]+)?)\s+(\d+)\s+(.+?)\s+(\d+)\s+(\d+)\s+_+\s*(\d{1,2}:\d{2})\s*([AP]M)u?$",
@@ -1841,7 +1864,7 @@ def cached_timeline(
 
     for page_text in pages:
         current_session: SessionInfo | None = None
-        pending_session: tuple[int, str] | None = None
+        pending_session: tuple[str, str] | None = None
         page_events: list[TimelineEvent] = []
         for raw_line in page_text.splitlines():
             line = normalize_timeline_line(raw_line)
@@ -1849,7 +1872,7 @@ def cached_timeline(
                 continue
             session_match = session_header.search(line)
             if session_match:
-                pending_session = (int(session_match.group(1)), normalize_space(session_match.group(2)))
+                pending_session = (session_match.group(1), normalize_space(session_match.group(2)))
                 continue
             day_match = day_header.search(line)
             if day_match and pending_session:
@@ -1925,9 +1948,9 @@ def cached_timeline(
     return meet_name, sessions, events
 
 
-def parse_meet_packet_schedule(text: str, meet_name: str, meet_venue: str | None = None) -> tuple[dict[int, SessionInfo], list[TimelineEvent]]:
-    sessions: dict[int, SessionInfo] = {}
-    events_by_session: dict[int, list[tuple[int, str]]] = {}
+def parse_meet_packet_schedule(text: str, meet_name: str, meet_venue: str | None = None) -> tuple[dict[str, SessionInfo], list[TimelineEvent]]:
+    sessions: dict[str, SessionInfo] = {}
+    events_by_session: dict[str, list[tuple[int, str]]] = {}
     current_session: SessionInfo | None = None
     current_warmup: str | None = None
     current_start: str | None = None
@@ -1956,7 +1979,7 @@ def parse_meet_packet_schedule(text: str, meet_name: str, meet_venue: str | None
             session_date = date(int(day_match.group(5)), month, int(day_match.group(4)))
             session_name = normalize_space(day_match.group(6))
             current_session = SessionInfo(
-                number=next_session_number,
+                number=str(next_session_number),
                 name=session_name,
                 day_of_meet=day_of_meet,
                 date=session_date,
@@ -2982,7 +3005,7 @@ def build_daily_payload(
     swimmer_name: str,
     swims: list[SwimEvent],
     relays: list[RelayEvent],
-    sessions: dict[int, SessionInfo],
+    sessions: dict[str, SessionInfo],
     timezone: str = DEFAULT_TZ,
     timeline_projected: bool = False,
     warmup_resolver=None,
@@ -3028,7 +3051,7 @@ def build_daily_payload(
                 swim = item
                 checkin_lines.append(f"#{swim.psych.event_number} {swim.checkin_note}")
         if checkin_lines:
-            checkin_session = sessions.get(7)
+            checkin_session = sessions.get("7")
             checkin_time = (
                 combine_date_time(day, checkin_session.warmup_time)
                 if checkin_session and checkin_session.date == day and checkin_session.warmup_time
@@ -3137,7 +3160,7 @@ def build_weekend_payload(
     swimmer_name: str,
     swims: list[SwimEvent],
     relays: list[RelayEvent],
-    sessions: dict[int, SessionInfo],
+    sessions: dict[str, SessionInfo],
     timezone: str = DEFAULT_TZ,
     timeline_projected: bool = False,
     warmup_resolver=None,

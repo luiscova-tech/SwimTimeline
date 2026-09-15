@@ -18,7 +18,7 @@ These tests pin both sides: non-AZ meets no longer leak Mesa, AZ, and the real A
 from pathlib import Path
 import unittest
 
-from swimtimeline.extract import analyze_uploads
+from swimtimeline.extract import analyze_uploads, extract_text_pages, parse_timeline
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -100,7 +100,38 @@ class ArizonaMeetVenueTest(unittest.TestCase):
         )
         self.assertEqual(result["verified_event_count"], 7)
         self.assertIn("Mesa", ics)
-        self.assertTrue(("Skyline" in ics) or ("Kino" in ics))
+        # Both pools, not "either pool". The old assertion was `("Skyline" in ics) or
+        # ("Kino" in ics)`, which is structurally incapable of noticing a per-session facility
+        # regression -- it still passes if every session collapses onto ONE venue. That is exactly
+        # the failure mode a broken flyer-session lookup produces (parse_flyer_sessions is keyed by
+        # session label; when those keys stopped matching SessionInfo.number the facility silently
+        # fell back to the meet-wide venue for every session).
+        self.assertIn("Skyline", ics)
+        self.assertIn("Kino", ics)
+
+    def test_narwhals_two_pools_keep_their_own_per_session_facilities(self):
+        """The flyer states a facility per session; each session must keep its OWN.
+
+        Asserted at the parse level, where the session-label-keyed flyer lookup actually happens,
+        so this fails loudly if that lookup ever silently misses (e.g. an int/str key mismatch)
+        instead of being masked by a meet-wide venue fallback further downstream.
+        """
+        flyer_text = "\n".join(
+            extract_text_pages(ROOT / "meets/2026-narwhal-invite/input/Narwhal Invite.pdf")
+        )
+        _name, sessions, _events = parse_timeline(
+            ROOT / "meets/2026-narwhal-invite/input/narwhal final timeline.pdf",
+            flyer_text=flyer_text,
+        )
+        self.assertEqual(sessions["2"].facility, "Kino")
+        self.assertEqual(sessions["8"].facility, "Kino")
+        for senior_session in ("1", "3", "4", "6", "7"):
+            self.assertEqual(sessions[senior_session].facility, "Skyline", senior_session)
+        # Warm-up times come from the same flyer lookup, and the Age Group pool's differs from the
+        # Senior pool's -- pinned to exact values because the suite's only other warmup_time
+        # assertion compares two sessions to EACH OTHER, which still passes if both go None.
+        self.assertEqual(sessions["1"].warmup_time, "06:30")
+        self.assertEqual(sessions["2"].warmup_time, "07:00")
 
     def test_az_age_group_state_still_shows_its_parsed_oasis_venue(self):
         result, ics = daily_ics_for(

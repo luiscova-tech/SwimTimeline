@@ -337,28 +337,33 @@ def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label
 # exactly where extract.py's day_header regex stops. Rather than extend that regex (it decides
 # whether a session exists at all for the family-facing calendar), this re-scans the same page
 # text independently: worst case it finds nothing and callers get no interval.
-_SESSION_LINE_RE = re.compile(r"Session:\s*(\d+)\b")
+# (\S+) mirrors extract.py's session_header token exactly, so these keys always match
+# SessionInfo.number. The old (\d+)\b matched NOTHING on a lettered id -- there is no word
+# boundary between "1" and "B" -- so "1B"'s interval was silently attributed to whichever session
+# was seen last, and the first session of a lettered meet got none at all.
+_SESSION_LINE_RE = re.compile(r"Session:\s*(\S+)")
 _HEAT_INTERVAL_RE = re.compile(r"Heat\s+Interval:\s*(?P<interval>.+?)\s*$", re.IGNORECASE)
 
 
-def parse_heat_intervals(timeline_pdf: Path) -> dict[int, str]:
-    """Heat interval text per session number, e.g. {1: "25 Seconds / Back +15 Seconds"}.
+def parse_heat_intervals(timeline_pdf: Path) -> dict[str, str]:
+    """Heat interval text per session label, e.g. {"1": "25 Seconds / Back +15 Seconds"}, or
+    {"1B": ...} for a meet that runs two pools in parallel.
 
     Real strings vary in part count -- Herculean prints two parts ("25 Seconds / Back +15
     Seconds"), WZAG prints three on its prelim sessions ("20 Seconds / Back +10 Seconds / Chase
     -30") and two on its finals -- so the whole remainder of the line is captured verbatim rather
     than split into a fixed shape. Sessions whose line omits it are simply absent from the result.
     """
-    intervals: dict[int, str] = {}
+    intervals: dict[str, str] = {}
     for page_text in extract_text_pages(Path(timeline_pdf)):
-        current: int | None = None
+        current: str | None = None
         for raw_line in page_text.splitlines():
             line = normalize_space(raw_line)
             if not line:
                 continue
             session_match = _SESSION_LINE_RE.search(line)
             if session_match:
-                current = int(session_match.group(1))
+                current = session_match.group(1)
             if current is None:
                 continue
             interval_match = _HEAT_INTERVAL_RE.search(line)
@@ -561,12 +566,33 @@ def is_ambiguous_warning(warning: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def events_by_session(events: list[TimelineEvent]) -> dict[int, list[TimelineEvent]]:
+_SESSION_SORT_RE = re.compile(r"(\d+)(.*)$")
+
+
+def session_sort_key(session_number: str) -> tuple[int, str]:
+    """Meet order for a session LABEL: numeric prefix first, then the suffix.
+
+    A plain str sort is wrong in both directions and silently so:
+      * Existing plain-numbered meets break. Shark Open has ten sessions, and sorted() on strings
+        puts "10" immediately after "1", so its cards would print 1, 10, 2, 3... -- a real
+        regression to a real hosted meet, introduced by nothing more than the type change.
+      * Lettered meets need the numeric part compared as a number too, so "2G" precedes "3" and
+        "4B" follows it, which is the meet's real chronological order.
+    A label with no leading digits sorts last rather than raising, so an unanticipated format can
+    never crash a download.
+    """
+    match = _SESSION_SORT_RE.match(session_number)
+    if not match:
+        return (10**9, session_number)
+    return (int(match.group(1)), match.group(2))
+
+
+def events_by_session(events: list[TimelineEvent]) -> dict[str, list[TimelineEvent]]:
     """parse_timeline() returns one flat event list; this groups it by session_number, each
     session's events ordered by start time then event number. Session order follows first
     appearance, which for a Session Report is meet order.
     """
-    grouped: dict[int, list[TimelineEvent]] = {}
+    grouped: dict[str, list[TimelineEvent]] = {}
     for event in events:
         grouped.setdefault(event.session_number, []).append(event)
     for session_events in grouped.values():
@@ -678,7 +704,7 @@ def format_date_label(day: date) -> str:
 class SessionCard:
     """Everything one card needs, in exactly the shape draw_card() consumes."""
 
-    session_number: int
+    session_number: str
     session_name: str
     meet_name: str
     session_label: str
@@ -701,12 +727,12 @@ class SessionCard:
 
 def build_session_cards(
     meet_name: str,
-    sessions: dict[int, SessionInfo],
+    sessions: dict[str, SessionInfo],
     events: list[TimelineEvent],
-    heat_intervals: dict[int, str] | None = None,
+    heat_intervals: dict[str, str] | None = None,
     highlight_events: set[int] | None = None,
 ) -> list[SessionCard]:
-    """One SessionCard per session, in meet order (session number).
+    """One SessionCard per session, in meet order (see session_sort_key).
 
     The card header carries the constant age qualifier when there is one ("SESSION 1 - 12 & OVER");
     when the session is mixed it carries the meet's own session name instead ("SESSION 2 - FRIDAY
@@ -722,7 +748,7 @@ def build_session_cards(
     grouped = events_by_session(events)
     card_meet_name = badge_meet_name(meet_name)
     cards: list[SessionCard] = []
-    for session_number in sorted(grouped):
+    for session_number in sorted(grouped, key=session_sort_key):
         session_events = grouped[session_number]
         session = sessions.get(session_number)
         constant_age = constant_age_qualifier(session_events)
@@ -936,9 +962,12 @@ def card_filename(
     slug = re.sub(r"[^a-z0-9]+", "-", meet_name.lower()).strip("-") or "meet"
     slug = slug[:60].strip("-")
     if card is not None:
+        # Sanitized the same way the meet slug above is: a session id is the meet's own label, so
+        # it is not guaranteed to be filename-safe the way a bare integer was.
+        session_slug = re.sub(r"[^A-Za-z0-9]+", "-", str(card.session_number)).strip("-") or "x"
         if copies:
-            return f"{slug}-session-{card.session_number}-badge-cards-x{copies}.pdf"
-        return f"{slug}-session-{card.session_number}-badge-card.pdf"
+            return f"{slug}-session-{session_slug}-badge-cards-x{copies}.pdf"
+        return f"{slug}-session-{session_slug}-badge-card.pdf"
     suffix = "-highlighted" if highlighted_only else ""
     if layout == "sheet":
         return f"{slug}-badge-card-sheets{suffix}.pdf"

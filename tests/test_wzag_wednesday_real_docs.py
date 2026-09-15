@@ -172,7 +172,7 @@ class HeatCountReconciliationTest(unittest.TestCase):
         # prelims session, and rewriting it would corrupt every other swims-with-finals event.
         from swimtimeline.extract import parse_timeline
         _, _, events = parse_timeline(TIMELINE, flyer_text="", meet_venue="X")
-        by_event = {e.event_number: e for e in events if e.session_number == 1}
+        by_event = {e.event_number: e for e in events if e.session_number == "1"}
         self.assertEqual(by_event[21].heats, 4)
         self.assertEqual(by_event[22].heats, 2)
 

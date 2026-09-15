@@ -71,13 +71,13 @@ class ParallelDualPoolSessionTest(unittest.TestCase):
         flyer_text = "\n".join(extract_text_pages(FLYER))
         _name, sessions, _events = parse_timeline(TIMELINE, flyer_text=flyer_text, meet_venue=VENUE)
         self.assertEqual(len(sessions), 6)
-        pairs = [(1, 2), (3, 4), (5, 6)]
+        pairs = [("1", "2"), ("3", "4"), ("5", "6")]
         for a, b in pairs:
             self.assertEqual(sessions[a].date, sessions[b].date, (a, b))
             self.assertEqual(sessions[a].start_time, sessions[b].start_time, (a, b))
             self.assertEqual(sessions[a].warmup_time, sessions[b].warmup_time, (a, b))
-        self.assertNotEqual(sessions[1].date, sessions[3].date)
-        self.assertNotEqual(sessions[3].date, sessions[5].date)
+        self.assertNotEqual(sessions["1"].date, sessions["3"].date)
+        self.assertNotEqual(sessions["3"].date, sessions["5"].date)
 
     def test_two_swimmers_in_different_pools_get_independent_non_bleeding_windows(self):
         # Zaffos, Selah (12&Over, event 21) and Post, Zoey (11&Under) both swim Friday, at the

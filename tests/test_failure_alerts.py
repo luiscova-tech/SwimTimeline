@@ -97,8 +97,8 @@ class RoutineValidationStaysQuietTest(unittest.TestCase):
             "layout=handout needs a copies=N param saying how many to print.",
             "copies must be a positive whole number.",
             "A hosted meet id or an upload token is required.",
-            "Session must be a number.",
             "Session 99 is not in this meet's timeline.",
+            "Session 1X is not in this meet's timeline.",
             "highlighted_only needs at least one swimmer name to filter by.",
             "Choose a hosted meet or upload a Session Report PDF.",
             "Timeline must be a PDF.",
@@ -275,7 +275,7 @@ class SendingIsBestEffortTest(unittest.TestCase):
     def test_a_validation_error_sends_nothing_even_with_a_key_present(self):
         sent = []
         result = notify_failure(
-            FailureReport(endpoint="/api/officials/badges", exc=InputError("Session must be a number.")),
+            FailureReport(endpoint="/api/officials/badges", exc=InputError("Session 99 is not in this meet's timeline.")),
             sender=lambda *args: sent.append(args) or "id_1",
             logger=self.log,
         )
@@ -532,7 +532,7 @@ class EndpointSplitTest(unittest.TestCase):
             (f"meet_id={meet}&layout=handout&session=1&copies=0", "copies below 1"),
             (f"meet_id={meet}&layout=handout&session=1", "handout without copies"),
             (f"meet_id={meet}&session=99", "session not in the meet"),
-            (f"meet_id={meet}&session=abc", "session not a number"),
+            (f"meet_id={meet}&session=abc", "session id not in the meet"),
             ("layout=sheet", "no meet id at all"),
             ("meet_id=nope-not-real", "unknown meet id"),
             ("token=1700000000-abcdef12", "well-formed but expired token"),

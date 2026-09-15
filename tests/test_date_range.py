@@ -39,6 +39,9 @@ EXPECTED_RANGES: list[tuple[str, tuple[date, date] | None]] = [
     ("meets/2026-az-lc-age-group-state/input/age-group-state-meet-flyer.pdf", (date(2026, 7, 23), date(2026, 7, 26))),
     ("meets/2026-az-lc-age-group-state/input/age-group-state-psych-sheet.pdf", (date(2026, 7, 23), date(2026, 7, 26))),
     ("meets/2026-az-lc-age-group-state/input/age-group-state-timeline.pdf", (date(2026, 7, 23), date(2026, 7, 26))),
+    # Lettered-session fixture (sessions 1B/1G/2B/2G...), added for the two-pool session-id fix;
+    # a plain "to"-range date line, unaffected by that change.
+    ("meets/2026-az-sc-age-group-state/input/timeline.pdf", (date(2026, 3, 5), date(2026, 3, 8))),
     ("meets/2026-croswhite-invite/input/2026-croswhite-invite-timeline.pdf", (date(2026, 9, 12), date(2026, 9, 12))),
     ("meets/2026-herculean-invitational/input/2026-herculean-invitational-flyer.pdf", (date(2026, 9, 11), date(2026, 9, 13))),
     ("meets/2026-herculean-invitational/input/2026-herculean-invitational-psych-sheet.pdf", (date(2026, 9, 11), date(2026, 9, 13))),
@@ -100,6 +103,7 @@ class EveryRealFixtureUnchangedTest(unittest.TestCase):
         -- collapsing a real range down to a single day rather than merely getting a date wrong."""
         multi_day_meets = {
             "2026-az-lc-age-group-state": True,
+            "2026-az-sc-age-group-state": True,
             "2026-herculean-invitational": True,
             "2026-narwhal-invite": True,
             "2026-para-nationals": True,
