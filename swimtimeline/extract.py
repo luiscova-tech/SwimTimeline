@@ -2237,6 +2237,19 @@ def entry_position_line(entry: PsychEntry) -> str:
     return f"Seed place: {entry.seed_place}"
 
 
+def entry_title_heat_lane_suffix(entry: PsychEntry) -> str:
+    """" (Heat H, Lane L)" when this entry has REAL heat/lane, else "".
+
+    Deliberately excludes an estimate: entry_position_line() above already labels an estimate
+    "Estimated heat/lane" in the event description, where that caveat is visible right next to the
+    number. A calendar title carries no such caveat -- it's glanced at on its own, often days later
+    -- so promoting an estimate into it would present a guess as settled fact.
+    """
+    if entry.heat is not None and entry.lane is not None and not entry.heat_is_estimated:
+        return f" (Heat {entry.heat}, Lane {entry.lane})"
+    return ""
+
+
 def entry_source_label(entry: PsychEntry) -> str:
     if entry.heat_is_estimated:
         return "Psych/entry sheet + estimated heat/lane"
@@ -2685,7 +2698,10 @@ def build_detailed_payload(
         events.append(
             {
                 "uid": f"{meet_id}-{swimmer_slug}-event-{psych.event_number}@swimtimeline",
-                "title": f"{swimmer_name} - Event {psych.event_number}: {event_short_name(psych.event_name)}",
+                "title": (
+                    f"{swimmer_name} - Event {psych.event_number}: {event_short_name(psych.event_name)}"
+                    f"{entry_title_heat_lane_suffix(psych)}"
+                ),
                 "start": timeline.start.isoformat(timespec="seconds"),
                 "end": timeline.end.isoformat(timespec="seconds"),
                 "location": location_for_session(timeline),
