@@ -86,7 +86,7 @@ function autoLoadMeetFromUrl() {
 
 highlightedOnly.addEventListener("change", applyHighlightFilter);
 copiesSession.addEventListener("change", updateCopiesEstimate);
-copiesCount.addEventListener("input", updateCopiesEstimate);
+copiesCount.addEventListener("change", updateCopiesEstimate);
 downloadCopies.addEventListener("click", (event) => {
   // pointer-events:none (via .is-disabled) already blocks mouse clicks; this also blocks
   // keyboard activation (Enter/Space on a focused disabled link), which CSS alone does not.
@@ -322,26 +322,27 @@ function filterUsable() {
   return !highlightFilterRow.classList.contains("hidden");
 }
 
-// Live page-count preview for the "Print Copies" panel -- plain arithmetic against the two
-// constants mirrored from badges.py above, no round trip. The server (send_badges_pdf) is the one
-// that actually enforces the copies bound; this only keeps the download link's href in sync and
-// disables it until both fields are valid, matching the disabled state set in officials.html.
+// Live page-count preview for the "Print Copies" panel. #copiesCount is a <select> of whole
+// SHEET counts (officials think in sheets to cut apart, not a raw copy count) -- this converts
+// the chosen sheet count to copies (sheets * 9) before building the download URL, since the
+// backend contract (?copies=N) is unchanged and still counts individual cards, not sheets. The
+// server (send_badges_pdf) is still the one that enforces the copies bound; this only keeps the
+// download link's href in sync and disables it until both fields are valid, matching the disabled
+// state set in officials.html.
 function updateCopiesEstimate() {
   const sessionNumber = copiesSession.value;
-  const rawCopies = copiesCount.value.trim();
-  const copies = Number(rawCopies);
-  const validCopies =
-    rawCopies !== "" && Number.isInteger(copies) && copies >= 1 && copies <= MAX_HANDOUT_COPIES;
+  const sheets = Number(copiesCount.value);
+  const validSheets = Number.isInteger(sheets) && sheets >= 1;
+  const copies = sheets * HANDOUT_SLOTS_PER_SHEET;
+  // Every option in the dropdown already stays under MAX_HANDOUT_COPIES (22 sheets = 198 copies),
+  // but this stays here as a guard rather than trusting the markup blindly.
+  const validCopies = validSheets && copies <= MAX_HANDOUT_COPIES;
 
   if (validCopies) {
-    const pages = Math.ceil(copies / HANDOUT_SLOTS_PER_SHEET);
     copiesEstimate.textContent =
-      `${copies} cop${copies === 1 ? "y" : "ies"} at ${HANDOUT_SLOTS_PER_SHEET} per sheet — ` +
-      `${pages} sheet${pages === 1 ? "" : "s"}.`;
-  } else if (rawCopies === "") {
-    copiesEstimate.textContent = `Up to ${MAX_HANDOUT_COPIES} copies, ${HANDOUT_SLOTS_PER_SHEET} per sheet.`;
+      `${sheets} sheet${sheets === 1 ? "" : "s"} — ${copies} cop${copies === 1 ? "y" : "ies"}.`;
   } else {
-    copiesEstimate.textContent = `Enter a whole number from 1 to ${MAX_HANDOUT_COPIES}.`;
+    copiesEstimate.textContent = `Choose how many sheets to print, ${HANDOUT_SLOTS_PER_SHEET} copies per sheet.`;
   }
 
   const ready = Boolean(loaded) && Boolean(sessionNumber) && validCopies;

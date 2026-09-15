@@ -176,11 +176,34 @@
                 </select>
               </label>
               <label class="officials-field">
-                <span>Copies <small>(max 200)</small></span>
-                <input type="number" id="copiesCount" min="1" max="200" value="9" inputmode="numeric">
+                <span>Pages <small>(max 22 sheets)</small></span>
+                <select id="copiesCount">
+                  <option value="1" selected>1 sheet (9 copies)</option>
+                  <option value="2">2 sheets (18 copies)</option>
+                  <option value="3">3 sheets (27 copies)</option>
+                  <option value="4">4 sheets (36 copies)</option>
+                  <option value="5">5 sheets (45 copies)</option>
+                  <option value="6">6 sheets (54 copies)</option>
+                  <option value="7">7 sheets (63 copies)</option>
+                  <option value="8">8 sheets (72 copies)</option>
+                  <option value="9">9 sheets (81 copies)</option>
+                  <option value="10">10 sheets (90 copies)</option>
+                  <option value="11">11 sheets (99 copies)</option>
+                  <option value="12">12 sheets (108 copies)</option>
+                  <option value="13">13 sheets (117 copies)</option>
+                  <option value="14">14 sheets (126 copies)</option>
+                  <option value="15">15 sheets (135 copies)</option>
+                  <option value="16">16 sheets (144 copies)</option>
+                  <option value="17">17 sheets (153 copies)</option>
+                  <option value="18">18 sheets (162 copies)</option>
+                  <option value="19">19 sheets (171 copies)</option>
+                  <option value="20">20 sheets (180 copies)</option>
+                  <option value="21">21 sheets (189 copies)</option>
+                  <option value="22">22 sheets (198 copies)</option>
+                </select>
               </label>
             </div>
-            <p id="copiesEstimate" class="muted">9 copies at 9 per sheet &mdash; 1 sheet.</p>
+            <p id="copiesEstimate" class="muted">1 sheet &mdash; 9 copies.</p>
             <a id="downloadCopies" class="secondary-button is-disabled" href="#" aria-disabled="true">Download Print Copies</a>
           </section>
         </section>
