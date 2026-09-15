@@ -109,6 +109,45 @@ def gender_color(event_name):
     return NAVY if event_name.startswith("Boys") else MAROON
 
 
+def num_column_fraction(events: list[dict]) -> float:
+    """What share of the card width the # column takes, decided ONCE per card.
+
+    Per card, not per row, so every row's columns stay aligned. Two things widen it beyond the
+    0.10 default, and the extra always comes out of EVENT, which has the most slack and its own
+    shrink-to-fit:
+      * a star needs room beside the number (0.145, unchanged);
+      * a combined Girls/Boys row's number is "95/96" rather than at most 3 digits.
+    A card with neither returns exactly 0.10, and a card with only stars exactly 0.145, which is
+    what keeps every card that has no combined row rendering byte-identically to before.
+
+    Exposed as a function so tests that replay draw_card's geometry can read the real value
+    instead of restating the fractions -- those copies had already drifted apart once.
+    """
+    any_highlight = any(ev.get("highlight") for ev in events)
+    any_combined = any(len(ev.get("nums") or ()) > 1 for ev in events)
+    if any_highlight and any_combined:
+        return 0.185
+    if any_highlight:
+        return 0.145
+    if any_combined:
+        return 0.13
+    return 0.10
+
+
+def row_accent_colors(row: dict) -> list:
+    """The accent-bar colour(s) for one card row: two for a combined Girls/Boys row, one otherwise.
+
+    A combined row's name has no gender word left for gender_color() to read, so its colours come
+    from the row's recorded "genders" instead. Every other row -- including one whose name did not
+    parse and therefore has no recorded gender -- falls back to the original gender_color(name)
+    call, so its bar is unchanged.
+    """
+    genders = row.get("genders") or ()
+    if len(genders) == 2:
+        return [gender_color(gender) for gender in genders]
+    return [gender_color(row["name"])]
+
+
 def draw_star(c, cx, cy, radius, points=5):
     """A filled five-pointed star centred on (cx, cy), drawn with canvas path primitives.
 
@@ -239,8 +278,13 @@ def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label
     # fills on its own. When this card has any starred row, it widens ONCE for the whole card --
     # not per row -- so the star and the number both sit at full size and every row's columns stay
     # aligned. The extra comes out of EVENT, which has the most slack and its own shrink-to-fit.
-    any_highlight = any(ev.get("highlight") for ev in events)
-    col_num_w = content_w * (0.145 if any_highlight else 0.10)
+    # A combined Girls/Boys row's number is "95/96" -- roughly 5 characters where a single row's
+    # worst case is 3 -- so the column widens ONCE for the whole card when any row is combined,
+    # on the same all-rows-stay-aligned principle as the star widening. Measured against the real
+    # 42-event session (21 combined rows at the 5.0pt floor): "95/96" needs ~12.5pt, which does
+    # not fit the default 13.4pt column once the 3pt left pad is taken, but fits 0.13 comfortably.
+    # The star case needs room for star + "95/96" together, hence the widest bucket.
+    col_num_w = content_w * num_column_fraction(events)
     col_time_w = content_w * 0.225
     col_ht_w = content_w * 0.20
     col_event_w = content_w - col_num_w - col_time_w - col_ht_w
@@ -277,8 +321,21 @@ def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label
             c.setFillColor(STRIPE)
             c.rect(x0, y, content_w, row_h, stroke=0, fill=1)
 
-        c.setFillColor(gender_color(ev["name"]))
-        c.rect(x0, y, accent_w, row_h, stroke=0, fill=1)
+        # Accent bar. A combined row splits it -- top half the first event's gender colour, bottom
+        # half the second's -- so the pairing reads at a glance. This is secondary reinforcement
+        # only: the # and HEATS columns already disambiguate the two events positionally, so a
+        # reader who cannot tell the colours apart loses nothing. A one-event row takes the exact
+        # same single-colour path (and the same gender_color(name) call) it always has.
+        accents = row_accent_colors(ev)
+        if len(accents) == 2:
+            half = row_h / 2
+            c.setFillColor(accents[0])
+            c.rect(x0, y + half, accent_w, row_h - half, stroke=0, fill=1)
+            c.setFillColor(accents[1])
+            c.rect(x0, y, accent_w, half, stroke=0, fill=1)
+        else:
+            c.setFillColor(accents[0])
+            c.rect(x0, y, accent_w, row_h, stroke=0, fill=1)
 
         num_text = str(ev["num"])
         num_x = x_num + 3
@@ -299,6 +356,16 @@ def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label
             draw_star(c, star_cx, y + row_h / 2, star_r)
             num_x = star_cx + star_r + 0.8
             available = slot_right - num_x
+            while stringWidth(num_text, "Helvetica-Bold", num_fs) > available and num_fs > 3.6:
+                num_fs -= 0.2
+        else:
+            # Plain rows had no shrink-to-fit at all: a 3-digit number always fit the 10% column,
+            # so the number was the one text element on the card drawn at a fixed size. A combined
+            # row's "95/96" can exceed even the widened column on a narrow card, so the same
+            # measured-width guard the star branch (and the event name) already use now applies
+            # here too. It is a no-op for every number that already fit, which is why plain rows
+            # still render byte-identically.
+            available = (x_event - 1.0) - num_x
             while stringWidth(num_text, "Helvetica-Bold", num_fs) > available and num_fs > 3.6:
                 num_fs -= 0.2
 
@@ -462,20 +529,26 @@ def abbreviate_age_qualifier(qualifier: str) -> str:
     return text
 
 
-def badge_event_name(event_name: str, include_age: bool) -> str:
-    """The row label for a badge card: gender KEPT (badge_lib's gender_color() colors each row by
-    a literal "Boys"/"Girls" prefix), stroke abbreviated, age qualifier included only when the
-    session is mixed.
+def badge_event_name(event_name: str, include_age: bool, include_gender: bool = True) -> str:
+    """The row label for a badge card: gender KEPT by default (badge_lib's gender_color() colors
+    each row by a literal "Boys"/"Girls" prefix), stroke abbreviated, age qualifier included only
+    when the session is mixed.
 
     Deliberately NOT extract.py's event_short_name(), which strips gender words entirely -- that
     would send every row through gender_color()'s else-branch and paint the whole card maroon.
 
     "Mixed" relay events keep that token, so they take gender_color()'s non-Boys branch (maroon).
+
+    include_gender=False drops the leading gender word for a COMBINED Girls/Boys row (see
+    combine_gender_pairs), where one shared name covers both events and printing either gender
+    would be wrong. Such a row carries its colors separately (the row dict's "genders"), so
+    gender_color() is not consulted for it -- which is why dropping the word here is safe. The
+    default keeps every existing caller's output byte-identical.
     """
     parsed = parse_event_name(event_name)
     if parsed is None:
         return abbreviate_stroke(event_name)
-    pieces = [parsed.gender]
+    pieces = [parsed.gender] if include_gender else []
     if include_age:
         pieces.append(abbreviate_age_qualifier(parsed.age_qualifier))
     pieces.append(abbreviate_stroke(parsed.distance_stroke))
@@ -600,6 +673,59 @@ def events_by_session(events: list[TimelineEvent]) -> dict[str, list[TimelineEve
     return grouped
 
 
+_COMBINABLE_GENDERS = frozenset({"Girls", "Boys"})
+
+
+def events_combine(first: TimelineEvent, second: TimelineEvent) -> bool:
+    """True when these two events are the Girls/Boys halves of the same race and can share a row.
+
+    Both names must parse, the pair must be exactly one Girls and one Boys, and the age qualifier
+    and distance+stroke must match exactly. Order-agnostic on purpose: every real fixture checked
+    prints Girls first, but nothing in the document format guarantees it, and a meet that printed
+    Boys first should still combine rather than silently rendering twice as many rows.
+
+    "Mixed"/"Women"/"Men" never combine -- a Mixed relay is one event with its own entry, not half
+    of a pair -- and neither does a name that does not parse, which falls through to a normal row.
+    """
+    left = parse_event_name(first.event_name)
+    right = parse_event_name(second.event_name)
+    if left is None or right is None:
+        return False
+    if {left.gender, right.gender} != _COMBINABLE_GENDERS:
+        return False
+    return (
+        left.age_qualifier == right.age_qualifier
+        and left.distance_stroke == right.distance_stroke
+    )
+
+
+def combine_gender_pairs(session_events: list[TimelineEvent]) -> list[list[TimelineEvent]]:
+    """Group one session's events into rows: [[a, b], [c], [d, e], ...].
+
+    A single left-to-right greedy scan over the events in the order they were already sorted (start
+    time, then event number) -- nothing is reordered, and only the IMMEDIATE neighbour is ever
+    considered. A successful pair consumes both events and advances two; anything else falls
+    through as a one-event row and advances one.
+
+    Deliberately not a smarter matcher: searching past the neighbour (or sorting to bring halves
+    together) would reorder a card away from the running order an official reads it in, which is
+    the one thing the time column exists to convey. A meet whose data is not strictly interleaved
+    simply renders fewer combined rows, which is a legibility loss, not a correctness one.
+    """
+    rows: list[list[TimelineEvent]] = []
+    index = 0
+    while index < len(session_events):
+        current = session_events[index]
+        following = session_events[index + 1] if index + 1 < len(session_events) else None
+        if following is not None and events_combine(current, following):
+            rows.append([current, following])
+            index += 2
+        else:
+            rows.append([current])
+            index += 1
+    return rows
+
+
 def session_age_qualifiers(session_events: list[TimelineEvent]) -> list[str]:
     """The distinct raw age qualifiers in one session, in first-appearance order."""
     seen: list[str] = []
@@ -717,12 +843,78 @@ class SessionCard:
 
     @property
     def event_count(self) -> int:
+        """How many real EVENTS this session has -- not how many rows the card prints.
+
+        These stopped being the same number once adjacent Girls/Boys events began sharing a row:
+        a 42-event session prints 21 rows. This feeds the officials page's "EVENTS" column and its
+        "N sessions - M events" summary, which describe the meet, so they must keep counting
+        events. Use len(card.events) for the row count.
+        """
+        return sum(len(row["nums"]) for row in self.events)
+
+    @property
+    def row_count(self) -> int:
+        """How many rows this card prints -- one per single event, one per combined Girls/Boys
+        pair. This is what draw_card's row-height math divides the table by."""
         return len(self.events)
 
     @property
     def highlighted_event_numbers(self) -> list[int]:
-        """The starred event numbers on this card, for the page's own session list."""
-        return [row["num"] for row in self.events if row.get("highlight")]
+        """The starred event numbers on this card, for the page's own session list.
+
+        Reads "starred_nums" -- the event numbers on this row that are ACTUALLY watched -- rather
+        than the "num" display text (a combined row's is the string "95/96") or the row's full
+        "nums". When only one half of a combined Girls/Boys row is a watched swimmer's event, the
+        row still draws a star, but only that one event number belongs in this list; returning both
+        would tell the officials page a swimmer is in a race they are not entered in.
+        """
+        return [number for row in self.events for number in row.get("starred_nums") or ()]
+
+
+def build_card_row(
+    row_events: list[TimelineEvent],
+    include_age: bool,
+    keep_meridiem: bool,
+    highlight_events: set[int],
+) -> dict:
+    """One card row from one or two events (see combine_gender_pairs).
+
+    A ONE-event row is byte-identical to what this module has always produced, down to `num` and
+    `heats` staying the original int/"" values rather than becoming strings.
+
+    A TWO-event (combined Girls/Boys) row:
+      * num/heats carry BOTH values joined with "/", in the events' existing order -- the two
+        columns line up positionally, so neither needs a gender label. This project already leans
+        on that convention (the card has no legend for anything).
+      * name is printed ONCE with the gender word dropped.
+      * time is the EARLIER of the two starts only. The time column's job is telling an official
+        when to be at their post; showing the later one risks missing the first race of the pair.
+      * highlight is true if EITHER event is watched, so combining a row can never hide a starred
+        swimmer. starred_nums keeps only the halves that really are watched, so the page's own
+        starred list stays truthful for a one-sided pair.
+      * genders records each event's gender in the same order, for the split accent bar -- the row
+        name no longer carries a gender word for gender_color() to read.
+    """
+    first = row_events[0]
+    nums = [event.event_number for event in row_events]
+    starred = [number for number in nums if number in highlight_events]
+    genders = []
+    for event in row_events:
+        parsed = parse_event_name(event.event_name)
+        if parsed is not None:
+            genders.append(parsed.gender)
+    heats = ["" if event.heats is None else event.heats for event in row_events]
+    combined = len(row_events) > 1
+    return {
+        "num": "/".join(str(n) for n in nums) if combined else nums[0],
+        "nums": nums,
+        "name": badge_event_name(first.event_name, include_age=include_age, include_gender=not combined),
+        "heats": "/".join(str(h) for h in heats) if combined else heats[0],
+        "time": row_time_label(min(event.start for event in row_events), keep_meridiem),
+        "highlight": bool(starred),
+        "starred_nums": starred,
+        "genders": genders,
+    }
 
 
 def build_session_cards(
@@ -756,14 +948,9 @@ def build_session_cards(
         session_name = session.name if session else f"Session {session_number}"
         suffix = constant_age.upper() if constant_age else session_name.upper()
         rows = [
-            {
-                "num": event.event_number,
-                "name": badge_event_name(event.event_name, include_age=constant_age is None),
-                "heats": event.heats if event.heats is not None else "",
-                "time": row_time_label(event.start, keep_meridiem),
-                "highlight": event.event_number in highlight_events,
-            }
-            for event in session_events
+            build_card_row(row_events, include_age=constant_age is None,
+                           keep_meridiem=keep_meridiem, highlight_events=highlight_events)
+            for row_events in combine_gender_pairs(session_events)
         ]
         session_date = session.date if session else session_events[0].date
         cards.append(

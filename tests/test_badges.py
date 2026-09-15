@@ -54,6 +54,7 @@ from swimtimeline.badges import (
     is_ambiguous_warning,
     parse_event_name,
     parse_heat_intervals,
+    num_column_fraction,
     render_cards_pdf,
     render_handout_sheet_pdf,
     render_sheet_pdf,
@@ -329,14 +330,14 @@ class SessionCardTest(unittest.TestCase):
         self.assertEqual(session_one.finish_label, "7:22 PM")
         self.assertEqual(session_one.heat_interval, "25s/Back+15")
         self.assertEqual(session_one.age_qualifier, "12 & Over")
-        # Constant age -> rows omit it entirely.
+        # Constant age -> rows omit it entirely. Each Girls/Boys pair is ONE combined row now:
+        # both event numbers and both heat counts in document order, the gender word dropped from
+        # the shared name, and the EARLIER of the two start times.
         self.assertEqual(
-            [(row["num"], row["name"], row["heats"], row["time"]) for row in session_one.events[:4]],
+            [(row["num"], row["name"], row["heats"], row["time"]) for row in session_one.events[:2]],
             [
-                (1, "Girls 100 Free", 11, "5:30"),
-                (2, "Boys 100 Free", 9, "5:48"),
-                (3, "Girls 50 Back", 9, "6:02"),
-                (4, "Boys 50 Back", 7, "6:13"),
+                ("1/2", "100 Free", "11/9", "5:30"),
+                ("3/4", "50 Back", "9/7", "6:02"),
             ],
         )
 
@@ -346,8 +347,8 @@ class SessionCardTest(unittest.TestCase):
         self.assertIsNone(session_two.age_qualifier)
         self.assertEqual(session_two.session_label, "SESSION 2 — FRIDAY PM 11&UNDER")
         self.assertEqual(
-            [(row["num"], row["name"]) for row in session_two.events[:3]],
-            [(101, "Girls 10&U 25 Breast"), (102, "Boys 10&U 25 Breast"), (103, "Girls 10&U 25 Fly")],
+            [(row["num"], row["name"]) for row in session_two.events[:2]],
+            [("101/102", "10&U 25 Breast"), ("103/104", "10&U 25 Fly")],
         )
 
     def test_wzag_cards_use_the_three_part_interval_and_meridiem_rows(self):
@@ -363,16 +364,26 @@ class SessionCardTest(unittest.TestCase):
         self.assertEqual(cards[1].heat_interval, "50s/Back+25")
 
     def test_every_card_row_has_exactly_the_keys_draw_card_reads(self):
-        """The four content keys, plus the "highlight" flag the swimmer-highlighting feature
-        added. With no swimmer names given it is False on every row, so cards render exactly as
-        they did before that feature existed."""
+        """The four display keys, the "highlight" flag from the swimmer-highlighting feature, and
+        the three bookkeeping keys combined Girls/Boys rows need: "nums" (the underlying event
+        numbers, since "num" may be the display string "1/2"), "starred_nums" (only the halves
+        actually watched) and "genders" (for the split accent bar, since a combined row's name no
+        longer carries a gender word). With no swimmer names given, highlight is False on every
+        row."""
         for timeline, flyer in ((HERC_TIMELINE, HERC_FLYER), (WZAG_TIMELINE, WZAG_FLYER)):
             _meet_name, cards, _highlights = cards_for_timeline(timeline, flyer_text=flyer_text(flyer))
             for card in cards:
                 self.assertTrue(card.events)
                 for row in card.events:
-                    self.assertEqual(set(row), {"num", "name", "heats", "time", "highlight"})
+                    self.assertEqual(
+                        set(row),
+                        {"num", "nums", "name", "heats", "time", "highlight", "starred_nums", "genders"},
+                    )
                     self.assertIs(row["highlight"], False)
+                    self.assertEqual(row["starred_nums"], [])
+                    # "num" is the display text; "nums" is always the real event numbers.
+                    self.assertEqual(row["num"], "/".join(str(n) for n in row["nums"])
+                                     if len(row["nums"]) > 1 else row["nums"][0])
                 self.assertEqual(card.highlighted_event_numbers, [])
 
     def test_build_session_cards_survives_a_missing_heat_interval(self):
@@ -555,15 +566,25 @@ class SwimmerHighlightCardTest(unittest.TestCase):
         )
 
     def test_only_covas_events_are_flagged_across_the_whole_meet(self):
+        # starred_nums, not "num": every one of Cova's events is the Girls half of a combined
+        # Girls/Boys row, so the row's display text is "1/2" while only event 1 is hers.
         flagged = {
-            row["num"] for card in self.cards for row in card.events if row["highlight"]
+            number
+            for card in self.cards
+            for row in card.events
+            for number in row["starred_nums"]
         }
         self.assertEqual(flagged, {1, 5, 7, 27, 29})
-        # Every other row in all 6 sessions is untouched -- 72 events total, 5 starred.
-        total_rows = sum(card.event_count for card in self.cards)
-        self.assertEqual(total_rows, 72)
+        # event_count still counts real EVENTS (72), not the rows the cards print.
+        self.assertEqual(sum(card.event_count for card in self.cards), 72)
+        # Each of her 5 events combined with its Boys half, so 5 rows are starred and the rest are
+        # untouched. 72 events -> 36 rows across the 6 sessions.
+        self.assertEqual(sum(card.row_count for card in self.cards), 36)
         self.assertEqual(
-            sum(1 for card in self.cards for row in card.events if not row["highlight"]), 67
+            sum(1 for card in self.cards for row in card.events if row["highlight"]), 5
+        )
+        self.assertEqual(
+            sum(1 for card in self.cards for row in card.events if not row["highlight"]), 31
         )
 
     def test_the_stars_land_on_the_sessions_those_events_belong_to(self):
@@ -581,7 +602,9 @@ class SwimmerHighlightCardTest(unittest.TestCase):
             psych_pdf=HERC_PSYCH,
             swimmer_names=["Cova, Mila", "Vickers, Natalie"],
         )
-        flagged = {row["num"] for card in cards for row in card.events if row["highlight"]}
+        flagged = {
+            number for card in cards for row in card.events for number in row["starred_nums"]
+        }
         self.assertEqual(flagged, highlights.event_numbers)
         self.assertTrue({1, 5, 7, 27, 29}.issubset(flagged))
         # Union, not just one swimmer: Natalie brings events Cova is not in.
@@ -677,7 +700,14 @@ class StarGlyphTest(unittest.TestCase):
         plain, starred = stream(plain_cards[0]), stream(starred_cards[0])
         self.assertEqual(plain.count("h\n"), 0)
         self.assertEqual(starred.count("h\n"), 3)
-        self.assertEqual(starred.count(" f*\n") - plain.count(" f*\n"), 3)
+        # Each closed subpath is immediately FILLED, checked structurally rather than by diffing
+        # the total " f*" count against the plain card. That count also moves with the fill rects:
+        # a starred row's gold rect REPLACES an odd row's zebra rect but ADDS one on an even row,
+        # so the diff silently depended on which row indices happened to be starred -- and it
+        # changed the day adjacent Girls/Boys events began sharing a row and shifted those indices.
+        # (It also only ever matched the RECT fills: a rect emits " f*" with a leading space, while
+        # the star path emits "h\nf*", so the old diff never counted a star at all.)
+        self.assertEqual(starred.count("h\nf*\n"), 3)
 
     def test_star_geometry_is_a_closed_ten_vertex_outline(self):
         """Five points means five outer and five inner vertices, all within the requested radius."""
@@ -743,16 +773,26 @@ class HighlightLayoutTest(unittest.TestCase):
         )
 
     def test_star_plus_a_three_digit_number_fits_the_widened_column(self):
-        """Replays draw_card's own geometry for the worst real case: 14 rows (smallest font) with
-        3-digit numbers, and checks the number never has to shrink below the base font."""
+        """Replays draw_card's own geometry for the worst real case: a session whose rows are BOTH
+        starred and combined, so the # column has to hold a star plus "101/102".
+
+        Checks that the star stays a visible marker and that the number, after draw_card's
+        shrink-to-fit, still fits its slot and stays legible. It can no longer be asserted at full
+        base size: with only 7 rows the base font is the 8.3pt ceiling, and "101/102" at 8.3pt
+        beside a star would need ~29% of the card's width for the # column alone, starving the
+        EVENT column that carries the more important content. So the number is deliberately allowed
+        to be smaller than the row's base font -- the shrink-to-fit loop finds the largest size
+        that fits -- while the event NAME keeps its own full size."""
         _n, cards, _h = cards_for_timeline(
             HERC_TIMELINE,
             flyer_text=flyer_text(HERC_FLYER),
             psych_pdf=HERC_PSYCH,
             swimmer_names=["Post, Zoey"],
         )
-        card = cards[1]  # Session 2: 14 events, numbers 101-114, three of them starred
-        self.assertEqual(card.event_count, 14)
+        card = cards[1]  # Session 2: 14 events -> 7 combined rows, numbers 101-114, 3 starred
+        self.assertEqual(card.event_count, 14)  # real events
+        self.assertEqual(card.row_count, 7)  # rows actually drawn
+        self.assertTrue(any(len(row["nums"]) > 1 for row in card.events))
         margin = max(3.5, CARD_W * 0.035)
         content_w = CARD_W - 2 * margin
         # Reads draw_card's own fractions rather than repeating them -- these two copies
@@ -763,21 +803,42 @@ class HighlightLayoutTest(unittest.TestCase):
             - CARD_FOOTER_FRAC * CARD_H
             - 2 * CARD_TABLE_GAP_FRAC * CARD_H
         )
-        row_h = table_h / (card.event_count + 0.62)
+        row_h = table_h / (card.row_count + 0.62)
         base_fs = max(5.0, min(8.3, row_h * 0.5))
-        col_num_w = content_w * 0.145  # widened, because this card has stars
+        # Reads draw_card's own column choice rather than restating the fraction.
+        col_num_w = content_w * num_column_fraction(card.events)
         accent_w = max(1.2, CARD_W * 0.012)
         slot = (col_num_w - 1.0) - (accent_w + 0.6)
+        starred = 0
         for row in card.events:
             if not row["highlight"]:
                 continue
-            num_w = stringWidth(str(row["num"]), "Helvetica-Bold", base_fs)
+            starred += 1
+            num_text = str(row["num"])
+            num_w = stringWidth(num_text, "Helvetica-Bold", base_fs)
             room = slot - num_w - 0.8
             star_r = min(row_h * 0.24, base_fs * 0.34, 2.6, max(room, 0.0) / 2)
             star_r = max(star_r, min(1.15, row_h * 0.24))
-            # Star and a FULL-SIZE number both fit inside the widened column.
-            self.assertLessEqual(2 * star_r + 0.8 + num_w, slot + 1e-9, row)
             self.assertGreater(star_r, 0.9, row)  # still a visible marker
+            # Replay the shrink-to-fit the star branch applies to the number.
+            available = slot - (2 * star_r + 0.8)
+            num_fs = base_fs
+            while stringWidth(num_text, "Helvetica-Bold", num_fs) > available and num_fs > 3.6:
+                num_fs -= 0.2
+            self.assertLessEqual(
+                stringWidth(num_text, "Helvetica-Bold", num_fs), available + 1e-9, row
+            )
+            # Comfortably above draw_card's 3.6pt hard floor, i.e. the loop is not bottoming out.
+            self.assertGreater(num_fs, 4.5, row)
+        self.assertEqual(starred, 3)
+        # The trade has to stay one-sided: EVENT keeps enough width that no name on this card is
+        # driven down to its own 4.0pt floor by the widened # column.
+        col_event_w = content_w - col_num_w - content_w * 0.225 - content_w * 0.20
+        for row in card.events:
+            name_fs = base_fs
+            while stringWidth(row["name"], "Helvetica", name_fs) > col_event_w - 4 and name_fs > 4.0:
+                name_fs -= 0.2
+            self.assertGreater(name_fs, 4.0, row["name"])
 
     def test_highlighted_cards_still_render_at_the_exact_card_size(self):
         for names in (["Cova, Mila"], ["Post, Zoey"], ["Cova, Mila", "Vickers, Natalie"]):
