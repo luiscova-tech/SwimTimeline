@@ -1027,7 +1027,7 @@ def render_cards_pdf(cards: list[SessionCard]) -> bytes:
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=(CARD_W, CARD_H))
     for card in cards:
-        pdf.setTitle(f"{card.meet_name} badge cards")
+        pdf.setTitle(f"{card.meet_name} session event cards")
         draw_card(
             pdf,
             0,
@@ -1077,7 +1077,7 @@ def render_sheet_pdf(cards: list[SessionCard]) -> bytes:
         raise ValueError("No sessions to render.")
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=(SHEET_W, SHEET_H))
-    pdf.setTitle(f"{cards[0].meet_name} badge card sheets")
+    pdf.setTitle(f"{cards[0].meet_name} session event card sheets")
     for index, card in enumerate(cards):
         slot = index % SHEET_SLOTS_PER_PAGE
         if slot == 0 and index:
@@ -1153,9 +1153,9 @@ def card_filename(
         # it is not guaranteed to be filename-safe the way a bare integer was.
         session_slug = re.sub(r"[^A-Za-z0-9]+", "-", str(card.session_number)).strip("-") or "x"
         if copies:
-            return f"{slug}-session-{session_slug}-badge-cards-x{copies}.pdf"
-        return f"{slug}-session-{session_slug}-badge-card.pdf"
+            return f"{slug}-session-{session_slug}-session-event-cards-x{copies}.pdf"
+        return f"{slug}-session-{session_slug}-session-event-card.pdf"
     suffix = "-highlighted" if highlighted_only else ""
     if layout == "sheet":
-        return f"{slug}-badge-card-sheets{suffix}.pdf"
-    return f"{slug}-badge-cards{suffix}.pdf"
+        return f"{slug}-session-event-card-sheets{suffix}.pdf"
+    return f"{slug}-session-event-cards{suffix}.pdf"

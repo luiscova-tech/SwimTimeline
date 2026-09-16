@@ -104,13 +104,13 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
     def test_default_layout_is_one_card_sized_page_per_session(self):
         status, headers, body = self.badges(meet_id=HERCULEAN)
         self.assert_pdf(status, headers, body, pages=6, size=(144.0, 216.0))
-        self.assertIn("badge-cards.pdf", headers["Content-Disposition"])
+        self.assertIn("session-event-cards.pdf", headers["Content-Disposition"])
 
     def test_explicit_single_session_is_one_card_sized_page(self):
         status, headers, body = self.badges(meet_id=HERCULEAN, session=1)
         reader = self.assert_pdf(status, headers, body, pages=1, size=(144.0, 216.0))
         self.assertIn("SESSION 1", self.page_text(reader, 0))
-        self.assertIn("session-1-badge-card.pdf", headers["Content-Disposition"])
+        self.assertIn("session-1-session-event-card.pdf", headers["Content-Disposition"])
 
     def test_sheet_layout_tiles_every_session_on_one_letter_sheet(self):
         status, headers, body = self.badges(meet_id=HERCULEAN, layout="sheet")
@@ -118,7 +118,7 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
         tiled = self.page_text(reader, 0)
         for session_number in range(1, 7):
             self.assertIn(f"SESSION {session_number}", tiled)
-        self.assertIn("badge-card-sheets.pdf", headers["Content-Disposition"])
+        self.assertIn("session-event-card-sheets.pdf", headers["Content-Disposition"])
 
     def test_layout_cards_is_the_same_as_omitting_layout(self):
         _s1, h1, body1 = self.badges(meet_id=HERCULEAN)
@@ -171,7 +171,7 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
             self.assertNotIn(f"SESSION {absent} ", tiled)
         # Exactly two cards placed; the other seven slots of the 3x3 grid stay empty.
         self.assertEqual(tiled.count("Est. Finish"), 2)
-        self.assertIn("badge-card-sheets-highlighted.pdf", headers["Content-Disposition"])
+        self.assertIn("session-event-card-sheets-highlighted.pdf", headers["Content-Disposition"])
 
     def test_filter_with_several_names_keeps_the_union_of_their_sessions(self):
         """Vickers, Natalie swims sessions Cova does not, so adding her widens the result rather
@@ -238,7 +238,7 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
         tiled = self.page_text(reader, 0)
         self.assertEqual(tiled.count("Est. Finish"), 5)
         self.assertIn("SESSION 1", tiled)
-        self.assertIn("session-1-badge-cards-x5.pdf", headers["Content-Disposition"])
+        self.assertIn("session-1-session-event-cards-x5.pdf", headers["Content-Disposition"])
 
     def test_handout_ten_copies_wraps_to_two_sheets_nine_plus_one(self):
         status, headers, body = self.badges(
@@ -247,7 +247,7 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
         reader = self.assert_pdf(status, headers, body, pages=2, size=(612.0, 792.0))
         self.assertEqual(self.page_text(reader, 0).count("Est. Finish"), 9)
         self.assertEqual(self.page_text(reader, 1).count("Est. Finish"), 1)
-        self.assertIn("session-1-badge-cards-x10.pdf", headers["Content-Disposition"])
+        self.assertIn("session-1-session-event-cards-x10.pdf", headers["Content-Disposition"])
 
     def test_handout_content_matches_the_real_single_session_card(self):
         """The copies must be the SAME real card, not a placeholder -- compares against the

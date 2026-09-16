@@ -1046,16 +1046,16 @@ class SheetFilenameTest(unittest.TestCase):
         _name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
         self.assertEqual(
             card_filename("2026 Herculean Invitational"),
-            "2026-herculean-invitational-badge-cards.pdf",
+            "2026-herculean-invitational-session-event-cards.pdf",
         )
         self.assertEqual(
             card_filename("2026 Herculean Invitational", layout="sheet"),
-            "2026-herculean-invitational-badge-card-sheets.pdf",
+            "2026-herculean-invitational-session-event-card-sheets.pdf",
         )
         # A specific session wins over the layout -- it is one card either way.
         self.assertEqual(
             card_filename("2026 Herculean Invitational", cards[0], layout="sheet"),
-            "2026-herculean-invitational-session-1-badge-card.pdf",
+            "2026-herculean-invitational-session-1-session-event-card.pdf",
         )
 
     def test_a_filtered_download_is_named_differently_from_an_unfiltered_one(self):
@@ -1161,7 +1161,7 @@ class HandoutFilenameTest(unittest.TestCase):
         plain_session = card_filename("2026 Herculean Invitational", cards[0])
         handout = card_filename("2026 Herculean Invitational", cards[0], copies=10)
         self.assertNotEqual(plain_session, handout)
-        self.assertEqual(handout, "2026-herculean-invitational-session-1-badge-cards-x10.pdf")
+        self.assertEqual(handout, "2026-herculean-invitational-session-1-session-event-cards-x10.pdf")
 
     def test_different_copy_counts_of_the_same_session_are_distinct_filenames(self):
         _name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))

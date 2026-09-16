@@ -379,16 +379,16 @@ class LetteredSessionDownloadTest(unittest.TestCase):
         by_label = {card.session_number: card for card in cards}
         self.assertEqual(
             card_filename("2026 AZSI SC Age Group State Championship", card=by_label["1B"]),
-            "2026-azsi-sc-age-group-state-championship-session-1B-badge-card.pdf",
+            "2026-azsi-sc-age-group-state-championship-session-1B-session-event-card.pdf",
         )
         self.assertEqual(
             card_filename("2026 AZSI SC Age Group State Championship", card=by_label["2G"], copies=9),
-            "2026-azsi-sc-age-group-state-championship-session-2G-badge-cards-x9.pdf",
+            "2026-azsi-sc-age-group-state-championship-session-2G-session-event-cards-x9.pdf",
         )
         # A plain id produces exactly the name it always did -- no churn for existing meets.
         self.assertEqual(
             card_filename("2026 AZSI SC Age Group State Championship", card=by_label["3"]),
-            "2026-azsi-sc-age-group-state-championship-session-3-badge-card.pdf",
+            "2026-azsi-sc-age-group-state-championship-session-3-session-event-card.pdf",
         )
 
     def test_copies_of_a_lettered_session_tile_onto_sheets(self):
