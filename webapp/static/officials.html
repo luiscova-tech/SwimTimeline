@@ -54,24 +54,6 @@
             <button id="loadMeet" class="primary" type="button">Load Sessions</button>
           </section>
 
-          <section class="swimmer-highlight">
-            <div class="section-header">
-              <div>
-                <h2>Highlight Swimmers <small>(optional)</small></h2>
-                <p class="section-copy">Their events are shaded gold with a star on the cards. Use "Last, First" when a meet has siblings or two swimmers sharing a surname.</p>
-              </div>
-            </div>
-            <div class="swimmer-fieldset">
-              <div id="swimmerList" class="swimmer-list">
-                <div class="swimmer-row">
-                  <input name="swimmer_names" placeholder="Last, First" autocomplete="off">
-                  <button class="icon-button remove-swimmer hidden" type="button" aria-label="Remove swimmer">&times;</button>
-                </div>
-              </div>
-              <button id="addSwimmer" class="add-swimmer-button" type="button">+ Add another swimmer</button>
-            </div>
-          </section>
-
           <details id="uploadTimeline" class="upload-section">
             <summary>
               <span>Meet not listed?</span>
@@ -101,6 +83,24 @@
               </div>
             </div>
           </details>
+
+          <section class="swimmer-highlight">
+            <div class="section-header">
+              <div>
+                <h2>Highlight Swimmers <small>(optional)</small></h2>
+                <p class="section-copy">Their events are shaded gold with a star on the cards. Use "Last, First" when a meet has siblings or two swimmers sharing a surname.</p>
+              </div>
+            </div>
+            <div class="swimmer-fieldset">
+              <div id="swimmerList" class="swimmer-list">
+                <div class="swimmer-row">
+                  <input name="swimmer_names" placeholder="Last, First" autocomplete="off">
+                  <button class="icon-button remove-swimmer hidden" type="button" aria-label="Remove swimmer">&times;</button>
+                </div>
+              </div>
+              <button id="addSwimmer" class="add-swimmer-button" type="button">+ Add another swimmer</button>
+            </div>
+          </section>
         </form>
 
         <section id="status" class="status hidden" aria-live="polite"></section>
