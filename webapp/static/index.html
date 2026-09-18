@@ -167,72 +167,68 @@
             </div>
           </details>
 
-          <section id="currentMeets" class="current-meets primary-current-meets">
+          <section class="choose-meet">
             <div class="section-header">
               <div>
                 <h2>Choose A Meet</h2>
-                <p class="section-copy">Hosted meet documents are ready to search.</p>
+                <p class="section-copy">Hosted meet documents are ready to search, or upload your own.</p>
               </div>
             </div>
-            <div id="featuredMeet" class="featured-meet"></div>
-            <div id="currentMeetList" class="meet-list"></div>
-            <details id="pastMeets" class="past-meets hidden">
-              <summary>
-                <span>Past Meets</span>
-                <small>Hosted documents from recently completed meets</small>
-              </summary>
-              <div id="pastMeetList" class="meet-list"></div>
-            </details>
-          </section>
+            <div class="choose-meet-grid">
+              <section id="currentMeets" class="current-meets">
+                <h3>Hosted Meets</h3>
+                <div id="featuredMeet" class="featured-meet"></div>
+                <div id="currentMeetList" class="meet-list"></div>
+                <details id="pastMeets" class="past-meets hidden">
+                  <summary>
+                    <span>Past Meets</span>
+                    <small>Hosted documents from recently completed meets</small>
+                  </summary>
+                  <div id="pastMeetList" class="meet-list"></div>
+                </details>
+              </section>
 
-          <details id="uploadMeet" class="upload-section">
-            <summary>
-              <span>Meet not listed?</span>
-              <small>Upload meet PDFs instead</small>
-            </summary>
-            <div class="upload-panel">
-              <div class="section-header upload-header">
-                <div>
-                  <h2>Upload Meet Documents</h2>
-                  <p class="section-copy">Use this when the meet is not available above.</p>
+              <div class="choose-meet-divider" aria-hidden="true"><span>or</span></div>
+
+              <section class="current-meets">
+                <h3>Upload Meet Documents</h3>
+                <p class="section-copy">Use this when the meet is not available.</p>
+                <div class="upload-grid">
+                  <label class="file-input">
+                    <span>Meet Flyer <span class="field-marker">(optional)</span></span>
+                    <input type="file" name="flyer_pdf" accept="application/pdf">
+                  </label>
+                  <div class="file-field">
+                    <label class="file-input">
+                      <span>Psych Sheet or Heat Sheet <span class="field-marker">(required)</span></span>
+                      <small>Use whichever athlete entry sheet the meet has posted.</small>
+                      <input type="file" name="psych_pdf" accept="application/pdf">
+                    </label>
+                    <details class="term-hint">
+                      <summary>What's the difference?</summary>
+                      <p>A psych sheet lists seed times and seed order before heats are assigned. A heat sheet lists the same entries after they've been split into actual heats and lanes. Meets don't always publish both — use whichever one your meet has posted.</p>
+                    </details>
+                  </div>
+                  <label class="file-input">
+                    <span>Timeline <span class="field-marker">(required)</span></span>
+                    <input type="file" name="timeline_pdf" accept="application/pdf">
+                  </label>
+                  <label class="file-input">
+                    <span>Relay Doc <span class="field-marker">(optional)</span></span>
+                    <input type="file" name="relay_pdf" accept="application/pdf">
+                  </label>
+                  <label class="file-input">
+                    <span>Warm-up Assignments <span class="field-marker">(optional)</span></span>
+                    <input type="file" name="warmup_pdf" accept="application/pdf">
+                  </label>
                 </div>
                 <div class="upload-submit-group">
                   <button class="primary" type="button" id="generateFromUploads">Generate From Uploads</button>
                   <small class="upload-requirement-hint">Needs a swimmer name entered above.</small>
                 </div>
-              </div>
-
-              <div class="upload-grid">
-                <label class="file-input">
-                  <span>Meet Flyer <span class="field-marker">(optional)</span></span>
-                  <input type="file" name="flyer_pdf" accept="application/pdf">
-                </label>
-                <div class="file-field">
-                  <label class="file-input">
-                    <span>Psych Sheet or Heat Sheet <span class="field-marker">(required)</span></span>
-                    <small>Use whichever athlete entry sheet the meet has posted.</small>
-                    <input type="file" name="psych_pdf" accept="application/pdf">
-                  </label>
-                  <details class="term-hint">
-                    <summary>What's the difference?</summary>
-                    <p>A psych sheet lists seed times and seed order before heats are assigned. A heat sheet lists the same entries after they've been split into actual heats and lanes. Meets don't always publish both — use whichever one your meet has posted.</p>
-                  </details>
-                </div>
-                <label class="file-input">
-                  <span>Timeline <span class="field-marker">(required)</span></span>
-                  <input type="file" name="timeline_pdf" accept="application/pdf">
-                </label>
-                <label class="file-input">
-                  <span>Relay Doc <span class="field-marker">(optional)</span></span>
-                  <input type="file" name="relay_pdf" accept="application/pdf">
-                </label>
-                <label class="file-input">
-                  <span>Warm-up Assignments <span class="field-marker">(optional)</span></span>
-                  <input type="file" name="warmup_pdf" accept="application/pdf">
-                </label>
-              </div>
+              </section>
             </div>
-          </details>
+          </section>
 
           <details id="contactSupport" class="contact-section">
             <summary>

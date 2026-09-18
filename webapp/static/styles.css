@@ -178,7 +178,10 @@ h2 {
 }
 
 .upload-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Both usages of this grid now live inside a half-width .choose-meet-card (see below), never
+     the full-width container this was originally sized for -- 4 columns of file inputs would be
+     far too cramped at that width, so this went from repeat(4) to repeat(2). */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 14px;
 }
 
@@ -193,15 +196,15 @@ h2 {
 .current-meets,
 .how-to-use,
 .advanced-options,
-.upload-section,
-.contact-section {
+.contact-section,
+.choose-meet {
   margin-top: 20px;
 }
 
 .how-to-use,
 .advanced-options,
-.upload-section,
-.contact-section {
+.contact-section,
+.choose-meet {
   padding-top: 18px;
   border-top: 1px solid var(--line);
 }
@@ -220,8 +223,71 @@ h2 {
   background: linear-gradient(180deg, #f9fbfe 0%, #f2f7fb 100%);
 }
 
-.primary-current-meets {
-  margin-top: 16px;
+/* "Choose A Meet": the hosted-meet option and the upload option side by side as two equal-weight
+   peer cards, separated by an "or" divider, both always visible -- no click-to-expand. Both cards
+   reuse .current-meets' own box treatment (same blue-tinted box, same visual weight) precisely so
+   neither reads as more "official" than the other; only .choose-meet-grid's own rules below adapt
+   that box for sitting half-width instead of full-width. */
+.choose-meet-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+/* Cancels .current-meets' own margin-top in this context: the gap above the cards is already
+   .choose-meet-grid's own margin-top (relative to the "Choose A Meet" heading above it), so each
+   card does not also need its usual top-level-section spacing on top of that. */
+.choose-meet-grid .current-meets {
+  margin-top: 0;
+}
+
+.choose-meet-grid h3 {
+  margin: 0 0 4px;
+  color: var(--navy);
+  font-size: 16px;
+}
+
+/* .meet-list's repeat(2, minmax(320px, 1fr)) base rule was sized for the full page width this
+   used to occupy. Nested in a half-width card instead, two 320px+ columns cannot fit at any
+   realistic viewport, so it collapses to one column unconditionally here rather than only below
+   the page-wide 860px breakpoint (see the media query for that unrelated, still-relevant case). */
+.choose-meet-grid .meet-list {
+  grid-template-columns: 1fr;
+}
+
+.choose-meet-divider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  width: 28px;
+}
+
+.choose-meet-divider::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--line);
+}
+
+.choose-meet-divider span {
+  position: relative;
+  z-index: 1;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 /* First-run banner: same highlighted-box treatment as .current-meets (soft blue gradient +
@@ -279,7 +345,6 @@ h2 {
 
 .how-to-use summary,
 .advanced-options summary,
-.upload-section summary,
 .contact-section summary,
 .past-meets summary {
   display: flex;
@@ -295,7 +360,6 @@ h2 {
 }
 
 .advanced-options summary,
-.upload-section summary,
 .contact-section summary,
 .past-meets summary {
   padding: 0;
@@ -303,7 +367,6 @@ h2 {
 
 .how-to-use summary::-webkit-details-marker,
 .advanced-options summary::-webkit-details-marker,
-.upload-section summary::-webkit-details-marker,
 .contact-section summary::-webkit-details-marker,
 .past-meets summary::-webkit-details-marker {
   display: none;
@@ -311,7 +374,6 @@ h2 {
 
 .how-to-use summary::after,
 .advanced-options summary::after,
-.upload-section summary::after,
 .contact-section summary::after,
 .past-meets summary::after {
   content: "+";
@@ -329,7 +391,6 @@ h2 {
 
 .how-to-use[open] summary::after,
 .advanced-options[open] summary::after,
-.upload-section[open] summary::after,
 .contact-section[open] summary::after,
 .past-meets[open] summary::after {
   content: "-";
@@ -337,7 +398,6 @@ h2 {
 
 .how-to-use summary small,
 .advanced-options summary small,
-.upload-section summary small,
 .contact-section summary small,
 .past-meets summary small {
   color: var(--muted);
@@ -352,15 +412,14 @@ h2 {
   margin-top: 14px;
 }
 
-.upload-panel {
-  margin-top: 14px;
-}
-
+/* Sits below .upload-grid now (a plain always-visible card, not a <details> panel), so it needs
+   its own top spacing instead of the margin-top .upload-panel used to provide next to a header. */
 .upload-submit-group {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
+  margin-top: 14px;
 }
 
 .upload-requirement-hint {
@@ -1660,8 +1719,25 @@ td strong {
   .meet-list,
   .instruction-grid,
   .advanced-grid,
-  .result-stats {
+  .result-stats,
+  .choose-meet-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* Two side-by-side cards stack, and the "or" divider flips from a vertical line between them
+     to a horizontal one above the second card -- the usual mobile treatment for this pattern. */
+  .choose-meet-divider {
+    width: auto;
+    height: 28px;
+  }
+
+  .choose-meet-divider::before {
+    top: 50%;
+    bottom: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: 1px;
   }
 
   .workflow-strip {

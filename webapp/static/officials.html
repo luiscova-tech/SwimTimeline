@@ -38,51 +38,49 @@
             </div>
           </div>
 
-          <section class="current-meets">
+          <section class="choose-meet">
             <div class="section-header">
               <div>
-                <h2>Hosted Meets</h2>
-                <p class="section-copy">Meets already loaded here generate cards straight from their own timeline &mdash; no upload needed.</p>
+                <h2>Choose A Meet</h2>
+                <p class="section-copy">Hosted meet documents are ready to search, or upload your own.</p>
               </div>
             </div>
-            <label class="officials-field">
-              <span>Meet</span>
-              <select id="meetSelect">
-                <option value="">Loading hosted meets&hellip;</option>
-              </select>
-            </label>
-            <button id="loadMeet" class="primary" type="button">Load Sessions</button>
-          </section>
+            <div class="choose-meet-grid">
+              <section class="current-meets">
+                <h3>Hosted Meets</h3>
+                <p class="section-copy">Meets already loaded here generate cards straight from their own timeline &mdash; no upload needed.</p>
+                <label class="officials-field">
+                  <span>Meet</span>
+                  <select id="meetSelect">
+                    <option value="">Loading hosted meets&hellip;</option>
+                  </select>
+                </label>
+                <button id="loadMeet" class="primary" type="button">Load Sessions</button>
+              </section>
 
-          <details id="uploadTimeline" class="upload-section">
-            <summary>
-              <span>Meet not listed?</span>
-              <small>Upload a HY-TEK Session Report PDF</small>
-            </summary>
-            <div class="upload-panel">
-              <div class="section-header upload-header">
-                <div>
-                  <h2>Upload Session Report</h2>
-                  <p class="section-copy">The timeline export from Meet Manager &mdash; the document whose pages begin "Session: 1 &hellip;".</p>
+              <div class="choose-meet-divider" aria-hidden="true"><span>or</span></div>
+
+              <section class="current-meets">
+                <h3>Upload Session Report</h3>
+                <p class="section-copy">The timeline export from Meet Manager &mdash; the document whose pages begin "Session: 1 &hellip;".</p>
+                <div class="upload-grid">
+                  <label class="file-input">
+                    <span>Session Report / Timeline</span>
+                    <input type="file" id="timelineInput" name="timeline_pdf" accept="application/pdf">
+                  </label>
+                  <label class="file-input">
+                    <span>Psych Sheet or Heat Sheet <small>(optional)</small></span>
+                    <small>Only needed to highlight swimmers &mdash; cards generate without it.</small>
+                    <input type="file" id="psychInput" name="psych_pdf" accept="application/pdf">
+                  </label>
                 </div>
                 <div class="upload-submit-group">
                   <button class="primary" type="button" id="loadUpload">Load Sessions From Upload</button>
                   <small class="upload-requirement-hint">Nothing is saved to the site.</small>
                 </div>
-              </div>
-              <div class="upload-grid">
-                <label class="file-input">
-                  <span>Session Report / Timeline</span>
-                  <input type="file" id="timelineInput" name="timeline_pdf" accept="application/pdf">
-                </label>
-                <label class="file-input">
-                  <span>Psych Sheet or Heat Sheet <small>(optional)</small></span>
-                  <small>Only needed to highlight swimmers &mdash; cards generate without it.</small>
-                  <input type="file" id="psychInput" name="psych_pdf" accept="application/pdf">
-                </label>
-              </div>
+              </section>
             </div>
-          </details>
+          </section>
 
           <section class="swimmer-highlight">
             <div class="section-header">
