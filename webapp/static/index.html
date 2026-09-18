@@ -194,10 +194,6 @@
                 <h3>Upload Meet Documents</h3>
                 <p class="section-copy">Use this when the meet is not available.</p>
                 <div class="upload-grid">
-                  <label class="file-input">
-                    <span>Meet Flyer <span class="field-marker">(optional)</span></span>
-                    <input type="file" name="flyer_pdf" accept="application/pdf">
-                  </label>
                   <div class="file-field">
                     <label class="file-input">
                       <span>Psych Sheet or Heat Sheet <span class="field-marker">(required)</span></span>
@@ -213,16 +209,28 @@
                     <span>Timeline <span class="field-marker">(required)</span></span>
                     <input type="file" name="timeline_pdf" accept="application/pdf">
                   </label>
-                  <label class="file-input">
-                    <span>Relay Doc <span class="field-marker">(optional)</span></span>
-                    <input type="file" name="relay_pdf" accept="application/pdf">
-                  </label>
-                  <label class="file-input">
-                    <span>Warm-up Assignments <span class="field-marker">(optional)</span></span>
-                    <input type="file" name="warmup_pdf" accept="application/pdf">
-                  </label>
                 </div>
-                <div class="upload-submit-group">
+                <details class="optional-uploads">
+                  <summary>
+                    <span>Add optional files</span>
+                    <small>Meet Flyer, Relay Doc, Warm-up Assignments</small>
+                  </summary>
+                  <div class="upload-grid">
+                    <label class="file-input">
+                      <span>Meet Flyer <span class="field-marker">(optional)</span></span>
+                      <input type="file" name="flyer_pdf" accept="application/pdf">
+                    </label>
+                    <label class="file-input">
+                      <span>Relay Doc <span class="field-marker">(optional)</span></span>
+                      <input type="file" name="relay_pdf" accept="application/pdf">
+                    </label>
+                    <label class="file-input">
+                      <span>Warm-up Assignments <span class="field-marker">(optional)</span></span>
+                      <input type="file" name="warmup_pdf" accept="application/pdf">
+                    </label>
+                  </div>
+                </details>
+                <div class="upload-submit-group card-bottom-action">
                   <button class="primary" type="button" id="generateFromUploads">Generate From Uploads</button>
                   <small class="upload-requirement-hint">Needs a swimmer name entered above.</small>
                 </div>

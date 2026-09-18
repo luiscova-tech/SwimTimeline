@@ -227,19 +227,30 @@ h2 {
    peer cards, separated by an "or" divider, both always visible -- no click-to-expand. Both cards
    reuse .current-meets' own box treatment (same blue-tinted box, same visual weight) precisely so
    neither reads as more "official" than the other; only .choose-meet-grid's own rules below adapt
-   that box for sitting half-width instead of full-width. */
+   that box for sitting half-width instead of full-width.
+
+   align-items: stretch (not start) -- the two cards can otherwise end up wildly uneven in height
+   (e.g. zero hosted meets next to a multi-field upload card), which reads as one option being an
+   afterthought. Stretching makes both match the taller card's height; see .card-bottom-action
+   below for how the cards that have a single bottom action button keep that button pinned to the
+   bottom of the extra space instead of leaving a gap mid-card. */
 .choose-meet-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: start;
+  align-items: stretch;
   gap: 16px;
   margin-top: 14px;
 }
 
 /* Cancels .current-meets' own margin-top in this context: the gap above the cards is already
    .choose-meet-grid's own margin-top (relative to the "Choose A Meet" heading above it), so each
-   card does not also need its usual top-level-section spacing on top of that. */
+   card does not also need its usual top-level-section spacing on top of that. Also a flex column
+   so a card's bottom action (see .card-bottom-action) can be pinned to its bottom edge when the
+   grid stretches this card taller than its own natural content. index.html's hosted-meet card has
+   no such action -- it simply renders with empty space below when stretched, which is fine. */
 .choose-meet-grid .current-meets {
+  display: flex;
+  flex-direction: column;
   margin-top: 0;
 }
 
@@ -247,6 +258,31 @@ h2 {
   margin: 0 0 4px;
   color: var(--navy);
   font-size: 16px;
+}
+
+/* Pins a card's one bottom action to the bottom of the card instead of the natural end of its
+   content, so stretching (above) collects its extra height below the existing fields rather than
+   leaving a floating gap mid-card. Applied to both the officials.html hosted-meet card's bare
+   #loadMeet button (no wrapper div exists for it) and every .upload-submit-group (both pages'
+   upload cards) via one shared class.
+
+   Written as two-class selectors (.upload-submit-group.card-bottom-action, #loadMeet.card-bottom-
+   action), not a bare .card-bottom-action, so this reliably outranks .upload-submit-group's own
+   margin-top declared later in this file regardless of source order -- a bare single-class rule
+   here was silently losing that fight, leaving the button stranded near the top of a stretched
+   card instead of pinned to its bottom. */
+.upload-submit-group.card-bottom-action,
+#loadMeet.card-bottom-action {
+  margin-top: auto;
+}
+
+/* #loadMeet has no wrapping div, so as a flex item it would otherwise stretch to the card's full
+   width under the grid's default cross-axis stretch -- keep it sized to its own content, matching
+   how this button style looks everywhere else it's used. .upload-submit-group needs no equivalent
+   override: it was already a full-width block with its OWN internal right-alignment before this
+   change, so stretching its outer box changes nothing about how it looks. */
+#loadMeet.card-bottom-action {
+  align-self: flex-start;
 }
 
 /* .meet-list's repeat(2, minmax(320px, 1fr)) base rule was sized for the full page width this
@@ -346,7 +382,8 @@ h2 {
 .how-to-use summary,
 .advanced-options summary,
 .contact-section summary,
-.past-meets summary {
+.past-meets summary,
+.optional-uploads summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -361,21 +398,24 @@ h2 {
 
 .advanced-options summary,
 .contact-section summary,
-.past-meets summary {
+.past-meets summary,
+.optional-uploads summary {
   padding: 0;
 }
 
 .how-to-use summary::-webkit-details-marker,
 .advanced-options summary::-webkit-details-marker,
 .contact-section summary::-webkit-details-marker,
-.past-meets summary::-webkit-details-marker {
+.past-meets summary::-webkit-details-marker,
+.optional-uploads summary::-webkit-details-marker {
   display: none;
 }
 
 .how-to-use summary::after,
 .advanced-options summary::after,
 .contact-section summary::after,
-.past-meets summary::after {
+.past-meets summary::after,
+.optional-uploads summary::after {
   content: "+";
   display: inline-flex;
   align-items: center;
@@ -392,14 +432,16 @@ h2 {
 .how-to-use[open] summary::after,
 .advanced-options[open] summary::after,
 .contact-section[open] summary::after,
-.past-meets[open] summary::after {
+.past-meets[open] summary::after,
+.optional-uploads[open] summary::after {
   content: "-";
 }
 
 .how-to-use summary small,
 .advanced-options summary small,
 .contact-section summary small,
-.past-meets summary small {
+.past-meets summary small,
+.optional-uploads summary small {
   color: var(--muted);
   font-size: 13px;
   font-weight: 650;
@@ -922,6 +964,41 @@ fieldset,
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid #dbe5ef;
+}
+
+/* "Add optional files"/"Add optional file" -- collapses a choose-meet upload card's optional
+   fields behind a disclosure so only the required fields count toward the card's natural height
+   (the equal-height stretch above still applies on top of this). Joins the same +/- disclosure
+   family as .how-to-use/.advanced-options/.contact-section/.past-meets above rather than
+   .term-hint's "?" icon, which reads as a help affordance, not "there's more here to reveal". */
+.optional-uploads {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #dbe5ef;
+}
+
+/* officials.html's upload card has only one required field, so it is never wrapped in
+   .upload-grid: a lone item in that 2-column grid would fill only half the card's width, the same
+   lone-grid-item look already fixed for .meet-list elsewhere in this file. It needs its own top
+   spacing in place of the grid's. .upload-grid's own children (index.html's two required fields,
+   and the 2-3 fields revealed inside .optional-uploads on either page) already get theirs from the
+   grid's own margin-top. */
+.current-meets > .file-input {
+  margin-top: 12px;
+}
+
+.optional-uploads > .file-input {
+  margin-top: 10px;
+}
+
+/* index.html's optional-uploads grid holds 3 fields (Meet Flyer, Relay Doc, Warm-up Assignments)
+   in .upload-grid's 2 columns, leaving the third alone in row 2 at half width -- the same
+   lone-trailing-item pattern already fixed for #currentMeetList's .meet-card above, generalized to
+   "odd position, last child" so it doesn't require an :only-child count. Scoped to
+   .optional-uploads .upload-grid specifically: the OTHER .upload-grid usage (the two required
+   fields above it, on both pages) is always an even count with no lone-item to fix. */
+.optional-uploads .upload-grid > .file-input:nth-child(odd):last-child {
+  grid-column: 1 / -1;
 }
 
 .empty-state {

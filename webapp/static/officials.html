@@ -55,7 +55,7 @@
                     <option value="">Loading hosted meets&hellip;</option>
                   </select>
                 </label>
-                <button id="loadMeet" class="primary" type="button">Load Sessions</button>
+                <button id="loadMeet" class="primary card-bottom-action" type="button">Load Sessions</button>
               </section>
 
               <div class="choose-meet-divider" aria-hidden="true"><span>or</span></div>
@@ -63,18 +63,22 @@
               <section class="current-meets">
                 <h3>Upload Session Report</h3>
                 <p class="section-copy">The timeline export from Meet Manager &mdash; the document whose pages begin "Session: 1 &hellip;".</p>
-                <div class="upload-grid">
-                  <label class="file-input">
-                    <span>Session Report / Timeline</span>
-                    <input type="file" id="timelineInput" name="timeline_pdf" accept="application/pdf">
-                  </label>
+                <label class="file-input">
+                  <span>Session Report / Timeline</span>
+                  <input type="file" id="timelineInput" name="timeline_pdf" accept="application/pdf">
+                </label>
+                <details class="optional-uploads">
+                  <summary>
+                    <span>Add optional file</span>
+                    <small>Psych Sheet or Heat Sheet</small>
+                  </summary>
                   <label class="file-input">
                     <span>Psych Sheet or Heat Sheet <small>(optional)</small></span>
                     <small>Only needed to highlight swimmers &mdash; cards generate without it.</small>
                     <input type="file" id="psychInput" name="psych_pdf" accept="application/pdf">
                   </label>
-                </div>
-                <div class="upload-submit-group">
+                </details>
+                <div class="upload-submit-group card-bottom-action">
                   <button class="primary" type="button" id="loadUpload">Load Sessions From Upload</button>
                   <small class="upload-requirement-hint">Nothing is saved to the site.</small>
                 </div>
