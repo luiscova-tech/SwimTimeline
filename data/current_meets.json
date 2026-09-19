@@ -239,6 +239,29 @@
       "documents": [
         "Timeline"
       ]
+    },
+    {
+      "id": "2026-cummins-invitational",
+      "name": "Cummins Invitational 26",
+      "short_name": "Cummins Invitational",
+      "dates": "2026-09-19",
+      "start_date": "2026-09-19",
+      "end_date": "2026-09-19",
+      "expires_at": "2026-09-20",
+      "state": "AZ",
+      "timezone": "America/Phoenix",
+      "timeline_type": "projected",
+      "status": "ready",
+      "last_updated": "2026-09-18",
+      "files": {
+        "flyer": null,
+        "psych": null,
+        "timeline": "meets/2026-cummins-invitational/input/2026-cummins-invitational-timeline.pdf",
+        "relay": null
+      },
+      "documents": [
+        "Timeline"
+      ]
     }
   ]
 }

@@ -43,6 +43,7 @@ EXPECTED_RANGES: list[tuple[str, tuple[date, date] | None]] = [
     # a plain "to"-range date line, unaffected by that change.
     ("meets/2026-az-sc-age-group-state/input/timeline.pdf", (date(2026, 3, 5), date(2026, 3, 8))),
     ("meets/2026-croswhite-invite/input/2026-croswhite-invite-timeline.pdf", (date(2026, 9, 12), date(2026, 9, 12))),
+    ("meets/2026-cummins-invitational/input/2026-cummins-invitational-timeline.pdf", (date(2026, 9, 19), date(2026, 9, 19))),
     ("meets/2026-herculean-invitational/input/2026-herculean-invitational-flyer.pdf", (date(2026, 9, 11), date(2026, 9, 13))),
     ("meets/2026-herculean-invitational/input/2026-herculean-invitational-psych-sheet.pdf", (date(2026, 9, 11), date(2026, 9, 13))),
     ("meets/2026-herculean-invitational/input/2026-herculean-invitational-timeline.pdf", (date(2026, 9, 11), date(2026, 9, 13))),

@@ -1815,6 +1815,59 @@ def session_is_finals(session_name: str) -> bool:
     return "final" in lower and "prelim" not in lower and "distance" not in lower
 
 
+_WRAPPED_ROUND_LINE = re.compile(r"^(?:Prelims|Finals(?:-[A-Za-z0-9]+)?)$", re.IGNORECASE)
+_WRAPPED_EVENT_NUM_NAME_LINE = re.compile(r"^\d+\s+\S")
+_WRAPPED_INT_LINE = re.compile(r"^\d+$")
+_WRAPPED_TIME_LINE = re.compile(r"^\d{1,2}:\d{2}\s*[AP]M$", re.IGNORECASE)
+_WRAPPED_FINISH_LABEL_LINE = re.compile(r"^Finish Time$", re.IGNORECASE)
+_WRAPPED_PLACEHOLDER_LINE = re.compile(r"^_+$")
+
+
+def merge_wrapped_session_report_rows(lines: list[str]) -> list[str]:
+    """Some HY-TEK Session Report exports (e.g. Cummins Invitational 26) print each event's
+    Round/Event/Entries/Heats/Starts-at cells on their own physical line instead of joining them
+    onto one line per event -- the shape event_line/finish_line below expect (see e.g. 2026
+    Croswhite Invite's timeline, joined by its own PDF export into one line per event). Recognize
+    that exact split -- a bare round-name line immediately followed by "<num> <name>", a bare
+    entries integer, a bare heats integer, and a bare "<time> AM/PM" -- and rejoin it into the
+    single-line shape those regexes already handle, rather than teaching every regex two shapes.
+    A trailing "____" placeholder line (the blank hand-written-result column) is consumed too when
+    present, since it belongs to the row just merged. The same split/rejoin applies to the
+    "Finish Time" footer line. Anything that doesn't match this exact split-row shape passes
+    through unchanged, so already-joined timelines are unaffected.
+    """
+    merged: list[str] = []
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i].strip()
+        if _WRAPPED_ROUND_LINE.match(line) and i + 4 < n:
+            numname = lines[i + 1].strip()
+            entries = lines[i + 2].strip()
+            heats = lines[i + 3].strip()
+            clock = lines[i + 4].strip()
+            if (
+                _WRAPPED_EVENT_NUM_NAME_LINE.match(numname)
+                and _WRAPPED_INT_LINE.match(entries)
+                and _WRAPPED_INT_LINE.match(heats)
+                and _WRAPPED_TIME_LINE.match(clock)
+            ):
+                merged.append(f"{line} {numname} {entries} {heats} ____{clock}")
+                i += 5
+                if i < n and _WRAPPED_PLACEHOLDER_LINE.match(lines[i].strip()):
+                    i += 1
+                continue
+        if _WRAPPED_FINISH_LABEL_LINE.match(line) and i + 1 < n and _WRAPPED_TIME_LINE.match(lines[i + 1].strip()):
+            merged.append(f"{line} ____{lines[i + 1].strip()}")
+            i += 2
+            if i < n and _WRAPPED_PLACEHOLDER_LINE.match(lines[i].strip()):
+                i += 1
+            continue
+        merged.append(lines[i])
+        i += 1
+    return merged
+
+
 def parse_timeline(
     timeline_pdf: Path, flyer_text: str = "", meet_venue: str | None = None
 ) -> tuple[str, dict[str, SessionInfo], list[TimelineEvent]]:
@@ -1866,7 +1919,7 @@ def cached_timeline(
         current_session: SessionInfo | None = None
         pending_session: tuple[str, str] | None = None
         page_events: list[TimelineEvent] = []
-        for raw_line in page_text.splitlines():
+        for raw_line in merge_wrapped_session_report_rows(page_text.splitlines()):
             line = normalize_timeline_line(raw_line)
             if not line:
                 continue

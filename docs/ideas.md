@@ -37,6 +37,10 @@ ideas here as they come up so they don't get lost.
 
 ## Future ideas (unscoped)
 
-(none open right now — the provenance-credit idea above shipped as the
-badge card's swimtimeline.onrender.com/officials footer link, commit
-41fb3e5.)
+- OCR a photo/scan of a meet document into readable text (requested by
+  Luis). Real design tension: the parser depends on native PDF text plus
+  its column/position layout (see docs/extraction-rules.md), not OCR'd
+  text, and OCR errors on event numbers or times would be silently wrong
+  in a way that conflicts with this app's no-guessing philosophy. This
+  would need a genuinely new, separately-validated extraction path, not
+  just an OCR-to-text swap. Not building this now — logging it only.
