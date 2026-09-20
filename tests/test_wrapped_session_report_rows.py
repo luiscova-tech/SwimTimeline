@@ -100,9 +100,12 @@ class WrappedSessionReportRowsCardTest(unittest.TestCase):
     the fix."""
 
     def test_the_card_carries_all_22_events(self):
+        """22 real events -- 11 rows, since Cummins has no age qualifier at all and every event
+        pairs into a combined Girls/Boys row (see EventNameOptionalAgeQualifierTest)."""
         _meet_name, cards, _highlights = cards_for_timeline(TIMELINE)
         self.assertEqual(len(cards), 1)
-        self.assertEqual(len(cards[0].events), 22)
+        self.assertEqual(cards[0].event_count, 22)
+        self.assertEqual(len(cards[0].events), 11)
 
 
 if __name__ == "__main__":

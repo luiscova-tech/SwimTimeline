@@ -27,6 +27,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from swimtimeline.badges import (  # noqa: E402
+    CARD_FOOTER_FRAC,
+    CARD_H,
+    CARD_HEADER_FRAC,
+    CARD_TABLE_GAP_FRAC,
     MAROON,
     NAVY,
     badge_event_name,
@@ -35,6 +39,7 @@ from swimtimeline.badges import (  # noqa: E402
     events_by_session,
     events_combine,
     num_column_fraction,
+    parse_event_name,
     render_cards_pdf,
     row_accent_colors,
 )
@@ -45,6 +50,12 @@ AZ_LC_TIMELINE = AZ_LC_DIR / "age-group-state-timeline.pdf"
 AZ_LC_PSYCH = AZ_LC_DIR / "age-group-state-psych-sheet.pdf"
 WZAG_TIMELINE = ROOT / "meets/2026-wzag-championships-boise/input/wzag timelines v4.pdf"
 AZ_SC_TIMELINE = ROOT / "meets/2026-az-sc-age-group-state/input/timeline.pdf"
+# 2026 Cummins Invitational -- single day, single all-ages session, no flyer, no psych sheet.
+# Real officials feedback: none of its 22 events carry an age-qualifier phrase at all ("Boys 200
+# Medley Relay"), which used to make _EVENT_NAME_RE fail to match ANY of them -- so none of its 11
+# real Boys/Girls pairs combined, leaving 22 rows pinned at draw_card's 5.0pt font floor. See
+# CumminsCombinedPairsFontSizeTest.
+CUMMINS_TIMELINE = ROOT / "meets/2026-cummins-invitational/input/2026-cummins-invitational-timeline.pdf"
 
 
 def page_text(pdf_bytes: bytes, index: int = 0) -> str:
@@ -338,6 +349,120 @@ class NoPairingRegressionTest(unittest.TestCase):
         self.assertEqual(num_column_fraction(starred), 0.145)
         self.assertEqual(num_column_fraction(combined), 0.13)
         self.assertEqual(num_column_fraction(both), 0.185)
+
+
+class CumminsCombinedPairsFontSizeTest(unittest.TestCase):
+    """The real bug real officials reported: Cummins Invitational is an all-ages meet, so none of
+    its 22 event names carry an age-qualifier phrase at all ("Boys 200 Medley Relay", nothing
+    between gender and the distance number). _EVENT_NAME_RE used to require at least one
+    character there, so parse_event_name() returned None for every single one -- and
+    events_combine() requires both names to parse, so none of its 11 real Boys/Girls pairs ever
+    combined. 22 uncombined rows pinned draw_card's font at its 5.0pt floor.
+
+    Making the age group optional fixes this the same way it fixes
+    CroswhiteEmptyAgeQualifierEventShapeTest's single-gender case: these now parse, with an empty
+    age_qualifier, which is all events_combine() needs to pair them.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.meet_name, cls.sessions, cls.events = parse_timeline(CUMMINS_TIMELINE)
+        cls.session_events = events_by_session(cls.events)["1"]
+        _name, cards, _highlights = cards_for_timeline(CUMMINS_TIMELINE)
+        cls.card = cards[0]
+
+    def test_all_22_real_events_parse_with_an_empty_age_qualifier(self):
+        self.assertEqual(len(self.session_events), 22)
+        for event in self.session_events:
+            parsed = parse_event_name(event.event_name)
+            self.assertIsNotNone(parsed, event.event_name)
+            self.assertEqual(parsed.age_qualifier, "", event.event_name)
+
+    def test_all_11_real_boys_girls_pairs_combine(self):
+        rows = combine_gender_pairs(self.session_events)
+        self.assertEqual(len(rows), 11)
+        self.assertTrue(all(len(row) == 2 for row in rows))
+        self.assertTrue(all(events_combine(*row) for row in rows))
+
+    def test_the_card_reports_22_real_events_but_only_11_rows(self):
+        self.assertEqual(self.card.event_count, 22)
+        self.assertEqual(self.card.row_count, 11)
+
+    def test_base_font_size_clears_the_5pt_floor_once_combined(self):
+        """Replicates draw_card's own base_fs formula off its shared fractions (not repeated
+        literals), the same way test_event_names_still_fit_after_the_column_widens in
+        test_badges.py does -- once for the OLD uncombined row count (still the 5.0pt floor) and
+        once for the real, now-combined row count (clears it)."""
+        table_h = (
+            CARD_H
+            - CARD_HEADER_FRAC * CARD_H
+            - CARD_FOOTER_FRAC * CARD_H
+            - 2 * CARD_TABLE_GAP_FRAC * CARD_H
+        )
+
+        def base_fs(row_count: int) -> float:
+            row_h = table_h / (row_count + 0.62)
+            return max(5.0, min(8.3, row_h * 0.5))
+
+        # Before the fix: 22 uncombined rows, pinned at the floor.
+        self.assertEqual(base_fs(self.card.event_count), 5.0)
+        # After: 11 combined rows, clearing it by almost 2pt.
+        after = base_fs(self.card.row_count)
+        self.assertAlmostEqual(after, 6.97, places=2)
+        self.assertGreater(after, 6.5)
+        self.assertLess(after, 7.5)
+
+    def test_a_combined_row_actually_renders_readable_text_on_the_card(self):
+        text = page_text(render_cards_pdf([self.card]))
+        # Events 1/2: "Boys 200 Medley Relay" / "Girls 200 Medley Relay".
+        self.assertIn("1/2", text)
+        self.assertIn("200 Medley Relay", text)
+        self.assertNotIn("Girls", text)  # dropped on every row: all 22 events combined
+        self.assertNotIn("Boys", text)
+
+    def test_no_row_carries_a_stray_blank_age_tag(self):
+        """abbreviate_age_qualifier("") is itself "" -- badge_event_name()'s piece filter must
+        drop it rather than leaving a stray leading/double space in the row name."""
+        for row in self.card.events:
+            self.assertFalse(row["name"].startswith(" "), row["name"])
+            self.assertNotIn("  ", row["name"], row["name"])
+
+
+class UnparseableEventNameFallbackTest(unittest.TestCase):
+    """A genuinely irregular name -- not just missing an age qualifier -- must still fail to
+    parse and fall through to an uncombined row, rather than the optional-age group accidentally
+    making the regex swallow something it shouldn't.
+    """
+
+    def test_a_name_with_no_recognized_gender_word_does_not_parse(self):
+        self.assertIsNone(parse_event_name("Exhibition 200 Freestyle"))
+        self.assertIsNone(parse_event_name("200 Freestyle"))  # no gender word at all
+
+    def test_a_name_with_no_distance_number_does_not_parse(self):
+        self.assertIsNone(parse_event_name("Boys Medley Relay"))
+
+    def test_an_unparseable_name_never_combines_with_a_real_neighbour(self):
+        from swimtimeline.extract import TimelineEvent
+
+        real = session_events(CUMMINS_TIMELINE, "1")[0]
+        irregular = TimelineEvent(
+            event_number=999,
+            event_name="Exhibition 200 Freestyle",
+            round_name="Finals",
+            session_number=real.session_number,
+            session_name=real.session_name,
+            date=real.date,
+            start=real.start,
+            end=real.end,
+            entries=1,
+            heats=1,
+            facility=None,
+        )
+        self.assertFalse(events_combine(real, irregular))
+        self.assertFalse(events_combine(irregular, real))
+        rows = combine_gender_pairs([real, irregular])
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all(len(row) == 1 for row in rows))
 
 
 if __name__ == "__main__":

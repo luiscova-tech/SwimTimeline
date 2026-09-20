@@ -74,16 +74,20 @@ CARD_TABLE_GAP_FRAC = 0.01  # breathing room above AND below the table, so 2x th
 # original spec (which repeats ONE session's card 12 times to hand out to that session's officials).
 SHEET_W = 612.0  # US Letter, 8.5" x 11"
 SHEET_H = 792.0
-SHEET_GUTTER = 18.0  # 0.25" between neighbouring cards, so a cut line is visible between them
+# ZERO gutter: cards sit edge to edge, and draw_sheet_cut_lines() below draws ONE shared dashed
+# line on every boundary instead. A blank gutter left it to the eye to guess where to cut; real
+# officials asked for an actual line. (Was 18.0pt/0.25" of blank space -- see git history.)
+SHEET_GUTTER = 0.0
 # 3 columns, not 4. Four native-width cards need 4 x 144 = 576pt, which leaves only 18pt of side
-# margin with a ZERO gutter, and overflows the sheet outright (-9pt) once any gutter is added --
-# and 18pt (0.25") is exactly the unprintable edge on typical consumer laser/inkjet printers, so
-# the outer cards' borders would be clipped. Three columns fit with room to spare.
+# margin even at this zero gutter -- and 18pt (0.25") is exactly the unprintable edge on typical
+# consumer laser/inkjet printers, so the outer cards' content would risk clipping. Three columns
+# leave a full 90pt (1.25") side margin, comfortably clear of that edge.
 SHEET_COLS = 3
 SHEET_ROWS = 3
 SHEET_SLOTS_PER_PAGE = SHEET_COLS * SHEET_ROWS
-# Derived, not hardcoded, so changing the grid or gutter keeps the block centred: the 3x3/18pt
-# grid lands on exactly 72pt (1.00") horizontal and 54pt (0.75") vertical margins.
+# Derived, not hardcoded, so changing the grid or gutter keeps the block centred: the 3x3/zero-
+# gutter grid lands on exactly 90pt (1.25") horizontal and 72pt (1.00") vertical margins -- both
+# well clear of a typical printer's ~18pt (0.25") unprintable edge.
 SHEET_MARGIN_X = (SHEET_W - (SHEET_COLS * CARD_W + (SHEET_COLS - 1) * SHEET_GUTTER)) / 2
 SHEET_MARGIN_Y = (SHEET_H - (SHEET_ROWS * CARD_H + (SHEET_ROWS - 1) * SHEET_GUTTER)) / 2
 
@@ -468,9 +472,12 @@ def compact_heat_interval(interval: str | None) -> str:
 
 # HY-TEK event names are "<Gender> <Age qualifier> <Distance> <Stroke>", e.g.
 # "Girls 12 & Over 100 Freestyle". "Mixed" shows up on WZAG's relays ("Mixed 10 & Under 200
-# Freestyle Relay"). The age group is non-greedy so it yields to the distance digits.
+# Freestyle Relay"). The age group is non-greedy so it yields to the distance digits. It's also
+# OPTIONAL: an all-ages meet (e.g. Cummins Invitational's "Boys 200 Medley Relay") has no age
+# bracket at all, and without this the whole name failed to match, so parse_event_name() returned
+# None and events_combine() rejected every Boys/Girls pair in the meet.
 _EVENT_NAME_RE = re.compile(
-    r"^(?P<gender>Girls|Boys|Women|Men|Mixed)\s+(?P<age>.+?)\s+(?P<distance>\d+)\s+(?P<stroke>.+)$"
+    r"^(?P<gender>Girls|Boys|Women|Men|Mixed)\s+(?:(?P<age>.+?)\s+)?(?P<distance>\d+)\s+(?P<stroke>.+)$"
 )
 
 _STROKE_ABBREVIATIONS = [
@@ -499,7 +506,7 @@ def parse_event_name(event_name: str) -> ParsedEventName | None:
         return None
     return ParsedEventName(
         gender=match.group("gender"),
-        age_qualifier=normalize_space(match.group("age")),
+        age_qualifier=normalize_space(match.group("age") or ""),
         distance_stroke=f"{match.group('distance')} {normalize_space(match.group('stroke'))}",
     )
 
@@ -1062,6 +1069,32 @@ def sheet_slot_origin(slot_index: int) -> tuple[float, float]:
     return x, y
 
 
+def draw_sheet_cut_lines(c) -> None:
+    """One shared light dashed line on every boundary of the print-sheet grid -- the outer
+    perimeter and every seam between adjacent cards -- since cards now sit edge to edge
+    (SHEET_GUTTER == 0) with nothing of their own marking where to cut.
+
+    Drawn once per page, UNDER the cards (call this before drawing that page's cards). Each
+    draw_card() call on this path passes cut_marks=False so it does not also stroke its own card
+    border -- two borders pressed together at a shared seam would double the line back up, right
+    back to "eyeball where to cut", just with two thin lines instead of one blank gap.
+    """
+    grid_left = SHEET_MARGIN_X
+    grid_right = SHEET_MARGIN_X + SHEET_COLS * CARD_W
+    grid_top = SHEET_H - SHEET_MARGIN_Y
+    grid_bottom = grid_top - SHEET_ROWS * CARD_H
+    c.setStrokeColor(GRAY_LINE)
+    c.setLineWidth(0.4)
+    c.setDash(1, 2)
+    for col in range(SHEET_COLS + 1):
+        x = grid_left + col * CARD_W
+        c.line(x, grid_bottom, x, grid_top)
+    for row in range(SHEET_ROWS + 1):
+        y = grid_top - row * CARD_H
+        c.line(grid_left, y, grid_right, y)
+    c.setDash()  # back to solid for anything drawn after
+
+
 def render_sheet_pdf(cards: list[SessionCard]) -> bytes:
     """Letter-size sheets with up to SHEET_SLOTS_PER_PAGE different sessions' cards tiled on each,
     every card drawn at its native 144x216pt size by the SAME draw_card() call the one-card-per-page
@@ -1080,8 +1113,10 @@ def render_sheet_pdf(cards: list[SessionCard]) -> bytes:
     pdf.setTitle(f"{cards[0].meet_name} session event card sheets")
     for index, card in enumerate(cards):
         slot = index % SHEET_SLOTS_PER_PAGE
-        if slot == 0 and index:
-            pdf.showPage()  # previous sheet is full
+        if slot == 0:
+            if index:
+                pdf.showPage()  # previous sheet is full
+            draw_sheet_cut_lines(pdf)  # once per page, under that page's cards
         origin_x, origin_y = sheet_slot_origin(slot)
         draw_card(
             pdf,
@@ -1096,6 +1131,7 @@ def render_sheet_pdf(cards: list[SessionCard]) -> bytes:
             heat_interval=card.heat_interval,
             events=card.events,
             finish_label=card.finish_label,
+            cut_marks=False,
         )
     pdf.showPage()
     pdf.save()

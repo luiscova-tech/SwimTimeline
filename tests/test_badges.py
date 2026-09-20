@@ -48,6 +48,7 @@ from swimtimeline.badges import (
     cards_for_timeline,
     compact_heat_interval,
     constant_age_qualifier,
+    draw_sheet_cut_lines,
     draw_star,
     events_by_session,
     gender_color,
@@ -78,7 +79,7 @@ WZAG_FLYER = WZAG_DIR / "Sanctioned_2026 WZAG Championships - Boise (v5.pdf"
 # real event names ("Girls 200 Freestyle", "Girls 50 Freestyle", ...) have NO age-qualifier phrase
 # at all -- gender is immediately followed by the distance number -- unlike every event in
 # Herculean or WZAG, which always has one ("12 & Over", "11-12", ...). See
-# CroswhiteNoAgeQualifierEventShapeTest.
+# CroswhiteEmptyAgeQualifierEventShapeTest.
 CROS_DIR = ROOT / "meets/2026-croswhite-invite/input"
 CROS_TIMELINE = CROS_DIR / "2026-croswhite-invite-timeline.pdf"
 # Unlike every other field in this meet's data/current_meets.json entry, "venue" is NOT derived
@@ -893,19 +894,22 @@ def page_text(reader: PdfReader, index: int) -> str:
 class SheetGridGeometryTest(unittest.TestCase):
     """The print-sheet grid itself, checkable without generating a PDF.
 
+    Zero gutter: cards sit edge to edge, and draw_sheet_cut_lines() draws one shared dashed line
+    on every boundary instead of leaving a blank gap to eyeball (see real officials feedback on
+    the Cummins Invitational cards).
+
     Three columns rather than four: four native-width cards need 4 x 144 = 576pt, leaving only
-    18pt of side margin with a ZERO gutter, and overflowing the sheet (-9pt) with any gutter at
-    all -- and 18pt is exactly the unprintable edge on typical consumer printers, so the outer
-    cards' own borders would be clipped off.
+    18pt of side margin even at this zero gutter -- and 18pt is exactly the unprintable edge on
+    typical consumer printers, so the outer cards' content would risk clipping.
     """
 
     def test_sheet_is_us_letter_and_the_grid_lands_on_clean_margins(self):
         self.assertEqual((SHEET_W, SHEET_H), (612.0, 792.0))
         self.assertEqual((SHEET_COLS, SHEET_ROWS, SHEET_SLOTS_PER_PAGE), (3, 3, 9))
-        self.assertEqual(SHEET_GUTTER, 18.0)
-        # Derived from the grid, and exact: 1.00" sides, 0.75" top/bottom.
-        self.assertEqual(SHEET_MARGIN_X, 72.0)
-        self.assertEqual(SHEET_MARGIN_Y, 54.0)
+        self.assertEqual(SHEET_GUTTER, 0.0)
+        # Derived from the grid, and exact: 1.25" sides, 1.00" top/bottom.
+        self.assertEqual(SHEET_MARGIN_X, 90.0)
+        self.assertEqual(SHEET_MARGIN_Y, 72.0)
         # The margins really do account for every remaining point of the sheet.
         self.assertEqual(
             SHEET_MARGIN_X * 2 + SHEET_COLS * CARD_W + (SHEET_COLS - 1) * SHEET_GUTTER, SHEET_W
@@ -913,11 +917,13 @@ class SheetGridGeometryTest(unittest.TestCase):
         self.assertEqual(
             SHEET_MARGIN_Y * 2 + SHEET_ROWS * CARD_H + (SHEET_ROWS - 1) * SHEET_GUTTER, SHEET_H
         )
+        # Both margins clear a typical consumer printer's ~18pt (0.25") unprintable edge.
+        self.assertGreater(SHEET_MARGIN_X, 18.0)
+        self.assertGreater(SHEET_MARGIN_Y, 18.0)
 
     def test_four_columns_would_not_have_fit(self):
         """Pins the reason the grid is 3 wide, so nobody 'optimises' it to 4 and clips the cards."""
         self.assertLess(SHEET_W - 4 * CARD_W, 2 * 18.0 + 1)  # < 0.25" per side even with no gutter
-        self.assertLess(SHEET_W, 4 * CARD_W + 3 * SHEET_GUTTER)  # overflows outright with a gutter
 
     def test_every_slot_sits_inside_the_sheet_and_none_overlap(self):
         boxes = [sheet_slot_origin(index) for index in range(SHEET_SLOTS_PER_PAGE)]
@@ -952,6 +958,80 @@ class SheetGridGeometryTest(unittest.TestCase):
         for bad in (-1, SHEET_SLOTS_PER_PAGE, SHEET_SLOTS_PER_PAGE + 5):
             with self.assertRaises(ValueError):
                 sheet_slot_origin(bad)
+
+
+class FakeCutLineCanvas:
+    """Captures draw_sheet_cut_lines()'s calls without touching reportlab, so the exact line
+    geometry can be checked as numbers rather than by parsing PDF content-stream bytes."""
+
+    def __init__(self):
+        self.dash_calls: list[tuple] = []
+        self.lines: list[tuple[float, float, float, float]] = []
+
+    def setStrokeColor(self, *_args, **_kwargs):
+        pass
+
+    def setLineWidth(self, *_args, **_kwargs):
+        pass
+
+    def setDash(self, *args, **_kwargs):
+        self.dash_calls.append(args)
+
+    def line(self, x0, y0, x1, y1):
+        self.lines.append((x0, y0, x1, y1))
+
+
+class SheetCutLineTest(unittest.TestCase):
+    """draw_sheet_cut_lines(): the single shared line real officials asked for, in place of the
+    old blank SHEET_GUTTER. Checked geometrically against sheet_slot_origin() itself, so a future
+    change to either can't silently drift the cut line off the real card boundary.
+    """
+
+    def test_draws_a_dashed_line_then_restores_solid(self):
+        canvas = FakeCutLineCanvas()
+        draw_sheet_cut_lines(canvas)
+        self.assertEqual(canvas.dash_calls[0], (1, 2))  # dash pattern set...
+        self.assertEqual(canvas.dash_calls[-1], ())  # ...and reset to solid for what follows
+
+    def test_one_line_per_grid_boundary_interior_and_outer(self):
+        """(COLS+1) vertical seams and (ROWS+1) horizontal seams -- every gap between adjacent
+        cards, plus the outer edge on both sides, each drawn exactly once."""
+        canvas = FakeCutLineCanvas()
+        draw_sheet_cut_lines(canvas)
+        self.assertEqual(len(canvas.lines), (SHEET_COLS + 1) + (SHEET_ROWS + 1))
+
+    def test_every_vertical_seam_lands_exactly_on_a_real_card_boundary(self):
+        """Not just "a line was drawn somewhere" -- its x matches the left (or right) edge of a
+        real slot from sheet_slot_origin(), the same coordinates render_sheet_pdf actually uses."""
+        canvas = FakeCutLineCanvas()
+        draw_sheet_cut_lines(canvas)
+        verticals = sorted({x0 for x0, _y0, x1, _y1 in canvas.lines if x0 == x1})
+        left_edges = sorted({sheet_slot_origin(i)[0] for i in range(SHEET_COLS)})
+        self.assertEqual(verticals, left_edges + [left_edges[-1] + CARD_W])
+        for x0, y0, x1, y1 in canvas.lines:
+            if x0 == x1:  # a vertical seam spans the whole grid height
+                self.assertEqual(y1 - y0, SHEET_ROWS * CARD_H)
+
+    def test_every_horizontal_seam_lands_exactly_on_a_real_card_boundary(self):
+        canvas = FakeCutLineCanvas()
+        draw_sheet_cut_lines(canvas)
+        horizontals = sorted({y0 for x0, y0, _x1, y1 in canvas.lines if y0 == y1})
+        row_tops = {sheet_slot_origin(SHEET_COLS * row)[1] + CARD_H for row in range(SHEET_ROWS)}
+        row_bottom = min(sheet_slot_origin(SHEET_COLS * row)[1] for row in range(SHEET_ROWS))
+        self.assertEqual(horizontals, sorted(row_tops | {row_bottom}))
+        for x0, y0, x1, y1 in canvas.lines:
+            if y0 == y1:  # a horizontal seam spans the whole grid width
+                self.assertEqual(x1 - x0, SHEET_COLS * CARD_W)
+
+    def test_the_tiled_sheet_really_emits_a_dash_operator(self):
+        """Not just computed -- reaches the actual PDF. render_cards_pdf's one-card-per-page
+        output must NOT: it is explicitly untouched (still a plain solid card border)."""
+        _name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
+        sheet_stream = PdfReader(BytesIO(render_sheet_pdf(cards))).pages[0].get_contents().get_data().decode("latin-1")
+        self.assertIn("[1 2] 0 d", sheet_stream)
+        page_stream = PdfReader(BytesIO(render_cards_pdf(cards))).pages[0].get_contents().get_data().decode("latin-1")
+        self.assertNotIn(" d\n", page_stream)
+        self.assertNotIn("[1 2]", page_stream)
 
 
 class SheetLayoutRenderTest(unittest.TestCase):
@@ -1170,20 +1250,25 @@ class HandoutFilenameTest(unittest.TestCase):
         self.assertNotEqual(ten, fifty)
 
 
-class CroswhiteNoAgeQualifierEventShapeTest(unittest.TestCase):
+class CroswhiteEmptyAgeQualifierEventShapeTest(unittest.TestCase):
     """A genuinely new real event-name shape, not covered by Herculean or WZAG: Croswhite's 11
     events are all "<Gender> <Distance> <Stroke>" with NOTHING between gender and the distance
-    number -- no "12 & Over", no "11-12", nothing. _EVENT_NAME_RE's age group is non-greedy but
-    still requires at least one character, so every one of these fails to match.
+    number -- no "12 & Over", no "11-12", nothing.
 
-    That failure is expected to cascade in a specific, already-designed way: badge_event_name()
-    falls through to plain abbreviate_stroke() (still preserving the literal "Girls"/"Boys" prefix
-    gender_color() depends on), and constant_age_qualifier() -- whose own rule is that ANY
-    unparseable event forces a session to be treated as mixed -- reports the whole session as
-    mixed even though every event shares the same (absent) age qualifier. The card header then
-    falls back to the session's own name ("SESSION 1 -- GIRLS") rather than a constant age group.
-    This class confirms all of that against the real fixture, and that the resulting card still
-    renders correctly.
+    _EVENT_NAME_RE's age group used to require at least one character, so every one of these
+    failed to match at all -- the same underlying bug that made Cummins Invitational's Boys/Girls
+    relay pairs refuse to combine (see EventNameOptionalAgeQualifierTest). Making the age group
+    OPTIONAL fixed both: these now parse too, with age_qualifier=="" (present, just empty) rather
+    than not parsing at all.
+
+    That is an internal-representation change, not a visible one: abbreviate_age_qualifier("")
+    is itself "", and badge_event_name()'s "".join(piece for piece in pieces if piece) already
+    drops empty pieces -- so every row's printed text is byte-identical to before. Likewise
+    constant_age_qualifier() now returns "" instead of None (every event agrees on the SAME empty
+    qualifier, so it genuinely is constant), but build_session_cards()'s `if constant_age` header
+    check treats "" exactly like None -- falsy -- so the header still falls back to the session's
+    own name ("SESSION 1 -- GIRLS") rather than rendering a blank age group. This class confirms
+    both the new internal values and that the real card's visible output hasn't moved at all.
     """
 
     REAL_EVENTS = [
@@ -1217,37 +1302,41 @@ class CroswhiteNoAgeQualifierEventShapeTest(unittest.TestCase):
         expected = [(num, name, heats, entries) for num, name, heats, entries, _badge, _time in self.REAL_EVENTS]
         self.assertEqual(actual, expected)
 
-    def test_parse_event_name_returns_none_for_every_real_event(self):
-        """The core claim: not one of these 11 real event names matches the age-qualifier regex."""
+    def test_parse_event_name_now_parses_every_real_event_with_an_empty_age(self):
+        """Before the optional-age fix: None for all 11 (nothing between gender and the distance
+        number matched). After: every one parses, all sharing the SAME empty age_qualifier."""
         for _num, name, _heats, _entries, _badge, _time in self.REAL_EVENTS:
-            self.assertIsNone(parse_event_name(name), name)
+            parsed = parse_event_name(name)
+            self.assertIsNotNone(parsed, name)
+            self.assertEqual(parsed.age_qualifier, "", name)
 
-    def test_badge_event_name_falls_through_to_abbreviate_stroke_but_keeps_gender(self):
+    def test_badge_event_name_output_is_unchanged_and_keeps_gender(self):
         for _num, name, _heats, _entries, expected_badge, _time in self.REAL_EVENTS:
             for include_age in (True, False):
                 result = badge_event_name(name, include_age=include_age)
-                # include_age is irrelevant here -- there is no age to include or omit, so both
-                # calls produce the identical fallback text.
+                # include_age is a no-op here either way: there is no age text to include, and
+                # abbreviate_age_qualifier("") is itself "" -- filtered out like any empty piece.
                 self.assertEqual(result, expected_badge, (name, include_age))
                 self.assertEqual(result, abbreviate_stroke(name))
             self.assertTrue(result.startswith("Girls"), result)
 
-    def test_session_age_qualifiers_is_empty_and_constant_age_qualifier_is_none(self):
-        """Nothing parsed an age at all (session_age_qualifiers is empty, not a single shared
-        value) -- and constant_age_qualifier()'s own explicit rule is that an unparseable event
-        forces mixed treatment, so it returns None even though every event agrees on having no
-        age qualifier."""
-        self.assertEqual(session_age_qualifiers(self.session_events), [])
-        self.assertIsNone(constant_age_qualifier(self.session_events))
+    def test_session_age_qualifiers_and_constant_age_qualifier_agree_on_one_empty_value(self):
+        """A single shared (empty) qualifier across all 11 events -- genuinely constant, not the
+        old forced-mixed fallback from an unparseable event."""
+        self.assertEqual(session_age_qualifiers(self.session_events), [""])
+        self.assertEqual(constant_age_qualifier(self.session_events), "")
 
     def test_gender_color_still_keys_off_the_preserved_girls_prefix(self):
         for _num, name, _heats, _entries, expected_badge, _time in self.REAL_EVENTS:
             self.assertIs(gender_color(badge_event_name(name, include_age=False)), MAROON, name)
 
-    def test_card_header_falls_back_to_the_session_name_not_a_constant_age_group(self):
+    def test_card_header_still_falls_back_to_the_session_name_not_a_blank_age_group(self):
+        """card.age_qualifier is "" now (not None) -- but build_session_cards()'s header check
+        (`if constant_age`) treats "" exactly like None, so the header is unchanged: it still
+        falls back to the session's own name rather than rendering an empty age group."""
         card = self.cards[0]
         self.assertEqual(len(self.cards), 1)
-        self.assertIsNone(card.age_qualifier)
+        self.assertEqual(card.age_qualifier, "")
         self.assertEqual(self.sessions["1"].name, "Girls")
         self.assertEqual(card.session_label, "SESSION 1 — GIRLS")
         self.assertEqual(card.date_label, "Sat, Sept 12")
