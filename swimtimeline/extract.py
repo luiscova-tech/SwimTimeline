@@ -17,7 +17,17 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pypdf import PdfReader
 
 from .ics import build_ics
-from .standards import SOURCES, event_course, event_gender, has_lsc_standards, lookup, parse_age
+from .standards import (
+    SOURCES,
+    aia_summary_line,
+    canonical_event_key,
+    event_course,
+    event_gender,
+    has_lsc_standards,
+    lookup,
+    parse_age,
+    parse_time,
+)
 
 
 DEFAULT_TZ = "America/Phoenix"
@@ -2559,16 +2569,45 @@ def refine_timeline_for_heat(
     return replace(timeline, start=start, end=end)
 
 
+def aia_benchmarks(entry: PsychEntry, division: str | None) -> dict:
+    """The benchmarks dict for a meet that REPLACES USA-S/AZSI with AIA state-qualifying cuts
+    (data/current_meets.json's "standards": {"body": "AIA", ...}) -- see achieved_aia_standard()/
+    aia_summary_line() in standards.py. The single AIA line goes in the "usa" slot (the benchmark
+    column's first, always-shown line in every render path); lsc/sectional/national/advanced are
+    left falsy so USA-S/AZSI are skipped entirely rather than showing an "n/a" line alongside it.
+    """
+    seed_seconds = parse_time(entry.seed_time)
+    if seed_seconds is None:
+        usa_summary = "AIA: seed time not parseable"
+    else:
+        gender = event_gender(entry.event_name)
+        event_key = canonical_event_key(entry.event_name)
+        usa_summary = aia_summary_line(gender, event_key, division, seed_seconds)
+    return {
+        "usa": usa_summary,
+        "lsc": "",
+        "sectional": None,
+        "national": None,
+        "advanced": None,
+        "confidence": "",
+        "sources": {},
+    }
+
+
 def build_swim_events(
     entries: list[PsychEntry],
     timeline_events: list[TimelineEvent],
     state: str,
     flyer_text: str = "",
     heat_windows: dict[tuple[int, int], tuple[str, str | None]] | None = None,
+    meet_standards: dict | None = None,
 ) -> list[SwimEvent]:
     primary = primary_timeline_by_event(timeline_events)
     finals = final_timeline_by_event(timeline_events)
     timing_rules = parse_meet_timing_rules(flyer_text)
+    # A meet record without "standards" (every meet today) is completely unaffected -- this is
+    # None for them, so the branch below never fires and lookup() runs exactly as before.
+    aia_division = meet_standards.get("division") if meet_standards and meet_standards.get("body") == "AIA" else None
     swim_events: list[SwimEvent] = []
     for entry in entries:
         primary_timeline = primary.get(entry.event_number)
@@ -2580,12 +2619,27 @@ def build_swim_events(
         # A real heat plus a document that states that heat's time narrows the event-wide window.
         if heat_windows:
             timeline = refine_timeline_for_heat(entry, timeline, heat_windows)
-        # Precedence: an explicitly entered State/LSC always wins; only when it is blank do we fall
-        # back to the LSC parsed from this swimmer's own team code. Detection is per entry, so a
-        # combined family calendar (and even a single lookup that fuzzy-matches swimmers from
-        # different LSCs) resolves each swimmer against their own code, never one shared value.
-        effective_state = state if state.strip() else (lsc_from_team_code(entry.team) or state)
-        standard = lookup(entry.event_name, entry.seed_time, state=effective_state, age=entry.age)
+        if aia_division is not None:
+            # AIA REPLACES USA-S/AZSI for this meet -- skip lookup() (and its state/age handling,
+            # neither of which AIA cuts use) entirely rather than computing and discarding it.
+            benchmarks = aia_benchmarks(entry, aia_division)
+        else:
+            # Precedence: an explicitly entered State/LSC always wins; only when it is blank do we
+            # fall back to the LSC parsed from this swimmer's own team code. Detection is per
+            # entry, so a combined family calendar (and even a single lookup that fuzzy-matches
+            # swimmers from different LSCs) resolves each swimmer against their own code, never
+            # one shared value.
+            effective_state = state if state.strip() else (lsc_from_team_code(entry.team) or state)
+            standard = lookup(entry.event_name, entry.seed_time, state=effective_state, age=entry.age)
+            benchmarks = {
+                "usa": standard.usa_summary,
+                "lsc": standard.lsc_summary,
+                "sectional": standard.sectional_summary,
+                "national": standard.national_summary,
+                "advanced": standard.advanced_summary,
+                "confidence": standard.confidence_summary,
+                "sources": standard.sources,
+            }
         final_note = finals_note(entry, timeline, final_timeline, rule)
         checkin = checkin_note(entry.event_number, flyer_text)
         swim_events.append(
@@ -2593,15 +2647,7 @@ def build_swim_events(
                 psych=entry,
                 timeline=timeline,
                 final_timeline=final_timeline,
-                benchmarks={
-                    "usa": standard.usa_summary,
-                    "lsc": standard.lsc_summary,
-                    "sectional": standard.sectional_summary,
-                    "national": standard.national_summary,
-                    "advanced": standard.advanced_summary,
-                    "confidence": standard.confidence_summary,
-                    "sources": standard.sources,
-                },
+                benchmarks=benchmarks,
                 finals_note=final_note,
                 checkin_note=checkin,
                 timing_rule=rule,
@@ -2780,9 +2826,14 @@ def build_detailed_payload(
                 "",
                 "Benchmarks:",
                 benchmark_line_with_sources(swim.benchmarks["usa"] or "USA-S: n/a", benchmark_sources.get("usa")),
-                benchmark_line_with_sources(swim.benchmarks["lsc"] or "LSC: n/a", benchmark_sources.get("lsc")),
             ]
         )
+        # An AIA-scored meet (see build_swim_events/aia_benchmarks) leaves "lsc" empty on purpose,
+        # to skip USA-S/AZSI's line entirely rather than print a meaningless "LSC: n/a" under its
+        # own single AIA line -- every other meet's "lsc" is always a real sentence, even its own
+        # "not configured" gap message, so this is a no-op for them.
+        if swim.benchmarks.get("lsc"):
+            lines.append(benchmark_line_with_sources(swim.benchmarks["lsc"], benchmark_sources.get("lsc")))
         if swim.benchmarks.get("advanced"):
             lines.append(benchmark_line_with_sources(swim.benchmarks["advanced"], benchmark_sources.get("advanced")))
         if swim.benchmarks.get("confidence"):
@@ -3196,8 +3247,14 @@ def build_daily_payload(
                 continue
             item_sources = item.benchmarks.get("sources") or {}
             benchmark = benchmark_line_with_sources(item.benchmarks["usa"] or "USA-S: n/a", item_sources.get("usa"))
-            lsc = benchmark_line_with_sources(item.benchmarks["lsc"] or "LSC: n/a", item_sources.get("lsc"))
-            lines.append(f"#{item.psych.event_number} {benchmark} | {lsc}")
+            # See build_swim_events/aia_benchmarks: an AIA-scored meet leaves "lsc" empty on
+            # purpose, so its single AIA line stands alone instead of gaining a meaningless
+            # "| LSC: n/a" tail. Every other meet's "lsc" is always a real sentence.
+            if item.benchmarks.get("lsc"):
+                lsc = benchmark_line_with_sources(item.benchmarks["lsc"], item_sources.get("lsc"))
+                lines.append(f"#{item.psych.event_number} {benchmark} | {lsc}")
+            else:
+                lines.append(f"#{item.psych.event_number} {benchmark}")
             if item.benchmarks.get("advanced"):
                 advanced = benchmark_line_with_sources(item.benchmarks["advanced"], item_sources.get("advanced"))
                 lines.append(f"#{item.psych.event_number} {advanced}")
@@ -3396,6 +3453,7 @@ def analyze_uploads(
     heat_sheet_pdfs: Iterable[Path] | None = None,
     distance_timeline_pdf: Path | None = None,
     include_relays: bool | None = None,
+    meet_standards: dict | None = None,
 ) -> dict:
     resolved_timezone = meet_timezone or resolve_meet_timezone(state)
     flyer_text = "\n".join(extract_text_pages(flyer_pdf)) if flyer_pdf else ""
@@ -3451,7 +3509,8 @@ def analyze_uploads(
     estimate_warnings = estimate_heat_lanes_for_entries(entries, timeline_events, flyer_text) if estimate_heat_lanes else []
     heat_windows = parse_distance_heat_times(distance_timeline_pdf)
     swims = build_swim_events(
-        entries, timeline_events, state=state, flyer_text=flyer_text, heat_windows=heat_windows
+        entries, timeline_events, state=state, flyer_text=flyer_text, heat_windows=heat_windows,
+        meet_standards=meet_standards,
     )
     relays = build_relay_events(relay_entries, timeline_events, flyer_text=flyer_text)
     # Warm-up first line: the per-team/day assignments doc (complex) wins, else a universal window

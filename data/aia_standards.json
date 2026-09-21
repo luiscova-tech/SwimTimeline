@@ -1,0 +1,47 @@
+{
+  "source": {
+    "name": "2026 AIA Swim & Dive Qualifier Information",
+    "documents": {
+      "program": "Knight_Invite_Spooktacular_Program_13th_Annual_v5.pdf"
+    },
+    "effective": "2026 season",
+    "courses": [
+      "SCY"
+    ],
+    "divisions": [
+      "D1",
+      "D2",
+      "D3"
+    ],
+    "generator": "manual (verified directly against page 3 of the source program PDF; no extraction script)",
+    "notes": "Arizona Interscholastic Association high-school state-qualifying automatic cuts, transcribed from the 'AIA STATE CHAMPIONSHIP 2026 Qualifying Standards' table printed on page 3 of the Higley Knights Spooktacular meet program. One cut per gender/event/division -- no age dimension, no course dimension (AIA meets run SCY only), and no next-tier bonus layering like AZSI: a swimmer either meets their division's single cut or doesn't. This REPLACES the USA-S motivational tiers for a meet that opts into it, rather than layering on top like AZSI does. The table's 'Diving (11 dives)' row is a judged score, not a time, and is not included -- this app does not track diving."
+  },
+  "standards": {
+    "girls": {
+      "200 medley relay": { "D1": "2:08.94", "D2": "2:34.18", "D3": "2:34.18" },
+      "200 free": { "D1": "2:18.92", "D2": "2:30.61", "D3": "2:38.15" },
+      "200 im": { "D1": "2:39.89", "D2": "2:53.45", "D3": "2:53.45" },
+      "50 free": { "D1": "28.08", "D2": "29.74", "D3": "29.74" },
+      "100 fly": { "D1": "1:08.78", "D2": "1:19.04", "D3": "1:24.86" },
+      "100 free": { "D1": "1:00.32", "D2": "1:02.82", "D3": "1:07.83" },
+      "500 free": { "D1": "6:19.95", "D2": "6:22.12", "D3": "6:57.51" },
+      "200 free relay": { "D1": "1:56.15", "D2": "2:11.60", "D3": "2:12.91" },
+      "100 back": { "D1": "1:11.92", "D2": "1:19.19", "D3": "1:22.91" },
+      "100 breast": { "D1": "1:24.60", "D2": "1:31.04", "D3": "1:32.26" },
+      "400 free relay": { "D1": "4:20.72", "D2": "4:54.47", "D3": "4:54.47" }
+    },
+    "boys": {
+      "200 medley relay": { "D1": "1:57.72", "D2": "2:06.50", "D3": "2:13.50" },
+      "200 free": { "D1": "2:07.92", "D2": "2:19.90", "D3": "2:21.29" },
+      "200 im": { "D1": "2:16.34", "D2": "2:35.64", "D3": "2:43.42" },
+      "50 free": { "D1": "25.30", "D2": "26.75", "D3": "26.75" },
+      "100 fly": { "D1": "1:00.56", "D2": "1:12.87", "D3": "1:14.33" },
+      "100 free": { "D1": "58.11", "D2": "1:00.78", "D3": "1:00.78" },
+      "500 free": { "D1": "5:50.33", "D2": "6:28.84", "D3": "6:36.61" },
+      "200 free relay": { "D1": "1:45.28", "D2": "1:48.89", "D3": "1:54.16" },
+      "100 back": { "D1": "1:08.21", "D2": "1:15.39", "D3": "1:23.42" },
+      "100 breast": { "D1": "1:12.70", "D2": "1:21.46", "D3": "1:23.92" },
+      "400 free relay": { "D1": "3:55.17", "D2": "4:08.57", "D3": "4:17.53" }
+    }
+  }
+}

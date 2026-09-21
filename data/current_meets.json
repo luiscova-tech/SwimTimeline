@@ -280,6 +280,11 @@
       "rules_summary": [
         "All events are timed finals -- every round in the Session Report is Finals, no prelims."
       ],
+      "standards": {
+        "body": "AIA",
+        "division": "D1",
+        "season": "2026"
+      },
       "files": {
         "flyer": null,
         "psych": "meets/2026-higley-knights-spooktacular/input/2026-higley-knights-spooktacular-heat-sheet.pdf",

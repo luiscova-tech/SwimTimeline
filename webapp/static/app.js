@@ -595,7 +595,7 @@ function renderResult(payload) {
       <td data-col="event" data-label="Event">${swimmerChip(swim, payload)}<strong>#${swim.event_number}${swim.type === "relay" ? " Relay" : ""}</strong>${escapeHtml(swim.event_name)}<br>${escapeHtml(swim.event_format || "")}</td>
       <td data-col="seed" data-label="${escapeHtml(seedLabel)}">${seedCell}</td>
       <td data-col="window" data-label="Window">${escapeHtml(swim.window)}</td>
-      <td data-col="benchmark" data-label="Benchmark">${benchmarkLine(swim.benchmarks.usa, swim, "usa")}<br>${benchmarkLine(swim.benchmarks.lsc, swim, "lsc")}${sectionalNationalLines(swim)}${confidenceLine(swim)}</td>
+      <td data-col="benchmark" data-label="Benchmark">${benchmarkLine(swim.benchmarks.usa, swim, "usa")}${lscLine(swim)}${sectionalNationalLines(swim)}${confidenceLine(swim)}</td>
       <td data-col="source" data-label="Source">${sourceCell}</td>
     `;
     eventsBody.appendChild(row);
@@ -802,6 +802,14 @@ function linkifyBenchmark(text, sources) {
 function benchmarkLine(text, swim, lineName) {
   const sources = (swim.benchmarks.sources || {})[lineName];
   return linkifyBenchmark(text, sources);
+}
+
+function lscLine(swim) {
+  // An AIA-scored meet (see build_swim_events/aia_benchmarks in extract.py) leaves "lsc" empty
+  // on purpose, so its single AIA line (in "usa") stands alone instead of gaining a meaningless
+  // "<br>LSC: n/a" tail. Every other meet's "lsc" is always a real sentence, even its own "not
+  // configured" gap message, so this is a no-op for them -- same pattern as sectionalNationalLines.
+  return swim.benchmarks.lsc ? `<br>${benchmarkLine(swim.benchmarks.lsc, swim, "lsc")}` : "";
 }
 
 function sectionalNationalLines(swim) {

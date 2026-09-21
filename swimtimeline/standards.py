@@ -239,6 +239,7 @@ AZSI_SENIOR_STANDARDS_PATH = ROOT / "data" / "azsi_senior_standards.json"
 SECTIONAL_STANDARDS_PATH = ROOT / "data" / "sectional_standards.json"
 NATIONAL_STANDARDS_PATH = ROOT / "data" / "national_standards.json"
 ADVANCED_STANDARDS_PATH = ROOT / "data" / "advanced_standards.json"
+AIA_STANDARDS_PATH = ROOT / "data" / "aia_standards.json"
 
 
 def load_motivational_catalog(path: Path = MOTIVATIONAL_STANDARDS_PATH) -> dict:
@@ -262,6 +263,18 @@ def load_azsi_senior_catalog(path: Path = AZSI_SENIOR_STANDARDS_PATH) -> dict:
 
     Unlike the Age Group catalog there is no age-band level: Senior is one cut per
     event/course/gender, applied to ages 15-18 (see SENIOR_AGE_MIN/MAX).
+    """
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return data.get("standards", {})
+
+
+def load_aia_catalog(path: Path = AIA_STANDARDS_PATH) -> dict:
+    """Load the AIA gender -> event -> division catalog.
+
+    No course level (AIA meets run SCY only) and no age-band level (AIA cuts are
+    gender+event+division only) -- flatter than either AZSI catalog above.
     """
     if not path.exists():
         return {}
@@ -369,6 +382,7 @@ AZSI_SENIOR_STANDARDS = load_azsi_senior_catalog()
 SECTIONAL_MEETS = load_sectional_meets()
 NATIONAL_MEETS = load_national_meets()
 ADVANCED_SOURCES = load_advanced_sources()
+AIA_STANDARDS = load_aia_catalog()
 # Only add attributions not already present -- the newer sectional/national datasets already cite
 # the Futures/Junior/Toyota PDFs, so extending blindly printed duplicate lines in the sources report.
 _attributed_urls = {source.get("url") for source in SOURCES}
@@ -382,6 +396,7 @@ SOURCES.extend(source for source in ADVANCED_SOURCES if source.get("url") not in
 MOTIVATIONAL_SOURCE_URL = load_source_url(MOTIVATIONAL_STANDARDS_PATH)
 AZSI_SOURCE_URL = load_source_url(AZSI_STANDARDS_PATH)
 AZSI_SENIOR_SOURCE_URL = load_source_url(AZSI_SENIOR_STANDARDS_PATH)
+AIA_SOURCE_URL = load_source_url(AIA_STANDARDS_PATH)
 MEET_URL_BY_NAME = {
     meet["name"]: meet["url"]
     for meet in [*SECTIONAL_MEETS, *NATIONAL_MEETS]
@@ -645,6 +660,57 @@ def achieved_tier(seed_seconds: float, standards: dict[str, str]) -> tuple[str |
             next_tier = ordered[idx - 1] if idx > 0 else None
             return tier, next_tier
     return None, "B"
+
+
+# AIA (Arizona Interscholastic Association) high-school state-qualifying standard: a PARALLEL,
+# simpler pass/fail path, not a variant of the tiered ladder achieved_tier()/motivational_
+# standards()/azsi_standard() build on. A meet that opts into it (data/current_meets.json's
+# "standards": {"body": "AIA", "division": ..., "season": ...}) REPLACES the USA-S motivational
+# tiers with this for every swim at that meet, rather than layering on top the way AZSI does --
+# there is exactly one cut per gender/event/division: met or not, nothing to layer, no next-tier
+# bonus, no age dimension, no course dimension (AIA meets run SCY only).
+def achieved_aia_standard(
+    seed_seconds: float, gender: str | None, event_key: str, division: str | None
+) -> tuple[bool | None, float | None]:
+    """Whether ``seed_seconds`` meets the single AIA cut for this gender/event/division.
+
+    Returns (qualified, cut_seconds). qualified is None -- not True or False -- when no cut is
+    configured for this exact gender/event/division (cut_seconds is then also None); the caller
+    reports that as "not configured" rather than a false pass or fail. Otherwise qualified is the
+    plain seed<=cut comparison against that one configured cut.
+    """
+    if not (gender and event_key and division):
+        return None, None
+    cut_str = AIA_STANDARDS.get(gender, {}).get(event_key, {}).get(division)
+    if not cut_str:
+        return None, None
+    cut = parse_time(cut_str)
+    if cut is None:
+        return None, None
+    return seed_seconds <= cut, cut
+
+
+def aia_summary_line(
+    gender: str | None, event_key: str, division: str | None, seed_seconds: float
+) -> str:
+    """The single benchmark-column line for an AIA-scored meet: "AIA {Gender} {division}: State
+    qualified ({cut})" when met, "AIA {Gender} {division}: {margin}s off the {division} cut
+    ({cut})" when not, or a not-configured note when this gender/event/division has no AIA cut
+    at all (e.g. an event AIA doesn't score, or a meet record missing its division).
+    """
+    if division is None:
+        return "AIA: division not configured for this meet"
+    if gender not in ("girls", "boys"):
+        return "AIA: could not determine gender from the event name"
+    gender_label = "Girls" if gender == "girls" else "Boys"
+    label = f"AIA {gender_label} {division}"
+    qualified, cut = achieved_aia_standard(seed_seconds, gender, event_key, division)
+    if qualified is None:
+        return f"{label}: standard not configured for this event"
+    if qualified:
+        return f"{label}: State qualified ({format_time(cut)})"
+    margin = seed_seconds - cut
+    return f"{label}: {margin:.2f}s off the {division} cut ({format_time(cut)})"
 
 
 def unconfigured_reason(gender: str | None, course: str | None, band: str | None) -> str:

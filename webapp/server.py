@@ -290,6 +290,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             # are the parent's opt-in. All unchecked -> no relay output at all, confirmed or
             # tentative, exactly as before tentative relays existed.
             include_relays=bool(relay_option_ids or docs["relay_path"] or show_team_relays),
+            meet_standards=docs["meet_standards"],
         )
         result["run_id"] = run_id
         result["current_meet_id"] = meet_id
@@ -813,6 +814,7 @@ def analyze_swimmer_set(
     heat_sheet_paths: list[Path] | None = None,
     distance_timeline_path: Path | None = None,
     include_relays: bool = False,
+    meet_standards: dict | None = None,
 ) -> dict:
     if len(swimmer_names) == 1:
         return analyze_uploads(
@@ -834,6 +836,7 @@ def analyze_swimmer_set(
             heat_sheet_pdfs=heat_sheet_paths,
             distance_timeline_pdf=distance_timeline_path,
             include_relays=include_relays,
+            meet_standards=meet_standards,
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -864,6 +867,7 @@ def analyze_swimmer_set(
             heat_sheet_pdfs=heat_sheet_paths,
             distance_timeline_pdf=distance_timeline_path,
             include_relays=include_relays,
+            meet_standards=meet_standards,
         )
         result["output_subdir"] = subdir_name
         result["files"] = {key: f"{subdir_name}/{name}" for key, name in result["files"].items()}
@@ -1505,6 +1509,10 @@ def resolve_current_meet_documents(meet: dict) -> dict:
     # STATUS:CONFIRMED vs STATUS:TENTATIVE and a per-event caveat in the generated calendar.
     # Anything not explicitly "projected" (including absent) is treated as final.
     timeline_projected = meet.get("timeline_type") == "projected"
+    # Optional per-meet benchmark override (e.g. {"body": "AIA", "division": "D1", "season":
+    # "2026"}): when present, build_swim_events() replaces USA-S/AZSI with that body's own cuts
+    # for every swim at this meet. None for every meet without it -- today, every meet but one.
+    meet_standards = meet.get("standards") or None
     files = meet.get("files", {})
     flyer_path = resolve_repo_file(files.get("flyer"), required=False, label="Meet Flyer")
     psych_path = resolve_repo_file(files.get("psych"), required=True, label="Psych Sheet or Heat Sheet")
@@ -1538,6 +1546,7 @@ def resolve_current_meet_documents(meet: dict) -> dict:
         "meet_timezone": meet_timezone,
         "meet_venue": meet_venue,
         "timeline_projected": timeline_projected,
+        "meet_standards": meet_standards,
     }
 
 
@@ -1740,6 +1749,7 @@ def build_subscribe_ics(query: dict[str, list[str]]) -> tuple[bytes, str]:
             heat_sheet_paths=docs["heat_sheet_paths"],
             distance_timeline_path=docs["distance_timeline_path"],
             include_relays=bool(relay_option_ids or show_team_relays),
+            meet_standards=docs["meet_standards"],
         )
         if result.get("ambiguous_swimmer_match"):
             raise SubscribeError(
