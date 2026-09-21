@@ -262,6 +262,34 @@
       "documents": [
         "Timeline"
       ]
+    },
+    {
+      "id": "2026-higley-knights-spooktacular",
+      "name": "Higley Knights Spooktacular",
+      "short_name": "Knights Spooktacular",
+      "dates": "2026-09-26",
+      "start_date": "2026-09-26",
+      "end_date": "2026-09-26",
+      "expires_at": "2026-09-27",
+      "state": "AZ",
+      "timezone": "America/Phoenix",
+      "venue": "Williams Field High School, Gilbert, AZ",
+      "timeline_type": "final",
+      "status": "ready",
+      "last_updated": "2026-09-21",
+      "rules_summary": [
+        "All events are timed finals -- every round in the Session Report is Finals, no prelims."
+      ],
+      "files": {
+        "flyer": null,
+        "psych": "meets/2026-higley-knights-spooktacular/input/2026-higley-knights-spooktacular-heat-sheet.pdf",
+        "timeline": "meets/2026-higley-knights-spooktacular/input/2026-higley-knights-spooktacular-timeline.pdf",
+        "relay": null
+      },
+      "documents": [
+        "Psych/heat sheet",
+        "Timeline"
+      ]
     }
   ]
 }

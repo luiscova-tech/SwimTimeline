@@ -634,8 +634,23 @@ def parse_entry_fields(clean: str, heat: int | None, round_name: str | None) -> 
         # the flag allowed on "NT" too, a row like "Whalers-WI NTY 13Perelshteyn, Andrew6" (Shark
         # Open) or "SNS NTL 14Galizio, Carmella B62" (WZAG) failed to match at all -- silently
         # dropping the swim, the same failure mode as the standard-marker comment below.
-        r"(?P<seed>(?:NT[A-Z]?|(?:\d+:)?\d{1,2}\.\d{2}[A-Z]?))\s*"
-        r"(?P<age>\d{1,2})\s*"
+        # The trailing conversion-flag letter is only a real flag when it is followed by
+        # whitespace or the end of the row, exactly like parse_para_psych_line's own version of
+        # this same seed pattern below -- otherwise, on a row with no age/grade column at all (see
+        # the age group just below), it swallowed the swimmer's own name's first letter instead
+        # ("1:47.71Patience..." parsed as seed "1:47.71P", name "atience..."). That ambiguity was
+        # latent but harmless while age was mandatory (the row simply failed to match at all and
+        # fell through to None); making age optional below would otherwise have turned a clean
+        # failure into silent corruption instead of fixing it.
+        r"(?P<seed>(?:NT(?:[A-Z](?=\s|$))?|(?:\d+:)?\d{1,2}\.\d{2}(?:[A-Z](?=\s|$))?))\s*"
+        # Optional, and not just numeric: a high-school-format heat sheet (e.g. Higley Knights
+        # Spooktacular) has no age column at all -- some rows print a grade instead ("FR"/"SO"/
+        # "JR"/"SR", glued straight onto the name with no separator, same as the numeric case),
+        # and many print neither. Requiring a digit here dropped every one of that meet's swims
+        # silently. (?-i:...) keeps the four grade codes strictly uppercase despite the enclosing
+        # IGNORECASE -- otherwise a name starting "Fr"/"So"/"Jr"/"Sr" ("Frost, John") would lose
+        # its first two letters to a false-positive grade match.
+        r"(?P<age>\d{1,2}|(?-i:FR|SO|JR|SR))?\s*"
         r"(?P<name>.+?)\s*"
         r"(?P<place>\d+)"
         # A HY-TEK program with the time-standard column enabled prints the standard as its own
@@ -1890,7 +1905,17 @@ def cached_timeline(
     date_range = parse_date_range(text) or parse_date_range(flyer_text)
     if date_range is None:
         raise ValueError("Could not find meet date range in the timeline or flyer.")
-    start_date, _end_date = date_range
+    start_date, end_date = date_range
+    # A meet whose OWN confirmed date range spans exactly one calendar day is single-day, full
+    # stop -- no session in it can be on any other day, whatever its own "Day of Meet" number
+    # says. Real gap: Higley Knights Spooktacular (single day, 9/26) labels its swimming session
+    # "Day of Meet: 2" (diving ran as "Day of Meet: 1" earlier that SAME day, in Meet Manager's
+    # own session numbering, not a second calendar day) -- the naive day_of_meet-1 offset below
+    # computed 9/27, a full day off, for every one of its real events. Every other single-day
+    # fixture in this repo (Croswhite, Cummins) happened to already print "Day of Meet: 1", so
+    # the offset was a no-op there and never exposed this. A genuinely multi-day meet always
+    # states a real range (see parse_date_range), never hits this branch, and is unaffected.
+    meet_is_single_day = start_date == end_date
     flyer_sessions = parse_flyer_sessions(flyer_text, start_date) if flyer_text else {}
     flyer_day_warmups = parse_flyer_day_warmups(flyer_text) if flyer_text else {}
     flyer_location = parse_flyer_location(flyer_text) if flyer_text else None
@@ -1931,7 +1956,7 @@ def cached_timeline(
             if day_match and pending_session:
                 number, name = pending_session
                 day_of_meet = int(day_match.group(1))
-                session_date = start_date + timedelta(days=day_of_meet - 1)
+                session_date = start_date if meet_is_single_day else start_date + timedelta(days=day_of_meet - 1)
                 start_time = normalize_time_string(day_match.group(2))
                 flyer_session = flyer_sessions.get(number, {})
                 # Precedence: the per-session-number "Warm-up: ..., Meet Start: ..." line (existing,
