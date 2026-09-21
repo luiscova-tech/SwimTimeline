@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import date, datetime, timedelta
 from functools import lru_cache
 import hashlib
@@ -307,6 +307,19 @@ class Fragment:
 
 
 @dataclass
+class SessionBreak:
+    """A real schedule break printed in the Session Report, e.g. "Break: 20 Minutes: Awards
+    Break" -- ``after_event_number`` is the event it directly follows (the last event line seen
+    before the break line), so a consumer can place a break marker relative to a real event
+    without depending on row/line position, which shifts once events combine into shared rows
+    (see badges.py's combine_gender_pairs)."""
+
+    after_event_number: int | None
+    duration_minutes: int
+    label: str | None = None
+
+
+@dataclass
 class SessionInfo:
     # A LABEL, not a quantity: meets that run two pools in parallel number their sessions "1B"/"1G"
     # (boys pool / girls pool), so this is the meet's own token, stored and displayed verbatim.
@@ -319,6 +332,12 @@ class SessionInfo:
     warmup_time: str | None
     facility: str | None
     finish_time: str | None = None
+    # Real breaks (e.g. "Break: 10 Minutes:", Higley's "Break: 20 Minutes: Awards Break") --
+    # NOT a change to parse_timeline()'s return signature, so every existing caller is
+    # unaffected; empty for every fixture until badges.py's card assembly reads it (see
+    # insert_break_rows). List, not a dict keyed by event number: a session can have more than
+    # one break, and two breaks could in principle follow the same event.
+    breaks: list[SessionBreak] = field(default_factory=list)
 
 
 @dataclass
@@ -1949,10 +1968,19 @@ def cached_timeline(
         re.IGNORECASE,
     )
     finish_line = re.compile(r"Finish Time\s+_+(\d{1,2}:\d{2}\s*[AP]M)", re.IGNORECASE)
+    # Duration required, trailing label optional: every real fixture but Higley prints a bare
+    # "Break: 10 Minutes:" with nothing after it; Higley's real break is "Break: 20 Minutes:
+    # Awards Break". Previously matched by nothing at all -- not misfiled, just silently dropped,
+    # since it doesn't match session_header/day_header/finish_line/event_line either.
+    break_line = re.compile(r"Break:\s*(\d+)\s*Minutes:?\s*(.*)$", re.IGNORECASE)
 
     for page_text in pages:
         current_session: SessionInfo | None = None
         pending_session: tuple[str, str] | None = None
+        # The event this session's most recent event LINE printed -- what a break line that
+        # follows it should be recorded against (see SessionBreak.after_event_number). Reset
+        # whenever a new session starts, same lifetime as current_session itself.
+        last_event_number: int | None = None
         page_events: list[TimelineEvent] = []
         for raw_line in merge_wrapped_session_report_rows(page_text.splitlines()):
             line = normalize_timeline_line(raw_line)
@@ -1995,15 +2023,28 @@ def cached_timeline(
                     facility=facility,
                 )
                 sessions[number] = current_session
+                last_event_number = None
                 continue
             finish_match = finish_line.search(line)
             if finish_match and current_session:
                 current_session.finish_time = normalize_time_string(finish_match.group(1))
                 continue
+            break_match = break_line.search(line)
+            if break_match and current_session:
+                label = normalize_space(break_match.group(2)) or None
+                current_session.breaks.append(
+                    SessionBreak(
+                        after_event_number=last_event_number,
+                        duration_minutes=int(break_match.group(1)),
+                        label=label,
+                    )
+                )
+                continue
             event_match = event_line.match(line)
             if event_match and current_session:
                 round_name, event_num, event_name, entries, heats, clock, meridiem = event_match.groups()
                 start_dt = combine_date_time(current_session.date, f"{clock} {meridiem}")
+                last_event_number = int(event_num)
                 page_events.append(
                     TimelineEvent(
                         event_number=int(event_num),

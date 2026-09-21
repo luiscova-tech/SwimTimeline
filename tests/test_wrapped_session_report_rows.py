@@ -100,12 +100,13 @@ class WrappedSessionReportRowsCardTest(unittest.TestCase):
     the fix."""
 
     def test_the_card_carries_all_22_events(self):
-        """22 real events -- 11 rows, since Cummins has no age qualifier at all and every event
-        pairs into a combined Girls/Boys row (see EventNameOptionalAgeQualifierTest)."""
+        """22 real events -- 11 event rows, since Cummins has no age qualifier at all and every
+        event pairs into a combined Girls/Boys row (see EventNameOptionalAgeQualifierTest), plus
+        2 real breaks (see tests/test_session_breaks.py) -- 13 rows total."""
         _meet_name, cards, _highlights = cards_for_timeline(TIMELINE)
         self.assertEqual(len(cards), 1)
         self.assertEqual(cards[0].event_count, 22)
-        self.assertEqual(len(cards[0].events), 11)
+        self.assertEqual(len(cards[0].events), 13)
 
 
 if __name__ == "__main__":

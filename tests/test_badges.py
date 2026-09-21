@@ -370,12 +370,19 @@ class SessionCardTest(unittest.TestCase):
         numbers, since "num" may be the display string "1/2"), "starred_nums" (only the halves
         actually watched) and "genders" (for the split accent bar, since a combined row's name no
         longer carries a gender word). With no swimmer names given, highlight is False on every
-        row."""
+        row.
+
+        A break row (see insert_break_rows) is deliberately a DIFFERENT shape -- no #/heats/time
+        to draw, so no reason to carry those keys -- checked separately below.
+        """
         for timeline, flyer in ((HERC_TIMELINE, HERC_FLYER), (WZAG_TIMELINE, WZAG_FLYER)):
             _meet_name, cards, _highlights = cards_for_timeline(timeline, flyer_text=flyer_text(flyer))
             for card in cards:
                 self.assertTrue(card.events)
                 for row in card.events:
+                    if row.get("kind") == "break":
+                        self.assertEqual(set(row), {"kind", "duration_minutes", "label"})
+                        continue
                     self.assertEqual(
                         set(row),
                         {"num", "nums", "name", "heats", "time", "highlight", "starred_nums", "genders"},
@@ -875,7 +882,11 @@ class HighlightLayoutTest(unittest.TestCase):
         row_h = table_h / (biggest.event_count + 0.62)
         base_fs = max(5.0, min(8.3, row_h * 0.5))
         col_event_w = content_w - content_w * 0.145 - content_w * 0.225 - content_w * 0.20
+        # This session has a real break row (see insert_break_rows) -- it has no "name" to check
+        # width against, and isn't the concern of this test either way.
         for row in biggest.events:
+            if row.get("kind") == "break":
+                continue
             size = base_fs
             while stringWidth(row["name"], "Helvetica", size) > col_event_w - 4 and size > 4.0:
                 size -= 0.2
@@ -1348,13 +1359,32 @@ class CroswhiteEmptyAgeQualifierEventShapeTest(unittest.TestCase):
         constant-vs-mixed -- so no row shows an age tag at all, unlike a real mixed WZAG/Herculean
         session where an unresolved constant still means each row gets its own tag."""
         card = self.cards[0]
-        actual = [(row["num"], row["name"], row["heats"], row["time"]) for row in card.events]
+        event_rows = [row for row in card.events if row.get("kind") != "break"]
+        actual = [(row["num"], row["name"], row["heats"], row["time"]) for row in event_rows]
         expected = [
             (num, badge_name, heats, time) for num, _name, heats, _entries, badge_name, time in self.REAL_EVENTS
         ]
         self.assertEqual(actual, expected)
-        for row in card.events:
+        for row in event_rows:
             self.assertFalse(row["highlight"])
+
+    def test_the_real_break_after_event_8_lands_right_after_its_row(self):
+        """This session also has a real "Break: 15 Minutes:" (no label) -- confirmed here rather
+        than in tests/test_session_breaks.py since this class already owns the real per-row
+        expectations for this exact fixture."""
+        card = self.cards[0]
+        self.assertEqual(card.row_count, 12)  # 11 real events + 1 break
+        self.assertEqual(card.event_count, 11)
+        kinds_and_nums = [(row.get("kind", "event"), row.get("num")) for row in card.events]
+        self.assertEqual(
+            kinds_and_nums,
+            [("event", 2), ("event", 4), ("event", 6), ("event", 8),
+             ("break", None),
+             ("event", 10), ("event", 12), ("event", 14), ("event", 16),
+             ("event", 18), ("event", 20), ("event", 22)],
+        )
+        break_row = card.events[4]
+        self.assertEqual(break_row, {"kind": "break", "duration_minutes": 15, "label": None})
 
     def test_no_flyer_or_psych_sheet_still_produces_a_working_card(self):
         """Croswhite has no flyer and no psych sheet on record -- cards_for_timeline() must not

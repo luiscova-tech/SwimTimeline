@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from swimtimeline.badges import (  # noqa: E402
+    BREAK_ROW_WEIGHT,
     CARD_FOOTER_FRAC,
     CARD_H,
     CARD_HEADER_FRAC,
@@ -319,12 +320,17 @@ class NoPairingRegressionTest(unittest.TestCase):
     def test_a_single_gender_card_keeps_one_row_per_event_and_the_gender_word(self):
         _name, cards, _highlights = cards_for_timeline(AZ_SC_TIMELINE)
         by_session = {card.session_number: card for card in cards}
+        # Each of these four real sessions also carries one real break (see
+        # tests/test_session_breaks.py) -- one extra row beyond the event count, same as any
+        # other real fixture with a break.
         for session, expected_events in (("2B", 16), ("2G", 16), ("6B", 21), ("6G", 21)):
             card = by_session[session]
-            self.assertEqual(card.row_count, expected_events, session)
+            self.assertEqual(card.row_count, expected_events + 1, session)
             self.assertEqual(card.event_count, expected_events, session)
+            event_rows = [row for row in card.events if row.get("kind") != "break"]
+            self.assertEqual(len(event_rows), expected_events, session)
             # No row combined, so no row's number is a "N/M" pair.
-            for row in card.events:
+            for row in event_rows:
                 self.assertEqual(len(row["nums"]), 1, session)
                 self.assertEqual(row["num"], row["nums"][0], session)
                 self.assertNotIn("/", str(row["num"]), session)
@@ -384,15 +390,19 @@ class CumminsCombinedPairsFontSizeTest(unittest.TestCase):
         self.assertTrue(all(len(row) == 2 for row in rows))
         self.assertTrue(all(events_combine(*row) for row in rows))
 
-    def test_the_card_reports_22_real_events_but_only_11_rows(self):
+    def test_the_card_reports_22_real_events_but_only_13_rows(self):
+        """11 combined event rows plus 2 real breaks (see tests/test_session_breaks.py) -- 13
+        rows total, not 11: a break is a real row too, just a lighter-weight one."""
         self.assertEqual(self.card.event_count, 22)
-        self.assertEqual(self.card.row_count, 11)
+        self.assertEqual(self.card.row_count, 13)
+        self.assertEqual(sum(1 for row in self.card.events if row.get("kind") == "break"), 2)
 
     def test_base_font_size_clears_the_5pt_floor_once_combined(self):
         """Replicates draw_card's own base_fs formula off its shared fractions (not repeated
         literals), the same way test_event_names_still_fit_after_the_column_widens in
         test_badges.py does -- once for the OLD uncombined row count (still the 5.0pt floor) and
-        once for the real, now-combined row count (clears it)."""
+        once for the real, now-combined row count (clears it, even with its 2 real breaks each
+        weighing in at BREAK_ROW_WEIGHT rather than a full unit)."""
         table_h = (
             CARD_H
             - CARD_HEADER_FRAC * CARD_H
@@ -400,17 +410,22 @@ class CumminsCombinedPairsFontSizeTest(unittest.TestCase):
             - 2 * CARD_TABLE_GAP_FRAC * CARD_H
         )
 
-        def base_fs(row_count: int) -> float:
-            row_h = table_h / (row_count + 0.62)
+        def base_fs_for_units(units: float) -> float:
+            row_h = table_h / (units + 0.62)
             return max(5.0, min(8.3, row_h * 0.5))
 
-        # Before the fix: 22 uncombined rows, pinned at the floor.
-        self.assertEqual(base_fs(self.card.event_count), 5.0)
-        # After: 11 combined rows, clearing it by almost 2pt.
-        after = base_fs(self.card.row_count)
-        self.assertAlmostEqual(after, 6.97, places=2)
-        self.assertGreater(after, 6.5)
-        self.assertLess(after, 7.5)
+        # Before the fix: 22 uncombined rows (no breaks even mattered yet), pinned at the floor.
+        self.assertEqual(base_fs_for_units(self.card.event_count), 5.0)
+        # After: 11 combined event rows (1.0 each) + 2 real breaks (BREAK_ROW_WEIGHT each) = 12.0
+        # units -- clearing the floor, just by less than it would with full-weight breaks.
+        real_units = sum(
+            BREAK_ROW_WEIGHT if row.get("kind") == "break" else 1.0 for row in self.card.events
+        )
+        self.assertEqual(real_units, 12.0)
+        after = base_fs_for_units(real_units)
+        self.assertAlmostEqual(after, 6.42, places=2)
+        self.assertGreater(after, 6.0)
+        self.assertLess(after, 7.0)
 
     def test_a_combined_row_actually_renders_readable_text_on_the_card(self):
         text = page_text(render_cards_pdf([self.card]))
@@ -424,6 +439,8 @@ class CumminsCombinedPairsFontSizeTest(unittest.TestCase):
         """abbreviate_age_qualifier("") is itself "" -- badge_event_name()'s piece filter must
         drop it rather than leaving a stray leading/double space in the row name."""
         for row in self.card.events:
+            if row.get("kind") == "break":
+                continue
             self.assertFalse(row["name"].startswith(" "), row["name"])
             self.assertNotIn("  ", row["name"], row["name"])
 

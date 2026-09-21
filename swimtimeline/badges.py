@@ -45,6 +45,7 @@ from .failure_alerts import InputError
 from .site import CARD_CREDIT_URL
 from .extract import (
     AMBIGUOUS_NAME_MARKER,
+    SessionBreak,
     SessionInfo,
     TimelineEvent,
     extract_psych_entries,
@@ -66,6 +67,12 @@ CARD_H = 216.0
 CARD_HEADER_FRAC = 0.13
 CARD_FOOTER_FRAC = 0.10  # two lines: "Est. Finish ..." plus site.CARD_CREDIT_URL
 CARD_TABLE_GAP_FRAC = 0.01  # breathing room above AND below the table, so 2x this in total
+# A break row (see insert_break_rows) weighs roughly half a real event row in the table's
+# units/row_h math -- it carries no #/heats/time, so it doesn't need a full row's height, and
+# giving it full weight would eat back into the event rows' own font budget on an already-dense
+# session. Module-level for the same reason as the three fractions above: tests replicate this
+# formula and must not drift from draw_card's own copy.
+BREAK_ROW_WEIGHT = 0.5
 
 # Print-sheet geometry: several DIFFERENT sessions' cards tiled on shared letter pages, at native
 # card size. This exists so a whole meet's reference schedule doesn't print as N mostly-blank
@@ -184,6 +191,37 @@ def draw_star(c, cx, cy, radius, points=5):
     c.drawPath(path, stroke=0, fill=1)
 
 
+def break_row_text(ev: dict) -> str:
+    """"Break — 10 min" or, when the Session Report also printed a label, "Break — 20 min
+    (Awards Break)"."""
+    text = f"Break — {ev['duration_minutes']} min"
+    if ev.get("label"):
+        text += f" ({ev['label']})"
+    return text
+
+
+def draw_break_row(c, x0, y, content_w, row_h, ev, base_fs) -> None:
+    """A break marker row: a full-width light band with centred text, no zebra fill, no accent
+    bar, and no #/heats/time columns -- it is a schedule note, not a swim (see insert_break_rows
+    in build_session_cards).
+    """
+    c.setFillColor(NAVY_LIGHT)
+    c.rect(x0, y, content_w, row_h, stroke=0, fill=1)
+
+    text = break_row_text(ev)
+    max_w = content_w * 0.94
+    fs = min(base_fs, row_h * 0.7)
+    while stringWidth(text, "Helvetica-Oblique", fs) > max_w and fs > 3.6:
+        fs -= 0.2
+    c.setFillColor(NAVY)
+    c.setFont("Helvetica-Oblique", fs)
+    c.drawCentredString(x0 + content_w / 2, y + row_h / 2 - fs * 0.33, text)
+
+    c.setStrokeColor(GRAY_LINE)
+    c.setLineWidth(0.3)
+    c.line(x0, y, x0 + content_w, y)
+
+
 def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label,
               heat_interval, events, finish_label, cut_marks=True):
     """Draws one badge card with its lower-left corner at (ox, oy) in canvas c,
@@ -274,7 +312,10 @@ def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label
     table_h = table_top - table_bottom
 
     HEADER_ROW_FRAC = 0.62
-    units = len(events) + HEADER_ROW_FRAC
+    # See BREAK_ROW_WEIGHT's own comment: a break row weighs roughly half a unit here, keeping it
+    # from eating back into the real event rows' font budget on an already-dense session -- the
+    # same 5.0pt floor the age-qualifier-optional fix just got Cummins/Higley clear of.
+    units = sum(BREAK_ROW_WEIGHT if ev.get("kind") == "break" else 1.0 for ev in events) + HEADER_ROW_FRAC
     row_h = table_h / units
     hdr_row_h = row_h * HEADER_ROW_FRAC
 
@@ -313,8 +354,26 @@ def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label
     c.drawRightString(x_time + col_time_w - 2, y + hdr_row_h / 2 - hdr_fs * 0.32, "TIME")
 
     accent_w = max(1.2, W * 0.012)
-    for i, ev in enumerate(events):
-        y = table_top - hdr_row_h - row_h * (i + 1)
+    # A running cursor, not row_h * (i + 1): break rows are drawn at BREAK_ROW_WEIGHT's fraction
+    # of a real row's height, so row position can't be derived from a uniform per-row height once
+    # any break is present.
+    y_cursor = table_top - hdr_row_h
+    # Zebra striping counts only real event rows, so inserting a break never shifts which
+    # surrounding event rows land on the odd/even stripe -- a break is new content, not a
+    # renumbering of the rows that were already there.
+    event_row_index = 0
+    for ev in events:
+        if ev.get("kind") == "break":
+            this_row_h = row_h * BREAK_ROW_WEIGHT
+            y = y_cursor - this_row_h
+            draw_break_row(c, x0, y, content_w, this_row_h, ev, base_fs)
+            y_cursor = y
+            continue
+        this_row_h = row_h
+        y = y_cursor - this_row_h
+        y_cursor = y
+        i = event_row_index
+        event_row_index += 1
         highlighted = bool(ev.get("highlight"))
         if highlighted:
             # Gold REPLACES this row's normal/zebra fill (it must win on both odd and even rows),
@@ -856,8 +915,11 @@ class SessionCard:
         a 42-event session prints 21 rows. This feeds the officials page's "EVENTS" column and its
         "N sessions - M events" summary, which describe the meet, so they must keep counting
         events. Use len(card.events) for the row count.
+
+        A break row (see insert_break_rows) has no "nums" at all -- it's a schedule note, not a
+        swim, and must never count here.
         """
-        return sum(len(row["nums"]) for row in self.events)
+        return sum(len(row["nums"]) for row in self.events if row.get("kind") != "break")
 
     @property
     def row_count(self) -> int:
@@ -924,6 +986,40 @@ def build_card_row(
     }
 
 
+def insert_break_rows(rows: list[dict], breaks: list[SessionBreak]) -> list[dict]:
+    """Insert a break marker row immediately after whichever row contains
+    ``break.after_event_number`` -- looked up by EVENT NUMBER against each row's own "nums", not
+    by row index, since that row may be a combined Girls/Boys pair (see combine_gender_pairs):
+    Cummins' real break sits right after event 8, which combines into a "7/8" row with event 7,
+    and the break still has to land after that combined row rather than get lost or misplaced.
+
+    A break with no resolvable anchor (after_event_number is None, or that event never landed in
+    a real row -- neither happens on any real fixture today) is silently skipped: there is
+    nothing to anchor it to, and a break floating at the wrong place would be worse than a
+    dropped one. Breaks are applied in their own already-chronological order, and each lookup
+    re-scans the (possibly already-grown) row list fresh, so several breaks in one session land
+    correctly regardless of how many were inserted before them.
+    """
+    if not breaks:
+        return rows
+    result = list(rows)
+    for br in breaks:
+        if br.after_event_number is None:
+            continue
+        anchor = next(
+            (i for i, row in enumerate(result) if br.after_event_number in (row.get("nums") or ())),
+            None,
+        )
+        if anchor is None:
+            continue
+        result.insert(anchor + 1, {
+            "kind": "break",
+            "duration_minutes": br.duration_minutes,
+            "label": br.label,
+        })
+    return result
+
+
 def build_session_cards(
     meet_name: str,
     sessions: dict[str, SessionInfo],
@@ -959,6 +1055,8 @@ def build_session_cards(
                            keep_meridiem=keep_meridiem, highlight_events=highlight_events)
             for row_events in combine_gender_pairs(session_events)
         ]
+        if session and session.breaks:
+            rows = insert_break_rows(rows, session.breaks)
         session_date = session.date if session else session_events[0].date
         cards.append(
             SessionCard(
