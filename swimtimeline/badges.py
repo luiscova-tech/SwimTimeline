@@ -351,7 +351,22 @@ def draw_card(c, ox, oy, W, H, meet_name, session_label, date_label, start_label
     c.drawString(x_num + 1.5, y + hdr_row_h / 2 - hdr_fs * 0.32, "#")
     c.drawString(x_event + 1.5, y + hdr_row_h / 2 - hdr_fs * 0.32, "EVENT")
     c.drawCentredString(x_ht + col_ht_w / 2, y + hdr_row_h / 2 - hdr_fs * 0.32, "HEATS")
-    c.drawRightString(x_time + col_time_w - 2, y + hdr_row_h / 2 - hdr_fs * 0.32, "TIME")
+    # "EST. TIME" (not bare "TIME") makes explicit that these are the Session Report's own
+    # printed times, not live -- matching the footer's "Est. Finish" wording. Longer than "TIME"
+    # alone, so it gets its own shrink-to-fit (same idiom as the session label/meta line above):
+    # on a sparse session (few rows, hdr_fs near its 7.2pt ceiling) it would otherwise crowd into
+    # the HEATS column. Verified against every real fixture's actual hdr_fs range.
+    time_header_text = "EST. TIME"
+    time_header_fs = hdr_fs
+    while (
+        stringWidth(time_header_text, "Helvetica-Bold", time_header_fs) > col_time_w - 2
+        and time_header_fs > 3.6
+    ):
+        time_header_fs -= 0.1
+    c.setFont("Helvetica-Bold", time_header_fs)
+    c.drawRightString(
+        x_time + col_time_w - 2, y + hdr_row_h / 2 - time_header_fs * 0.32, time_header_text
+    )
 
     accent_w = max(1.2, W * 0.012)
     # A running cursor, not row_h * (i + 1): break rows are drawn at BREAK_ROW_WEIGHT's fraction
