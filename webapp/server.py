@@ -89,6 +89,15 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             # cares about the path, so this is the only one that needs the query string parsed.
             self.send_subscribe_ics(parse_qs(parsed.query))
             return
+        if path == "/timeline":
+            self.send_static(STATIC_DIR / "timeline.html")
+            return
+        if path == "/api/timeline":
+            # Bookmarkable "Next up" live view for a hosted Current Meet -- same meet_id +
+            # swimmer_b64 query params as /subscribe.ics, same resolve-fresh-every-request
+            # pattern, just returning the analyze-result JSON instead of an .ics file.
+            self.send_timeline_query(parse_qs(parsed.query))
+            return
         if path == "/api/health":
             self.send_json({"ok": True})
             return
@@ -608,6 +617,17 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(ics_bytes)))
         self.end_headers()
         self.wfile.write(ics_bytes)
+
+    def send_timeline_query(self, query: dict[str, list[str]]) -> None:
+        try:
+            result = build_timeline_result(query)
+        except SubscribeError as exc:
+            self.send_json({"error": str(exc)}, status=exc.status)
+            return
+        except Exception as exc:  # A bookmarked link should show a message, never an unhandled 500.
+            self.send_json({"error": str(exc)}, status=400)
+            return
+        self.send_json(result)
 
     def send_static(self, path: Path) -> None:
         try:
@@ -1797,6 +1817,81 @@ def build_subscribe_ics(query: dict[str, list[str]]) -> tuple[bytes, str]:
     with _subscribe_cache_lock:
         _subscribe_cache[cache_key] = (time.time() + SUBSCRIBE_CACHE_TTL_SECONDS, ics_bytes, filename)
     return ics_bytes, filename
+
+
+def build_timeline_result(query: dict[str, list[str]]) -> dict:
+    """Backs the bookmarkable /timeline page's GET /api/timeline: same meet_id + swimmer_b64 (or
+    legacy plaintext swimmer) query params, same resolve-fresh-every-request pattern as
+    build_subscribe_ics above, just handing back the analyze-result JSON (for the "Next up" card
+    and results table) instead of extracting one .ics file. No cache -- unlike a calendar app,
+    a person reopening this page is exactly the "give me the current state" case.
+    """
+    meet_id = query_value(query, "meet_id").strip()
+    swimmer_name = (
+        decode_swimmer_param(query_value(query, "swimmer_b64")) or query_value(query, "swimmer")
+    ).strip()
+    if not meet_id:
+        raise SubscribeError(HTTPStatus.BAD_REQUEST, "meet_id is required.")
+    if not swimmer_name:
+        raise SubscribeError(HTTPStatus.BAD_REQUEST, "swimmer is required.")
+    state = query_value(query, "state").strip().upper()
+    relay_option_ids = payload_relay_options({"relay_options": query.get("relay_options", [])})
+    show_team_relays = query_bool(query, "show_team_relays", default=False)
+
+    try:
+        meet = resolve_current_meet(meet_id)
+    except ValueError as exc:
+        raise SubscribeError(HTTPStatus.NOT_FOUND, str(exc)) from exc
+    if not public_current_meet(meet).get("is_ready_for_lookup"):
+        raise SubscribeError(HTTPStatus.CONFLICT, "This meet is not ready for calendar generation yet.")
+
+    try:
+        internal_relay_sources = resolve_current_meet_relay_sources(meet, relay_option_ids)
+        docs = resolve_current_meet_documents(meet)
+    except ValueError as exc:
+        raise SubscribeError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+
+    run_id = f"timeline-{int(time.time())}-{uuid4().hex[:8]}"
+    run_dir = RUNS_DIR / run_id
+    output_dir = run_dir / "outputs"
+    try:
+        result = analyze_swimmer_set(
+            flyer_path=docs["flyer_path"],
+            psych_path=docs["psych_path"],
+            timeline_path=docs["timeline_path"],
+            relay_path=docs["relay_path"],
+            internal_relay_sources=internal_relay_sources,
+            swimmer_names=[swimmer_name],
+            output_dir=output_dir,
+            state=state,
+            modes=["daily"],
+            combine_family=False,  # Single swimmer only -- see build_subscribe_ics above.
+            estimate_heat_lanes=False,
+            meet_timezone=docs["meet_timezone"],
+            meet_venue=docs["meet_venue"],
+            timeline_projected=docs["timeline_projected"],
+            warmup_path=docs["warmup_path"],
+            meet_warmup_window=docs["meet_warmup_window"],
+            heat_sheet_paths=docs["heat_sheet_paths"],
+            distance_timeline_path=docs["distance_timeline_path"],
+            include_relays=bool(relay_option_ids or show_team_relays),
+            meet_standards=docs["meet_standards"],
+        )
+        if result.get("ambiguous_swimmer_match"):
+            raise SubscribeError(
+                HTTPStatus.BAD_REQUEST,
+                f"'{swimmer_name}' matches more than one swimmer at this meet. Use a more specific name.",
+            )
+        if not swimmer_matched(result):
+            raise SubscribeError(
+                HTTPStatus.NOT_FOUND,
+                f"No swims found for '{swimmer_name}' at this meet. Check the spelling and try again.",
+            )
+    finally:
+        shutil.rmtree(run_dir, ignore_errors=True)
+
+    result["current_meet_id"] = meet_id
+    return result
 
 
 def main() -> None:

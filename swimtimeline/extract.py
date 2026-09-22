@@ -3617,10 +3617,11 @@ def analyze_uploads(
         "verified_relay_count": sum(1 for relay in relays if not relay.relay.is_team_entry),
         "tentative_relay_count": sum(1 for relay in relays if relay.relay.is_team_entry),
         "psych_match_pages": page_counts,
-        "events": [summarize_swim(swim) for swim in swims],
-        "relays": [summarize_relay(relay) for relay in relays],
+        "events": [summarize_swim(swim, resolved_timezone) for swim in swims],
+        "relays": [summarize_relay(relay, resolved_timezone) for relay in relays],
         "items": sorted(
-            [summarize_swim(swim) for swim in swims] + [summarize_relay(relay) for relay in relays],
+            [summarize_swim(swim, resolved_timezone) for swim in swims]
+            + [summarize_relay(relay, resolved_timezone) for relay in relays],
             key=lambda item: item["sort_start"],
         ),
         "files": files,
@@ -3664,7 +3665,7 @@ def benchmark_line_with_sources(text: str, sources_for_line: list[dict] | None) 
     return f"{text} (source: {'; '.join(urls)})" if urls else text
 
 
-def summarize_swim(swim: SwimEvent) -> dict:
+def summarize_swim(swim: SwimEvent, timezone: str) -> dict:
     return {
         "type": "individual",
         "event_number": swim.psych.event_number,
@@ -3685,11 +3686,18 @@ def summarize_swim(swim: SwimEvent) -> dict:
         "benchmarks": swim.benchmarks,
         "finals_note": swim.finals_note,
         "checkin_note": swim.checkin_note,
+        # Naive wall-clock string, used only for sorting (see analyze_uploads) -- never render this
+        # client-side; it carries no UTC offset, so "next up" would be wrong for a viewer outside
+        # the venue's own timezone. start_at below is the tz-aware sibling for that.
         "sort_start": swim.timeline.start.isoformat(timespec="seconds"),
+        # Same instant as sort_start, but with a real UTC offset attached, so a browser's
+        # `new Date(...)` parses it unambiguously regardless of the viewer's own timezone -- what
+        # the "Next up" countdown is built on.
+        "start_at": swim.timeline.start.replace(tzinfo=ZoneInfo(timezone)).isoformat(timespec="seconds"),
     }
 
 
-def summarize_relay(relay_event: RelayEvent) -> dict:
+def summarize_relay(relay_event: RelayEvent, timezone: str) -> dict:
     relay = relay_event.relay
     return {
         "type": "relay",
@@ -3721,6 +3729,7 @@ def summarize_relay(relay_event: RelayEvent) -> dict:
         ),
         "checkin_note": None,
         "sort_start": relay_event.timeline.start.isoformat(timespec="seconds"),
+        "start_at": relay_event.timeline.start.replace(tzinfo=ZoneInfo(timezone)).isoformat(timespec="seconds"),
     }
 
 

@@ -1787,6 +1787,76 @@ td strong {
   font-weight: 800;
 }
 
+.next-up {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.next-up-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.next-up-card {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 10px 24px rgba(23, 50, 93, 0.09);
+}
+
+.next-up-card-done {
+  box-shadow: none;
+  background: #fbfcfe;
+}
+
+.next-up-swimmer {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.next-up-headline {
+  margin-top: 4px;
+  font-size: 15px;
+}
+
+.next-up-headline strong {
+  color: var(--navy);
+}
+
+.next-up-countdown {
+  margin-top: 6px;
+  color: var(--navy);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.next-up-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.next-up-done {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-weight: 650;
+}
+
+/* A swim whose estimated start has already passed stays fully visible (never hidden) but reads
+   as "less relevant right now" -- same opacity-only dimming convention as .past-meet-card. */
+tr.swim-past {
+  opacity: 0.6;
+}
+
 @media (max-width: 860px) {
   .shell {
     padding: 12px;

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>SwimTimeline — Live View</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="app-header">
+        <div>
+          <div class="header-meta">
+            <p class="eyebrow">Live view</p>
+          </div>
+          <h1 id="timelineMeetName">SwimTimeline</h1>
+          <p id="timelineSummary" class="header-copy"></p>
+          <p class="nav-officials"><a href="/">&larr; Back to SwimTimeline</a></p>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <section id="timelineStatus" class="status hidden" aria-live="polite"></section>
+
+        <section id="result" class="result hidden">
+          <div id="nextUp" class="next-up hidden"></div>
+          <div id="warnings" class="warnings"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th data-col="day">Day</th>
+                  <th data-col="event">Event</th>
+                  <th id="seedHeader" data-col="seed">Seed / Seed Rank</th>
+                  <th data-col="window">Est. Window</th>
+                  <th data-col="benchmark">Benchmark</th>
+                  <th data-col="source">Source</th>
+                </tr>
+              </thead>
+              <tbody id="eventsBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script src="/static/shared-render.js"></script>
+    <script src="/static/timeline.js"></script>
+  </body>
+</html>

@@ -6,6 +6,7 @@ const summaryEl = document.querySelector("#summary");
 const downloadsEl = document.querySelector("#downloads");
 const warningsEl = document.querySelector("#warnings");
 const eventsBody = document.querySelector("#eventsBody");
+const nextUpEl = document.querySelector("#nextUp");
 const resultStatsEl = document.querySelector("#resultStats");
 const currentMeetList = document.querySelector("#currentMeetList");
 const featuredMeetEl = document.querySelector("#featuredMeet");
@@ -518,8 +519,6 @@ function renderResult(payload) {
     ? `${payload.verified_event_count} verified individual events, ${confirmedRelays} confirmed relays, ${tentativeRelays} tentative relays for ${who}`
     : `${payload.verified_event_count} verified individual events and ${confirmedRelays} verified relays for ${who}`;
   downloadsEl.innerHTML = "";
-  warningsEl.innerHTML = "";
-  eventsBody.innerHTML = "";
   resultStatsEl.innerHTML = "";
   publishCurrentBtn.disabled = false;
   publishCurrentBtn.classList.toggle("hidden", !payload.can_publish_current || !payload.run_id);
@@ -565,44 +564,13 @@ function renderResult(payload) {
   appendDownloadGroup(payload.family ? "Combined family calendars" : "Calendar files", primaryLinks);
   renderIndividualDownloads(payload);
   renderSubscribeLinks(payload);
+  renderLiveViewLinks(payload);
 
-  for (const warning of payload.warnings || []) {
-    const item = document.createElement("div");
-    item.className = "warning";
-    item.textContent = warning;
-    warningsEl.appendChild(item);
-  }
+  renderWarnings(payload, warningsEl);
 
-  const items = payload.items || payload.events;
-  // "Seed Rank", not "Place": this app has no results-tracking at all, and seed_place (see
-  // seedDetails() below) is the swimmer's rank by seed time ENTERING the event -- a pre-meet
-  // concept, never a finish position. "Place" alone reads as a race result.
-  const seedLabel = items.some((item) => item.heat && item.lane) ? "Seed / Heat-Lane" : "Seed / Seed Rank";
   const seedHeaderEl = document.querySelector("#seedHeader");
-  if (seedHeaderEl) {
-    seedHeaderEl.textContent = seedLabel;
-  }
-
-  for (const swim of items) {
-    const row = document.createElement("tr");
-    const seedCell = swim.type === "relay"
-      ? (swim.is_team_entry
-          ? `<em>Tentative</em><br>team entered — confirm with coach`
-          : `${escapeHtml(swim.seed_time)}<br>${escapeHtml(swim.relay_label || "Relay")}, leg ${escapeHtml(swim.leg || "")}`)
-      : seedDetails(swim);
-    const sourceCell = swim.type === "relay"
-      ? `page ${swim.page}<br>${escapeHtml(swim.source_document || "relay document")}`
-      : `page ${swim.page}<br>${escapeHtml(swim.source_document || "entry sheet")}${swim.column ? `<br>${escapeHtml(swim.column)} column` : ""}`;
-    row.innerHTML = `
-      <td data-col="day" data-label="Day">${escapeHtml(swim.day)}</td>
-      <td data-col="event" data-label="Event">${swimmerChip(swim, payload)}<strong>#${swim.event_number}${swim.type === "relay" ? " Relay" : ""}</strong>${escapeHtml(swim.event_name)}<br>${escapeHtml(swim.event_format || "")}</td>
-      <td data-col="seed" data-label="${escapeHtml(seedLabel)}">${seedCell}</td>
-      <td data-col="window" data-label="Est. Window">${escapeHtml(swim.window)}</td>
-      <td data-col="benchmark" data-label="Benchmark">${benchmarkLine(swim.benchmarks.usa, swim, "usa")}${lscLine(swim)}${sectionalNationalLines(swim)}${confidenceLine(swim)}</td>
-      <td data-col="source" data-label="Source">${sourceCell}</td>
-    `;
-    eventsBody.appendChild(row);
-  }
+  renderResultsTable(payload, { tbody: eventsBody, seedHeaderEl });
+  startNextUpTicker(payload, nextUpEl);
 
   resultEl.classList.remove("hidden");
   revealResultDownloads(payload);
@@ -756,6 +724,58 @@ function renderSubscribeLinks(payload) {
   downloadsEl.appendChild(group);
 }
 
+// Points at the SAME live view any bookmarked link would use -- built the same way as
+// buildSubscribeUrl above (base64url swimmer name, same optional params), just targeting the
+// /timeline page instead of /subscribe.ics.
+function buildTimelineUrl({ meetId, swimmerName, state, relayOptionIds, showTeamRelays }) {
+  const url = new URL("/timeline", window.location.origin);
+  url.searchParams.set("meet_id", meetId);
+  url.searchParams.set("swimmer_b64", encodeSwimmerParam(swimmerName));
+  if (state) {
+    url.searchParams.set("state", state);
+  }
+  for (const optionId of relayOptionIds || []) {
+    url.searchParams.append("relay_options", optionId);
+  }
+  if (showTeamRelays) {
+    url.searchParams.set("show_team_relays", "1");
+  }
+  return url.toString();
+}
+
+// Current Meets only, same gate as renderSubscribeLinks -- an uploaded PDF has nothing durable to
+// link back to, so an in-page "Next up" card (already rendered above) is the correct, only option
+// for that path.
+function renderLiveViewLinks(payload) {
+  if (!payload.current_meet_id) return;
+  const params = payload.subscribe_params || {};
+  const names = payload.family ? (payload.swimmers || []).map((swimmer) => swimmer.name) : [payload.swimmer];
+  if (!names.filter(Boolean).length) return;
+
+  const group = document.createElement("section");
+  group.className = "download-group";
+  const heading = document.createElement("h3");
+  heading.textContent = "Open live view";
+  group.appendChild(heading);
+  const note = document.createElement("p");
+  note.className = "subscribe-note";
+  note.textContent = "Bookmark this for meet day -- see what's next and a live countdown, right from your phone.";
+  group.appendChild(note);
+  const list = document.createElement("div");
+  list.className = "download-links";
+  for (const name of names) {
+    if (!name) continue;
+    const link = document.createElement("a");
+    link.href = buildTimelineUrl({ meetId: payload.current_meet_id, swimmerName: name, ...params });
+    link.textContent = payload.family ? `Open live view — ${name}` : "Open live view";
+    link.target = "_blank";
+    link.rel = "noopener";
+    list.appendChild(link);
+  }
+  group.appendChild(list);
+  downloadsEl.appendChild(group);
+}
+
 async function publishCurrentMeet() {
   if (!lastPayload?.run_id) {
     setStatus("No uploaded meet is ready to save.", "error");
@@ -781,87 +801,6 @@ async function publishCurrentMeet() {
     setStatus(error.message, "error");
     publishCurrentBtn.disabled = false;
   }
-}
-
-// Matches a motivational-tier token (TIER_ORDER in standards.py, B lowest to AAAA highest) as a
-// whole word, so it catches "AAA" in "AA; next AAA 39.09", the standalone "AAAA" in "USA-S ...:
-// AAAA", both "B"s in "below B; B target ...", and the achieved-tier "AAAA" inside "Beyond AAAA:
-// next ...". \b on both ends is what keeps this correct regardless of alternation order here --
-// e.g. matching just "A" inside "AAAA" fails its own trailing \b (the next character is still a
-// word character), forcing the engine to backtrack to the full "AAAA" -- so this never needs the
-// longest-first ordering that a plain (non-anchored) alternation would.
-const TIER_TOKEN_RE = /\b(AAAA|AAA|AA|BB|B|A)\b/g;
-
-// Wraps each tier token in a span colored by webapp/static/styles.css's .tier-* rules. Runs BEFORE
-// the source-link substitution below (on plain escaped text, no markup yet), so a label can never
-// collide with a token span -- confirmed against every real fixture in this repo that no
-// usa/lsc/sectional/national/advanced source label ever contains a bare tier word itself.
-function colorizeTiers(escapedText) {
-  return escapedText.replace(TIER_TOKEN_RE, (token) => `<span class="tier-${token}">${token}</span>`);
-}
-
-// Turn each standard's label into a checkable link to its source document. The backend supplies,
-// per benchmark line, a list of {label, url} where label is an exact substring of the line text;
-// we escape everything, then swap the escaped label for an <a> so the number stays plain text and
-// only the label (e.g. "USA-S 11-12 Girls LCM", "Four Corners...") becomes a link.
-function linkifyBenchmark(text, sources) {
-  let html = colorizeTiers(escapeHtml(text || ""));
-  for (const source of sources || []) {
-    if (!source.url || !source.label) continue;
-    const escapedLabel = escapeHtml(source.label);
-    const anchor = `<a href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer">${escapedLabel}</a>`;
-    html = html.replace(escapedLabel, () => anchor); // function replacer: no $ special-casing
-  }
-  return html;
-}
-
-function benchmarkLine(text, swim, lineName) {
-  const sources = (swim.benchmarks.sources || {})[lineName];
-  return linkifyBenchmark(text, sources);
-}
-
-function lscLine(swim) {
-  // An AIA-scored meet (see build_swim_events/aia_benchmarks in extract.py) leaves "lsc" empty
-  // on purpose, so its single AIA line (in "usa") stands alone instead of gaining a meaningless
-  // "<br>LSC: n/a" tail. Every other meet's "lsc" is always a real sentence, even its own "not
-  // configured" gap message, so this is a no-op for them -- same pattern as sectionalNationalLines.
-  return swim.benchmarks.lsc ? `<br>${benchmarkLine(swim.benchmarks.lsc, swim, "lsc")}` : "";
-}
-
-function sectionalNationalLines(swim) {
-  let html = "";
-  if (swim.benchmarks.sectional) {
-    html += `<br>${benchmarkLine(swim.benchmarks.sectional, swim, "sectional")}`;
-  }
-  if (swim.benchmarks.national) {
-    html += `<br>${benchmarkLine(swim.benchmarks.national, swim, "national")}`;
-  }
-  return html;
-}
-
-function confidenceLine(swim) {
-  // The old "Beyond AAAA" advanced line is gone -- Sectional/National each already collapse to
-  // their own single nearest-unmet-cut line (sectionalNationalLines above), so the advanced line
-  // was a guaranteed verbatim duplicate of whichever of those was nearer. swim.benchmarks.advanced
-  // is still computed server-side (it feeds the calendar .ics description text), just not shown
-  // in this table anymore.
-  return swim.benchmarks.confidence ? `<br>${escapeHtml(swim.benchmarks.confidence)}` : "";
-}
-
-function seedDetails(swim) {
-  const details = [`${escapeHtml(swim.seed_time)}`];
-  if (swim.heat && swim.lane) {
-    const label = swim.heat_is_estimated ? "estimated heat" : "heat";
-    details.push(`${label} ${escapeHtml(swim.heat)}, lane ${escapeHtml(swim.lane)}`);
-  } else {
-    details.push(`seed place ${escapeHtml(swim.seed_place)}`);
-  }
-  return details.join("<br>");
-}
-
-function swimmerChip(swim, payload) {
-  if (!payload.family || !swim.swimmer) return "";
-  return `<span class="swimmer-chip">${escapeHtml(swim.swimmer)}</span>`;
 }
 
 function getSwimmerNames() {
@@ -1076,13 +1015,4 @@ function updateRemoveButtons() {
     row.querySelector(".remove-swimmer").classList.toggle("hidden", rows.length === 1);
     row.querySelector("input").required = rows.length === 1;
   });
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 }
