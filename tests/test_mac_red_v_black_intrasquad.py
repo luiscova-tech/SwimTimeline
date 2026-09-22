@@ -7,9 +7,9 @@ individual events + 2 relay events (1-2), swimmers split into two informal intra
 "MAC-AZ" and "Black Team-AZ" -- which are NOT two different real USA-S clubs, just one club's own
 squad split. Standard USA-S motivational benchmarks apply; no standards override is configured.
 
-Testing this meet's real heat sheet ("preliminary heat sheet.pdf") surfaced two real parsing bugs,
-both fixed in swimtimeline/extract.py and covered here against the real fixture that exposed them
-(not synthetic data):
+Testing this meet's real heat sheet ("preliminary heat sheet.pdf") and timeline surfaced three
+real parsing bugs, all fixed in swimtimeline/extract.py and covered here against the real
+fixture that exposed them (not synthetic data):
 
   1. This heat sheet is a "fill in the result by hand" meet program: every single row ends with a
      blank underscore rule ("...Nesbitt, Quinn J2 _____") for a timer to write in the actual time
@@ -20,6 +20,13 @@ both fixed in swimtimeline/extract.py and covered here against the real fixture 
      class had no space in it and (with no `^` anchor on the pattern) simply skipped "Black ",
      silently resolving the team as "Team-AZ" -- losing exactly the squad distinction this meet's
      relay-team matching depends on.
+  3. This meet's own title line, "2026 MAC Red v Black Intrasquad - 9/25/2026", contains none of
+     parse_meet_name()'s keywords (invite/invitational/open/championship/nationals) -- every
+     other real fixture in this repo happens to contain one, so the generic "Swim Meet" fallback
+     had apparently never been exercised by a real meet before this one. parse_meet_name() now
+     also recognizes the title line structurally: the "<name> - <M/D/YYYY>" line a Session Report
+     export always states right after its software banner and before the "Session Report"
+     heading, the same shape parse_date_range() already uses to find this meet's date.
 
 Known, deliberately unfixed here (flagged separately, out of scope for adding a meet):
   * This heat sheet's own relay event blocks print real, leg-confirmed swimmer names directly
@@ -27,9 +34,6 @@ Known, deliberately unfixed here (flagged separately, out of scope for adding a 
     currently extracts without a separate relay document or private roster -- relays here
     correctly surface as TENTATIVE ("your team is entered, confirm with your coach"), not with
     per-leg detail, which is honest given the inputs but leaves real data on the table.
-  * parse_meet_name()'s keyword heuristic (invite/invitational/open/championship/nationals) does
-    not recognize "Intrasquad", so this meet's displayed calendar name falls back to generic
-    "Swim Meet" rather than "2026 MAC Red v Black Intrasquad".
 """
 
 from pathlib import Path
@@ -39,7 +43,10 @@ import unittest
 
 from swimtimeline.extract import (
     analyze_uploads,
+    extract_text_pages,
     parse_entry_fields,
+    parse_meet_name,
+    parse_timeline,
     relay_team_matches_swimmer,
     swimmer_relay_identity,
     extract_psych_entries,
@@ -264,6 +271,23 @@ class TrailingBlankRulePlaceholderRegressionTest(unittest.TestCase):
         self.assertIsNotNone(TEAM_RELAY_ROW.match("E 2:40.00MAC-AZ1 _____"))
         # Existing real formats (numeric seed, no trailing blank) must still match unchanged.
         self.assertIsNotNone(TEAM_RELAY_ROW.match("A 2:18.00Arizona16"))
+
+
+class MeetTitleStructuralFallbackRegressionTest(unittest.TestCase):
+    """Direct regression coverage for parse_meet_name()'s structural title fallback, isolated
+    from the full-meet fixture above so a future change to either regex fails here first. This
+    meet's title line, "2026 MAC Red v Black Intrasquad - 9/25/2026", contains none of the
+    keywords (invite/invitational/open/championship/nationals) that every other real fixture in
+    this repo happens to contain -- it was the first real meet to reach the generic "Swim Meet"
+    fallback, and now the first to exercise the structural fallback added below it."""
+
+    def test_parse_meet_name_recognizes_the_title_line_structurally(self):
+        text = "\n".join(extract_text_pages(TIMELINE))
+        self.assertEqual(parse_meet_name(text), "2026 MAC Red v Black Intrasquad - 9/25/2026")
+
+    def test_parse_timeline_carries_the_real_title_through_end_to_end(self):
+        meet_name, _sessions, _events = parse_timeline(TIMELINE)
+        self.assertEqual(meet_name, "2026 MAC Red v Black Intrasquad - 9/25/2026")
 
 
 if __name__ == "__main__":

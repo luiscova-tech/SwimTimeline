@@ -1496,8 +1496,9 @@ def relay_event_name(group_code: str, event_name: str) -> str:
 # Those two dates differ (the sheet was printed six days before the meet), and the wrong one comes
 # FIRST, so the single-date fallback below has to be able to tell them apart.
 _HYTEK_BANNER_RE = re.compile(r"MEET\s*MANAGER", re.IGNORECASE)
-# The meet-title shape: "<meet name> - <M/D/YYYY>" with the date ending the line. Same "<name> - "
-# convention parse_meet_name() keys off.
+# The meet-title shape: "<meet name> - <M/D/YYYY>" with the date ending the line. Reused by
+# parse_meet_name()'s own structural fallback below, for the same reason: it's the one shape a
+# single-day HY-TEK title line always has, keyword or not.
 _TITLE_SINGLE_DATE_RE = re.compile(r"-\s*(\d{1,2})/(\d{1,2})/(\d{4})\s*$")
 
 
@@ -1590,6 +1591,21 @@ def parse_meet_name(text: str) -> str:
         clean = normalize_space(line)
         lower = clean.lower()
         if "invite" in lower or "invitational" in lower or " open" in lower or "championship" in lower or "nationals" in lower:
+            return clean
+    # Structural fallback for a title with none of the keywords above (a dual meet, an
+    # intrasquad scrimmage, a time trial, ...): a Session Report export always states its title,
+    # in the same "<name> - <M/D/YYYY>" shape as the keyword cases above, on its own line after
+    # the software banner and before the "Session Report" heading. Stopping the scan at that
+    # heading -- rather than searching the whole document -- keeps a later page's own repeated
+    # banner/footer from ever being considered, the same risk parse_date_range() guards against
+    # for this same document.
+    for line in text.splitlines():
+        clean = normalize_space(line)
+        if clean.casefold() == "session report":
+            break
+        if not clean or _HYTEK_BANNER_RE.search(clean):
+            continue
+        if _TITLE_SINGLE_DATE_RE.search(clean):
             return clean
     return "Swim Meet"
 
