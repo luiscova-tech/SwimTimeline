@@ -232,6 +232,13 @@ TEAM_RELAY_ROW = re.compile(
     r"(?P<team>[A-Za-z][A-Za-z .&'/-]*?)(?P<rank>\d+)\s*_*$"
 )
 
+# A named relay leg, up to two per line, straight after a TEAM_RELAY_ROW line: "1) Estiller, Erza
+# A 10  2) Golden, Layla A 11" or "3) Nickerson, Kitelynn R 10  4) Arzaga, Annabelle A 12". Lazy
+# `.+?` for the name (not an explicit character class) so a name itself containing unusual
+# punctuation ("Zapata, Cat/Cataleya G") still parses correctly -- the trailing age digits are what
+# actually bound it, exactly as parse_entry_fields's own name group works.
+RELAY_LEG_PAIR_RE = re.compile(r"(?P<leg>[1-4])\)\s*(?P<name>.+?)\s+(?P<age>\d{1,2})\b")
+
 
 def extract_team_relay_entries(
     psych_pdf: Path, swimmer_team: str, swimmer_age: int | None, swimmer_gender: str | None
@@ -285,6 +292,90 @@ def extract_team_relay_entries(
                 )
             )
     return entries
+
+
+def extract_confirmed_relay_legs_from_psych(
+    psych_pdf: Path, swimmer_name: str, swimmer_team: str, swimmer_age: int | None, swimmer_gender: str | None
+) -> tuple[list[RelayEntry], set[int]]:
+    """Confirmed relay legs read directly out of the SAME heat/psych sheet's own "Event N ...
+    Relay" blocks, for the meets that print them there -- a real, richer format than either
+    extract_relay_entries() (a separate relay-entries export, entirely different header/leg-line
+    shape) or extract_team_relay_entries() above (bare team-only rows, no names at all). Real
+    example (2026 MAC Red v Black Intrasquad's own heat sheet): a TEAM_RELAY_ROW line, immediately
+    followed by one or two lines naming all four legs, two per line --
+        E 2:40.00MAC-AZ1 _____
+        1) Estiller, Erza A 10   2) Golden, Layla A 11
+        3) Nickerson, Kitelynn R 10   4) Arzaga, Annabelle A 12
+    One team can print SEVERAL such rows for the same event (different relay letters -- a whole
+    roster of entries, not just its fastest one), so every one of the swimmer's own team's rows in
+    an event is checked, not just the first found.
+
+    Returns (this swimmer's own confirmed legs, the event numbers where the swimmer's OWN team's
+    rows in THIS document actually carried real names). The second lets the caller suppress
+    extract_team_relay_entries()'s generic "team entered, confirm with coach" fallback for exactly
+    the events this function has real per-swimmer information about -- including "not named on any
+    of the team's entries", which should show nothing at all, not a tentative guess -- while
+    leaving every other event's existing bare-team-row behavior completely unchanged.
+    """
+    if not swimmer_team:
+        return [], set()
+    patterns = make_name_patterns(swimmer_name)
+    query_pairs = name_pairs(swimmer_name)
+    pages = extract_text_pages(psych_pdf)
+    event_header_re = re.compile(r"(?:#|Event)\s*(\d+)\s+(.+)$", re.IGNORECASE)
+    matches: list[RelayEntry] = []
+    named_leg_events: set[int] = set()
+    for page_number, text in enumerate(pages, start=1):
+        lines = [normalize_space(line) for line in text.splitlines()]
+        current: tuple[int, str] | None = None
+        for index, line in enumerate(lines):
+            header = event_header_re.match(line)
+            if header:
+                current = (int(header.group(1)), normalize_event_header_name(header.group(2)))
+                continue
+            if current is None:
+                continue
+            event_number, event_name = current
+            if "relay" not in event_name.lower():
+                continue
+            row = TEAM_RELAY_ROW.match(line)
+            if row is None or not relay_team_matches_swimmer(row.group("team"), swimmer_team):
+                continue
+            # Look ahead for the leg-naming line(s) that follow THIS row -- a bare team-only row
+            # (no names at all, the format extract_team_relay_entries already handles) has none,
+            # and is deliberately left alone: named_leg_events only gains an event number when a
+            # real name was actually found for this team in it.
+            legs: dict[int, str] = {}
+            look = index + 1
+            while look < len(lines) and look < index + 4:
+                found = list(RELAY_LEG_PAIR_RE.finditer(lines[look]))
+                if not found:
+                    break
+                for leg_match in found:
+                    legs[int(leg_match.group("leg"))] = clean_swimmer_name(leg_match.group("name"))
+                look += 1
+            if not legs:
+                continue
+            if not (relay_age_eligible(event_name, swimmer_age) and relay_gender_eligible(event_name, swimmer_gender)):
+                continue
+            named_leg_events.add(event_number)
+            for leg_number, name in legs.items():
+                if not match_swimmer_name(name, patterns, query_pairs, allow_fuzzy=False):
+                    continue
+                matches.append(
+                    RelayEntry(
+                        event_number=event_number,
+                        event_name=event_name,
+                        relay_label=f"Relay {row.group('label').upper()}",
+                        entry_time=row.group("seed"),
+                        leg=leg_number,
+                        page=page_number,
+                        source_line=line,
+                        source_label="Heat sheet (named legs)",
+                        is_team_entry=False,
+                    )
+                )
+    return matches, named_leg_events
 
 
 def swimmer_relay_identity(entries: list[PsychEntry]) -> tuple[str, int | None, str | None]:
@@ -3541,14 +3632,27 @@ def analyze_uploads(
         internal_relay_entries, internal_relay_warnings = extract_internal_relay_entries(internal_relay_sources, relay_query)
         relay_entries = dedupe_relay_entries([*relay_entries, *internal_relay_entries])
         relay_warnings.extend(internal_relay_warnings)
+        # Some heat sheets print full leg-by-leg names directly in their own relay event blocks --
+        # richer than a bare team-only row, and requiring no separate relay document or roster at
+        # all. named_leg_events covers every event the swimmer's OWN team has real names for in
+        # THIS document, whether or not one of those legs is this swimmer -- see the function's
+        # own docstring on why "not named on any of the team's entries" must suppress the tentative
+        # fallback below rather than let it guess.
+        named_leg_matches, named_leg_events = extract_confirmed_relay_legs_from_psych(
+            psych_pdf, relay_query, swimmer_team, swimmer_age, swimmer_gender
+        )
+        relay_entries = dedupe_relay_entries([*relay_entries, *named_leg_matches])
         # Tentative "team entered, leg unknown" relays from the psych sheet's own team-level rows --
         # the middle ground when no leg-naming source covered an event. Precedence: a real roster
-        # proves who is actually on an event, so tentative matching is suppressed for EVERY event any
-        # roster covers -- not merely the events THIS swimmer was confirmed on. Otherwise a swimmer
-        # whose team is entered but who is not on the published lineup would still get a false "team
-        # entered" tentative for an event the roster already settled.
+        # (or this same document's own named legs, just above) proves who is actually on an event,
+        # so tentative matching is suppressed for EVERY event either one covers -- not merely the
+        # events THIS swimmer was confirmed on. Otherwise a swimmer whose team is entered but who
+        # is not on the published lineup would still get a false "team entered" tentative for an
+        # event that source already settled.
         roster_covered_events = relay_roster_event_numbers(relay_pdf, internal_relay_sources)
-        suppressed_relay_events = roster_covered_events | {relay.event_number for relay in relay_entries}
+        suppressed_relay_events = (
+            roster_covered_events | named_leg_events | {relay.event_number for relay in relay_entries}
+        )
         team_relay_entries = [
             entry
             for entry in extract_team_relay_entries(psych_pdf, swimmer_team, swimmer_age, swimmer_gender)

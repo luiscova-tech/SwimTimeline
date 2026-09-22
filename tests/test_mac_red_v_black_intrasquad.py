@@ -7,9 +7,9 @@ individual events + 2 relay events (1-2), swimmers split into two informal intra
 "MAC-AZ" and "Black Team-AZ" -- which are NOT two different real USA-S clubs, just one club's own
 squad split. Standard USA-S motivational benchmarks apply; no standards override is configured.
 
-Testing this meet's real heat sheet ("preliminary heat sheet.pdf") surfaced two real parsing bugs,
-both fixed in swimtimeline/extract.py and covered here against the real fixture that exposed them
-(not synthetic data):
+Testing this meet's real heat sheet ("preliminary heat sheet.pdf") surfaced three real parsing
+bugs, all fixed in swimtimeline/extract.py and covered here against the real fixture that exposed
+them (not synthetic data):
 
   1. This heat sheet is a "fill in the result by hand" meet program: every single row ends with a
      blank underscore rule ("...Nesbitt, Quinn J2 _____") for a timer to write in the actual time
@@ -20,13 +20,26 @@ both fixed in swimtimeline/extract.py and covered here against the real fixture 
      class had no space in it and (with no `^` anchor on the pattern) simply skipped "Black ",
      silently resolving the team as "Team-AZ" -- losing exactly the squad distinction this meet's
      relay-team matching depends on.
+  3. A real false positive: this heat sheet's own relay blocks print full leg-by-leg names right
+     next to each team/seed row (several rows per event, one per relay letter -- e.g. Black
+     Team-AZ alone has five separate lettered entries in Event 1), but the relay pipeline had no
+     way to read them, so EVERY age/gender-eligible swimmer on an entered team got a generic
+     "your team is entered, confirm with your coach" tentative line -- including swimmers who
+     were not personally named on ANY of their team's entries for that event at all (Cova, Mila L
+     is the real, confirmed example: zero appearances in either relay document, yet the old
+     fallback still gave her a tentative Event 1 line). Fixed by adding
+     extract_confirmed_relay_legs_from_psych(), which parses the named legs directly out of this
+     SAME document (a different real shape than extract_relay_entries()'s separate-document
+     format) and checks EVERY one of the swimmer's own team's rows for an event, not just the
+     first one found. When a swimmer is actually named on one, it now surfaces a CONFIRMED entry
+     with the real relay letter and leg number instead of a generic tentative guess; when they are
+     not named on any of their team's rows for that event -- even though the team as a whole is
+     entered -- it now shows nothing for that event, rather than guessing. A heat sheet with only
+     bare team-level rows (no names at all, e.g. WZAG's) is untouched: this only ever changes
+     behavior for an event where the swimmer's own team's rows in THIS document actually carry
+     real names.
 
-Known, deliberately unfixed here (flagged separately, out of scope for adding a meet):
-  * This heat sheet's own relay event blocks print real, leg-confirmed swimmer names directly
-    ("1) Fry, Jacob M 13 2) Harker, Bronco C 14 ..."), richer than what this app's relay pipeline
-    currently extracts without a separate relay document or private roster -- relays here
-    correctly surface as TENTATIVE ("your team is entered, confirm with your coach"), not with
-    per-leg detail, which is honest given the inputs but leaves real data on the table.
+Known, deliberately unfixed here (flagged separately, out of scope):
   * parse_meet_name()'s keyword heuristic (invite/invitational/open/championship/nationals) does
     not recognize "Intrasquad", so this meet's displayed calendar name falls back to generic
     "Swim Meet" rather than "2026 MAC Red v Black Intrasquad".
@@ -39,10 +52,12 @@ import unittest
 
 from swimtimeline.extract import (
     analyze_uploads,
+    extract_confirmed_relay_legs_from_psych,
     parse_entry_fields,
     relay_team_matches_swimmer,
     swimmer_relay_identity,
     extract_psych_entries,
+    RELAY_LEG_PAIR_RE,
     TEAM_RELAY_ROW,
 )
 
@@ -126,7 +141,8 @@ class SessionReportTest(unittest.TestCase):
 
 
 class MacAzSwimmerTest(unittest.TestCase):
-    """Fry, Jacob M -- real MAC-AZ swimmer, in 4 individual events and confirmed relay Event 2."""
+    """Fry, Jacob M -- real MAC-AZ swimmer, in 4 individual events and named-leg-confirmed relay
+    Event 2 (he's named on the leg 1 spot of MAC-AZ's "Relay A" entry)."""
 
     @classmethod
     def setUpClass(cls):
@@ -154,21 +170,26 @@ class MacAzSwimmerTest(unittest.TestCase):
             self.assertIn("USA-S", item["benchmarks"]["usa"])
             self.assertNotIn("AIA", item["benchmarks"]["usa"])
 
-    def test_his_own_team_relay_surfaces_as_confirmed_team_tentative(self):
-        self.assertEqual(self.payload["tentative_relay_count"], 1)
+    def test_his_named_relay_leg_surfaces_confirmed_not_tentative(self):
+        self.assertEqual(self.payload["verified_relay_count"], 1)
+        self.assertEqual(self.payload["tentative_relay_count"], 0)
         relays = [item for item in self.payload["items"] if item["type"] == "relay"]
         self.assertEqual(len(relays), 1)
         relay = relays[0]
         self.assertEqual(relay["event_number"], 2)
         self.assertEqual(relay["event_name"], "Boys 14 & Under 200 Yard Freestyle Relay")
-        self.assertTrue(relay["is_team_entry"])
-        self.assertEqual(relay["relay_status"], "tentative")
+        self.assertEqual(relay["relay_label"], "Relay A")
+        self.assertEqual(relay["leg"], 1)
+        self.assertEqual(relay["seed_time"], "NT")
+        self.assertFalse(relay["is_team_entry"])
+        self.assertEqual(relay["relay_status"], "confirmed")
 
 
 class BlackTeamAzSwimmerTest(unittest.TestCase):
-    """Allison, Mikaela B -- real Black Team-AZ swimmer, in 4 individual events and confirmed
-    relay Event 1. Specifically chosen because her own team name has the internal space that
-    used to get silently truncated to 'Team-AZ'."""
+    """Allison, Mikaela B -- real Black Team-AZ swimmer, in 4 individual events and a named-leg-
+    confirmed relay Event 1 (she's leg 1 of Black Team-AZ's "Relay D" entry). Specifically chosen
+    because her own team name has the internal space that used to get silently truncated to
+    'Team-AZ'."""
 
     @classmethod
     def setUpClass(cls):
@@ -199,18 +220,41 @@ class BlackTeamAzSwimmerTest(unittest.TestCase):
             self.assertEqual(item["heat"], heat, number)
             self.assertEqual(item["lane"], lane, number)
 
-    def test_her_own_teams_relay_surfaces_tentative_not_mac_azs(self):
-        self.assertEqual(self.payload["tentative_relay_count"], 1)
+    def test_her_named_relay_leg_surfaces_confirmed_not_mac_azs(self):
+        self.assertEqual(self.payload["verified_relay_count"], 1)
+        self.assertEqual(self.payload["tentative_relay_count"], 0)
         relay = next(item for item in self.payload["items"] if item["type"] == "relay")
         self.assertEqual(relay["event_number"], 1)
         self.assertEqual(relay["event_name"], "Girls 14 & Under 200 Yard Freestyle Relay")
+        self.assertEqual(relay["relay_label"], "Relay D")
+        self.assertEqual(relay["leg"], 1)
+        self.assertEqual(relay["seed_time"], "2:30.00")
+        self.assertEqual(relay["relay_status"], "confirmed")
+
+
+class DifferentLetteredEntryTest(unittest.TestCase):
+    """Claypool, Ivy D -- real MAC-AZ swimmer named on leg 2 of MAC-AZ's Event 1 "Relay D" entry,
+    MAC-AZ's LAST (5th) lettered row in that event, not its first ("Relay E", team1). Proves the
+    matcher checks every one of the team's rows for an event rather than stopping at the first
+    one it finds -- a real risk given a team can have several lettered entries per event."""
+
+    def test_finds_her_on_the_later_lettered_entry_not_the_first(self):
+        payload = analyze("Claypool, Ivy D", include_relays=True)
+        self.assertEqual(payload["verified_relay_count"], 1)
+        self.assertEqual(payload["tentative_relay_count"], 0)
+        relay = next(item for item in payload["items"] if item["type"] == "relay")
+        self.assertEqual(relay["event_number"], 1)
+        self.assertEqual(relay["relay_label"], "Relay D")
+        self.assertEqual(relay["leg"], 2)
+        self.assertEqual(relay["relay_status"], "confirmed")
 
 
 class CovaSwimmerTest(unittest.TestCase):
-    """Cova, Mila L -- real Black Team-AZ swimmer, age 13. She is not personally named in Event
-    1's real leg list, but the tentative-team-entry feature doesn't know that (it isn't sourcing
-    legs at all here -- see the module docstring's known gap) and correctly still flags Event 1
-    tentative for her: her team IS entered, and she's age/gender-eligible (13 <= "14 & Under")."""
+    """Cova, Mila L -- real Black Team-AZ swimmer, age 13, confirmed (checked both relay
+    documents herself) to appear on NONE of Black Team-AZ's five real lettered entries in Event 1.
+    She IS age/gender-eligible (13 <= "14 & Under") and her team IS entered -- the exact situation
+    that used to produce a false-positive tentative "team entered, confirm with coach" line before
+    named legs were parseable. Now that they are, she correctly gets no relay line at all."""
 
     def test_four_real_individual_events(self):
         payload = analyze("Cova, Mila L", include_relays=True)
@@ -228,12 +272,16 @@ class CovaSwimmerTest(unittest.TestCase):
             self.assertEqual(item["heat"], heat, number)
             self.assertEqual(item["lane"], lane, number)
 
-    def test_eligible_for_her_teams_relay_even_though_not_personally_named_in_it(self):
+    def test_gets_no_relay_line_at_all_not_a_tentative_guess(self):
         payload = analyze("Cova, Mila L", include_relays=True)
-        self.assertEqual(payload["tentative_relay_count"], 1)
-        relay = next(item for item in payload["items"] if item["type"] == "relay")
-        self.assertEqual(relay["event_number"], 1)
-        self.assertEqual(relay["relay_status"], "tentative")
+        self.assertEqual(payload["verified_relay_count"], 0)
+        self.assertEqual(payload["tentative_relay_count"], 0)
+        self.assertEqual([item for item in payload["items"] if item["type"] == "relay"], [])
+        self.assertEqual(
+            [w for w in payload["warnings"] if "relay" in w.lower()],
+            [],
+            "no relay-related warning either -- not even the tentative-fallback notice",
+        )
 
 
 class IntrasquadTeamCodeWrinkleTest(unittest.TestCase):
@@ -264,6 +312,39 @@ class TrailingBlankRulePlaceholderRegressionTest(unittest.TestCase):
         self.assertIsNotNone(TEAM_RELAY_ROW.match("E 2:40.00MAC-AZ1 _____"))
         # Existing real formats (numeric seed, no trailing blank) must still match unchanged.
         self.assertIsNotNone(TEAM_RELAY_ROW.match("A 2:18.00Arizona16"))
+
+
+class NamedRelayLegParsingRegressionTest(unittest.TestCase):
+    """Direct regression coverage for RELAY_LEG_PAIR_RE and extract_confirmed_relay_legs_from_psych(),
+    isolated from the full-meet fixture above so a future change to either fails here first."""
+
+    def test_relay_leg_pair_regex_parses_two_legs_per_line(self):
+        matches = list(RELAY_LEG_PAIR_RE.finditer("1) Estiller, Erza A 10 2) Golden, Layla A 11"))
+        self.assertEqual([m.group("leg") for m in matches], ["1", "2"])
+        self.assertEqual(matches[0].group("name"), "Estiller, Erza A")
+        self.assertEqual(matches[0].group("age"), "10")
+        self.assertEqual(matches[1].group("name"), "Golden, Layla A")
+
+    def test_relay_leg_pair_regex_handles_a_slash_inside_a_first_name(self):
+        # Real MAC Red v Black row: "2) Zapata, Cat/Cataleya G 11" -- confirms the lazy, unrestricted
+        # name group (bounded by the trailing age digits, not an explicit character class) doesn't
+        # stop early at the "/".
+        matches = list(RELAY_LEG_PAIR_RE.finditer("2) Zapata, Cat/Cataleya G 11"))
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0].group("name"), "Zapata, Cat/Cataleya G")
+
+    def test_a_real_bare_team_only_fixture_is_completely_unaffected(self):
+        # WZAG's real psych sheet (see tests/test_team_relay.py) prints team-level relay rows with
+        # NO names at all -- the exact case this function must leave alone. Cova, Mila L there is
+        # a real tentative-relay swimmer today; confirming named_leg_events comes back empty is
+        # the proof this new capability is a true no-op on a document that never names legs.
+        wzag_psych = ROOT / "meets/2026-wzag-championships-boise/input/wzag psych sheet v3.pdf"
+        entries, _page_counts, _warnings = extract_psych_entries(wzag_psych, "Cova, Mila L")
+        team, age, gender = swimmer_relay_identity(entries)
+        self.assertEqual(team, "AZ")
+        matches, named_leg_events = extract_confirmed_relay_legs_from_psych(wzag_psych, "Cova, Mila L", team, age, gender)
+        self.assertEqual(matches, [])
+        self.assertEqual(named_leg_events, set())
 
 
 if __name__ == "__main__":
