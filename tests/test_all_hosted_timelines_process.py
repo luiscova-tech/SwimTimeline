@@ -81,7 +81,7 @@ class MeetDiscoveryCompletenessTest(unittest.TestCase):
     than silently doing nothing, when the real count changes.
     """
 
-    # As of writing this file: 9 real hosted meets carry a files.timeline entry. Update this set
+    # As of writing this file: 10 real hosted meets carry a files.timeline entry. Update this set
     # (not the discovery logic above) when a meet is intentionally added or removed.
     KNOWN_MEET_IDS = {
         "2026-wzag-championships-boise",
@@ -93,6 +93,7 @@ class MeetDiscoveryCompletenessTest(unittest.TestCase):
         "2026-croswhite-invite",
         "2026-cummins-invitational",
         "2026-higley-knights-spooktacular",
+        "2026-mac-red-v-black-intrasquad",
     }
 
     def test_discovered_meet_ids_match_the_currently_known_set(self):

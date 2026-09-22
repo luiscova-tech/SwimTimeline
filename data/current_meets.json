@@ -295,6 +295,35 @@
         "Psych/heat sheet",
         "Timeline"
       ]
+    },
+    {
+      "id": "2026-mac-red-v-black-intrasquad",
+      "name": "2026 MAC Red v Black Intrasquad",
+      "short_name": "MAC Red v Black",
+      "dates": "2026-09-25",
+      "start_date": "2026-09-25",
+      "end_date": "2026-09-25",
+      "expires_at": "2026-09-26",
+      "state": "AZ",
+      "timezone": "America/Phoenix",
+      "venue": "Skyline High School, 845 S. Crismon, Mesa, AZ 85208",
+      "timeline_type": "final",
+      "status": "ready",
+      "last_updated": "2026-09-22",
+      "rules_summary": [
+        "All events are timed finals -- every round in the Session Report is Finals, no prelims.",
+        "Events 1-2 are relays; Events 3-26 are individual."
+      ],
+      "files": {
+        "flyer": null,
+        "psych": "meets/2026-mac-red-v-black-intrasquad/input/2026-mac-red-v-black-intrasquad-heat-sheet.pdf",
+        "timeline": "meets/2026-mac-red-v-black-intrasquad/input/2026-mac-red-v-black-intrasquad-timeline.pdf",
+        "relay": null
+      },
+      "documents": [
+        "Psych/heat sheet",
+        "Timeline"
+      ]
     }
   ]
 }

@@ -222,9 +222,14 @@ def relay_gender_eligible(event_name: str, gender: str | None) -> bool:
 # A team-level relay entry row on a psych sheet: "A 2:18.00Arizona16" (zone: LSC name) or
 # "A 2:05.74MAC-AZ8" (club: club-LSC code), optionally with a "W54"/"M56" gender-group prefix
 # ("A 2:18.50W54MAC-AZ4"). Groups: relay letter, seed, optional prefix, team, trailing rank.
+# "NT" (no time), same as parse_entry_fields's seed group -- a relay with no submitted entry time
+# still needs to surface as a tentative team entry, not be silently dropped (2026 MAC Red v Black
+# Intrasquad's own Boys 14 & Under relay is entered with "NT" for every team).
+# Trailing "\s*_*" tolerates a "fill in the result by hand" meet program's blank underscore rule
+# after the rank -- same real format as parse_entry_fields's own trailing-underscore fix above.
 TEAM_RELAY_ROW = re.compile(
-    r"^(?P<label>[A-Z])\s+(?P<seed>\d+(?::\d+)?\.\d+)(?P<prefix>[WMX]\d+)?"
-    r"(?P<team>[A-Za-z][A-Za-z .&'/-]*?)(?P<rank>\d+)$"
+    r"^(?P<label>[A-Z])\s+(?P<seed>NT|\d+(?::\d+)?\.\d+)(?P<prefix>[WMX]\d+)?"
+    r"(?P<team>[A-Za-z][A-Za-z .&'/-]*?)(?P<rank>\d+)\s*_*$"
 )
 
 
@@ -656,7 +661,14 @@ def parse_entry_fields(clean: str, heat: int | None, round_name: str | None) -> 
     row is from a psych/seeded list and the trailing number is the seed place.
     """
     match = re.search(
-        r"(?P<team>[A-Z0-9-]+?)\s*"
+        # A team NAME (not just a code) can carry an internal space -- "Black Team-AZ", one of
+        # 2026 MAC Red v Black Intrasquad's own two informal squad names, not a real USA-S club.
+        # Without the space in this class, the lazy team group simply skipped "Black " (no `^`
+        # anchor on this pattern -- re.search finds the leftmost position that lets the REST of
+        # the pattern match) and silently resolved the team as "Team-AZ" instead, losing exactly
+        # the distinction between this meet's two squads that a relay-team match depends on. Still
+        # lazy, so it only ever consumes as much as the seed/age/name groups after it force it to.
+        r"(?P<team>[A-Z0-9 -]+?)\s*"
         # "NT" (no time) can carry the same trailing conversion-flag letter a real time does --
         # real HY-TEK output prints "NTY"/"NTL" for a no-time entry at a meet run in a different
         # course than the swimmer's other times, exactly like "2:23.23Y" on a real time. Without
@@ -690,7 +702,13 @@ def parse_entry_fields(clean: str, heat: int | None, round_name: str | None) -> 
         # marker-before-place form "...Mila B29") parse byte-identically to before.
         # (?-i:...) keeps the marker strictly uppercase despite the enclosing IGNORECASE, which
         # the team/name groups need -- otherwise title-case prose lines start matching as rows.
-        r"(?:\s+(?P<standard>(?-i:[A-Z]{1,4})))?\s*$",
+        r"(?:\s+(?P<standard>(?-i:[A-Z]{1,4})))?"
+        # A "fill in the result by hand" meet program (2026 MAC Red v Black Intrasquad's own club
+        # heat sheet is the real example) prints a blank underscore rule after the lane/place on
+        # every single row ("...Nesbitt, Quinn J2 _____"), meant for a timer to write in the actual
+        # time at the meet. Without this the trailing underscores broke the anchored end-of-row
+        # match and dropped every row in the whole document silently.
+        r"\s*_*\s*$",
         clean,
         flags=re.IGNORECASE,
     )

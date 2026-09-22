@@ -49,6 +49,8 @@ EXPECTED_RANGES: list[tuple[str, tuple[date, date] | None]] = [
     ("meets/2026-herculean-invitational/input/2026-herculean-invitational-timeline.pdf", (date(2026, 9, 11), date(2026, 9, 13))),
     ("meets/2026-higley-knights-spooktacular/input/2026-higley-knights-spooktacular-heat-sheet.pdf", (date(2026, 9, 26), date(2026, 9, 26))),
     ("meets/2026-higley-knights-spooktacular/input/2026-higley-knights-spooktacular-timeline.pdf", (date(2026, 9, 26), date(2026, 9, 26))),
+    ("meets/2026-mac-red-v-black-intrasquad/input/2026-mac-red-v-black-intrasquad-heat-sheet.pdf", (date(2026, 9, 25), date(2026, 9, 25))),
+    ("meets/2026-mac-red-v-black-intrasquad/input/2026-mac-red-v-black-intrasquad-timeline.pdf", (date(2026, 9, 25), date(2026, 9, 25))),
     ("meets/2026-narwhal-invite/input/Narwhal Invite.pdf", (date(2026, 6, 12), date(2026, 6, 14))),
     ("meets/2026-narwhal-invite/input/narwhal final psych again.pdf", (date(2026, 6, 12), date(2026, 6, 14))),
     ("meets/2026-narwhal-invite/input/narwhal final timeline.pdf", (date(2026, 6, 12), date(2026, 6, 14))),
