@@ -5,8 +5,18 @@ re-reads the meet's files from disk on every single request (no caching stale re
 requests -- only a short in-memory TTL keyed by the exact resolved params, to absorb bursts) and
 must never leave its throwaway run directory behind. This drives the REAL HTTP endpoint against
 the hosted WZAG meet record, the same path a subscribed calendar app hits.
+
+A webcal:// link is meant to be pasted into a calendar app, forwarded, or left in browser
+history, so the swimmer's real name no longer sits in it in plaintext -- app.js's
+encodeSwimmerParam() base64url-encodes it under a new "swimmer_b64" param, and
+decode_swimmer_param() reverses it server-side with no storage involved (this route stays
+exactly as stateless as its own docstring above already promises). Every test in
+SubscribeIcsTest above this addition still drives the ORIGINAL plaintext "?swimmer=" param
+unmodified -- itself the real backward-compatibility proof: a link generated before this change
+keeps working, forever, with no expiry and no server-side lookup table.
 """
 
+import base64
 from pathlib import Path
 import sys
 import threading
@@ -20,9 +30,14 @@ sys.path.insert(0, str(ROOT))
 
 try:
     from http.server import ThreadingHTTPServer
-    from webapp.server import RUNS_DIR, SwimTimelineHandler
+    from webapp.server import RUNS_DIR, SwimTimelineHandler, decode_swimmer_param
 except ModuleNotFoundError as exc:  # pragma: no cover - environment guard
     raise unittest.SkipTest("webapp.server needs Python 3.12: the stdlib cgi module was removed in 3.13") from exc
+
+
+def encode_swimmer_param(name: str) -> str:
+    """Python mirror of app.js's encodeSwimmerParam(), for building test URLs."""
+    return base64.urlsafe_b64encode(name.encode("utf-8")).decode("ascii").rstrip("=")
 
 
 def get_subscribe(port: int, query: str) -> tuple[int, dict, bytes]:
@@ -151,6 +166,84 @@ class SubscribeIcsTest(unittest.TestCase):
         after = {p.name for p in RUNS_DIR.glob("subscribe-*")} if RUNS_DIR.exists() else set()
         self.assertEqual(first, second)
         self.assertEqual(after, before)
+
+
+class DecodeSwimmerParamUnitTest(unittest.TestCase):
+    """decode_swimmer_param() in isolation, mirroring app.js's encodeSwimmerParam()."""
+
+    def test_round_trips_a_real_name_with_a_comma_and_space(self):
+        self.assertEqual(decode_swimmer_param(encode_swimmer_param("Cova, Mila L")), "Cova, Mila L")
+
+    def test_round_trips_non_ascii_characters(self):
+        self.assertEqual(decode_swimmer_param(encode_swimmer_param("O'Brien, Seán")), "O'Brien, Seán")
+
+    def test_empty_value_returns_none(self):
+        self.assertIsNone(decode_swimmer_param(""))
+
+    def test_undecodable_value_returns_none_rather_than_raising(self):
+        self.assertIsNone(decode_swimmer_param("not-valid-base64!!!"))
+
+    def test_valid_base64_that_is_not_valid_utf8_returns_none(self):
+        # A lone continuation byte (0x80) is valid base64url input but never valid UTF-8 on its
+        # own -- must fail closed (None), not raise past the caller.
+        garbage = base64.urlsafe_b64encode(bytes([0x80])).decode("ascii").rstrip("=")
+        self.assertIsNone(decode_swimmer_param(garbage))
+
+
+class SubscribeIcsEncodedSwimmerParamTest(unittest.TestCase):
+    """The new "swimmer_b64" param, over real HTTP, against the same real hosted meet."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.httpd = ThreadingHTTPServer(("127.0.0.1", 0), SwimTimelineHandler)
+        cls.port = cls.httpd.server_address[1]
+        cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.httpd.server_close()
+
+    def test_the_encoded_param_resolves_the_same_real_swimmer_as_the_plaintext_one(self):
+        encoded, plain = encode_swimmer_param("Cova, Mila L"), "Cova%2C+Mila+L"
+        status_a, _, body_a = get_subscribe(
+            self.port, f"meet_id=2026-wzag-championships-boise&swimmer_b64={encoded}"
+        )
+        status_b, _, body_b = get_subscribe(
+            self.port, f"meet_id=2026-wzag-championships-boise&swimmer={plain}"
+        )
+        self.assertEqual(status_a, 200)
+        self.assertEqual(status_b, 200)
+        self.assertEqual(body_a, body_b)
+
+    def test_the_real_swimmers_name_never_appears_in_plaintext_in_the_request(self):
+        encoded = encode_swimmer_param("Cova, Mila L")
+        self.assertNotIn("Cova", encoded)
+        self.assertNotIn("Mila", encoded)
+        status, _, body = get_subscribe(
+            self.port, f"meet_id=2026-wzag-championships-boise&swimmer_b64={encoded}"
+        )
+        self.assertEqual(status, 200)
+
+    def test_missing_both_swimmer_params_is_still_a_clean_400(self):
+        status, _, _ = get_subscribe(self.port, "meet_id=2026-wzag-championships-boise")
+        self.assertEqual(status, 400)
+
+    def test_an_undecodable_encoded_param_falls_back_to_a_clean_error_not_a_500(self):
+        status, _, _ = get_subscribe(
+            self.port, "meet_id=2026-wzag-championships-boise&swimmer_b64=not-valid-base64!!!"
+        )
+        self.assertEqual(status, 400)
+
+    def test_the_encoded_param_takes_precedence_when_both_are_somehow_present(self):
+        encoded = encode_swimmer_param("Cova, Mila L")
+        status, _, body = get_subscribe(
+            self.port,
+            f"meet_id=2026-wzag-championships-boise&swimmer_b64={encoded}&swimmer=Zzzznotarealswimmer",
+        )
+        self.assertEqual(status, 200)
+        self.assertIn(b"BEGIN:VCALENDAR", body)
 
 
 if __name__ == "__main__":

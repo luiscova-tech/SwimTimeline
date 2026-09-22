@@ -1109,6 +1109,15 @@ input {
   font: inherit;
 }
 
+/* The bare browser default checkbox is ~13px -- a real visual target, not just a tap target
+   (every checkbox here already sits inside a <label> that wraps the full text too, so the
+   effective click/tap area was already larger than the glyph; this is about what's visible). */
+input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  accent-color: var(--navy);
+}
+
 input[name="swimmer_name"],
 input[name="swimmer_names"],
 input[name="state"] {

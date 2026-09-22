@@ -574,7 +574,10 @@ function renderResult(payload) {
   }
 
   const items = payload.items || payload.events;
-  const seedLabel = items.some((item) => item.heat && item.lane) ? "Seed / Heat-Lane" : "Seed / Place";
+  // "Seed Rank", not "Place": this app has no results-tracking at all, and seed_place (see
+  // seedDetails() below) is the swimmer's rank by seed time ENTERING the event -- a pre-meet
+  // concept, never a finish position. "Place" alone reads as a race result.
+  const seedLabel = items.some((item) => item.heat && item.lane) ? "Seed / Heat-Lane" : "Seed / Seed Rank";
   const seedHeaderEl = document.querySelector("#seedHeader");
   if (seedHeaderEl) {
     seedHeaderEl.textContent = seedLabel;
@@ -594,7 +597,7 @@ function renderResult(payload) {
       <td data-col="day" data-label="Day">${escapeHtml(swim.day)}</td>
       <td data-col="event" data-label="Event">${swimmerChip(swim, payload)}<strong>#${swim.event_number}${swim.type === "relay" ? " Relay" : ""}</strong>${escapeHtml(swim.event_name)}<br>${escapeHtml(swim.event_format || "")}</td>
       <td data-col="seed" data-label="${escapeHtml(seedLabel)}">${seedCell}</td>
-      <td data-col="window" data-label="Window">${escapeHtml(swim.window)}</td>
+      <td data-col="window" data-label="Est. Window">${escapeHtml(swim.window)}</td>
       <td data-col="benchmark" data-label="Benchmark">${benchmarkLine(swim.benchmarks.usa, swim, "usa")}${lscLine(swim)}${sectionalNationalLines(swim)}${confidenceLine(swim)}</td>
       <td data-col="source" data-label="Source">${sourceCell}</td>
     `;
@@ -654,10 +657,23 @@ const SUBSCRIBE_MODE_LABELS = {
   detailed_ics: ["detailed", "Swim-by-Swim Calendar"],
 };
 
+// A webcal:// link is meant to be pasted into a calendar app, forwarded, or left sitting in
+// browser history -- unlike a one-time download, so the swimmer's real name shouldn't sit in
+// plaintext in it. base64url-encoded (not real security -- anyone with the URL can trivially
+// decode it, same as before), reversible with no server-side storage: build_subscribe_ics()
+// decodes "swimmer_b64" straight back to the same name, matching this route's own stateless
+// design (see its module docstring). meet_id stays plain; it's not personal data.
+function encodeSwimmerParam(name) {
+  const bytes = new TextEncoder().encode(name);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 function buildSubscribeUrl({ meetId, swimmerName, mode, state, relayOptionIds, showTeamRelays }) {
   const url = new URL("/subscribe.ics", window.location.origin);
   url.searchParams.set("meet_id", meetId);
-  url.searchParams.set("swimmer", swimmerName);
+  url.searchParams.set("swimmer_b64", encodeSwimmerParam(swimmerName));
   url.searchParams.set("modes", mode);
   if (state) {
     url.searchParams.set("state", state);

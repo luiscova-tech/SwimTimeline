@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import cgi
 from datetime import date, timedelta
 import hashlib
@@ -1661,6 +1662,23 @@ def query_value(query: dict[str, list[str]], name: str, default: str = "") -> st
     return values[0] if values else default
 
 
+def decode_swimmer_param(value: str) -> str | None:
+    """Reverses app.js's encodeSwimmerParam() -- plain base64url, not real security, just kept
+    out of plaintext in a URL a parent might paste into a calendar app, forward, or leave in
+    browser history. No storage involved (matches this whole route's stateless design): the
+    server decodes the same bytes back on every request. Returns None when ``value`` is empty
+    or fails to decode, so the caller can fall back to a pre-existing link's plaintext ?swimmer=
+    param -- never raises, so a bad value degrades to "not this param" rather than a 500.
+    """
+    if not value:
+        return None
+    padded = value + "=" * (-len(value) % 4)
+    try:
+        return base64.urlsafe_b64decode(padded.encode("ascii")).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+
 def query_bool(query: dict[str, list[str]], name: str, default: bool = False) -> bool:
     values = query.get(name)
     if not values:
@@ -1682,7 +1700,14 @@ def subscribe_filename(meet: dict, swimmer_name: str, mode: str) -> str:
 
 def build_subscribe_ics(query: dict[str, list[str]]) -> tuple[bytes, str]:
     meet_id = query_value(query, "meet_id").strip()
-    swimmer_name = query_value(query, "swimmer").strip()
+    # New links carry the swimmer's name base64url-encoded under "swimmer_b64" (see app.js's
+    # encodeSwimmerParam); a link generated before that change still carries it in plaintext
+    # under the original "swimmer" param, and keeps working indefinitely -- decode_swimmer_param
+    # returns None (rather than raising) for a missing/undecodable value, so this falls back to
+    # the plaintext param exactly when the new one isn't present.
+    swimmer_name = (
+        decode_swimmer_param(query_value(query, "swimmer_b64")) or query_value(query, "swimmer")
+    ).strip()
     if not meet_id:
         raise SubscribeError(HTTPStatus.BAD_REQUEST, "meet_id is required.")
     if not swimmer_name:
