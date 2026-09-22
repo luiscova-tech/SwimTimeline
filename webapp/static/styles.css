@@ -1029,6 +1029,12 @@ label span small {
   gap: 6px;
 }
 
+.field-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .term-hint {
   margin-top: 2px;
 }
