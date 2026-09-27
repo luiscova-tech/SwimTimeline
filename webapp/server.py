@@ -58,8 +58,10 @@ sys.path.insert(0, str(ROOT))
 from swimtimeline.badges import (
     card_filename,
     cards_for_timeline,
+    dq_code_reference_payload,
     is_ambiguous_warning,
     render_cards_pdf,
+    render_dq_reference_pdf,
     render_handout_sheet_pdf,
     render_sheet_pdf,
 )
@@ -127,6 +129,21 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
                 # send_badges_pdf already answers its own errors with a 400; reaching here means
                 # even that failed (e.g. the write itself), which is never routine input.
                 self.report_officials_failure("/api/officials/badges", exc, query, stage="responding")
+            return
+        if path == "/api/officials/dq-codes":
+            # Static reference content -- no meet, no query params, nothing that can fail on bad
+            # input -- so this skips the officials failure-alert machinery the meet-derived
+            # endpoints above use; an exception here would be a real code bug, not routine input.
+            self.send_json(dq_code_reference_payload())
+            return
+        if path == "/api/officials/dq-codes.pdf":
+            content = render_dq_reference_pdf()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/pdf")
+            self.send_header("Content-Disposition", 'attachment; filename="stroke-turn-dq-code-reference.pdf"')
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
             return
         if path == "/api/usage":
             self.send_json(public_usage_stats())

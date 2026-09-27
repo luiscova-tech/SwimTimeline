@@ -59,6 +59,13 @@ from .extract import (
 # Card geometry: 2" x 3" at 72pt/inch, per the spec.
 CARD_W = 144.0
 CARD_H = 216.0
+
+# The DQ reference card is deliberately sized on its OWN constants, not CARD_W/CARD_H -- those are
+# shared with the session-event cards (still 144x216pt / 2"x3" today; a separate, not-yet-built
+# change may grow them later). This card's content was fitted and print-tested specifically at
+# 2.5"x3.333", so it must not silently change size if/when that other change ships.
+DQ_CARD_W = 180.0  # 2.5in
+DQ_CARD_H = 240.0  # 3.333in
 # Vertical budget, as fractions of card height, shared with anything that has to reason about the
 # table's available space (tests/test_badges.py replicates draw_card's row-height math to check
 # that a star or an event name still fits). These were duplicated as bare literals in both places
@@ -1308,3 +1315,218 @@ def card_filename(
     if layout == "sheet":
         return f"{slug}-session-event-card-sheets{suffix}.pdf"
     return f"{slug}-session-event-cards{suffix}.pdf"
+
+
+DQ_REFERENCE_TITLE = "Stroke & Turn Quick Reference"
+
+# A stroke-and-turn judge's own two-sided DQ code quick-reference card, transcribed as given. Each
+# group is (label | None, [(infraction text, code | None), ...]) -- label is the shared prefix a
+# real card prints once for several related infractions ("Kick:", "Arms:", "Touch:" etc); None
+# means the line has no such prefix. A missing code (None) is preserved exactly as given (Individual
+# Medley's "Stroke Infraction(s)" and "4th Distance..." lines carry no code on the source card); a
+# code can also be a real range rather than one value ("61-64", "7S-7Z"), also as given.
+#
+# NOTE: "Other" is listed under Backstroke as code "2T" -- the SAME code "Delay Turn" already uses
+# two lines above it in the same stroke's own "Past Vertical at Turn" group. That looks like a
+# transcription error in the source card (every other stroke's codes are all distinct), but this
+# isn't corrected here since the real correct code isn't known -- flagged for the person who
+# supplied this content to verify against the actual card.
+DQ_CODE_SIDES: list[dict] = [
+    {
+        "side": "A",
+        "strokes": [
+            {
+                "name": "Butterfly",
+                "groups": [
+                    ("Kick", [("Alternating", "1A"), ("Breast", "1B"), ("Scissors", "1C")]),
+                    ("Arms", [("Non-Simultaneous", "1E"), ("Underwater Recovery", "1F")]),
+                    ("Touch", [("One Hand", "1J"), ("Not Separated", "1H"), ("Non-Simultaneous", "1L"), ("No Touch", "1K")]),
+                    (None, [("Not Toward Breast Off Wall", "1M")]),
+                    (None, [("Head Not Surfaced by 15m", "1N"), ("Re-Submerged", "1R")]),
+                    (None, [("Other", "1T")]),
+                ],
+            },
+            {
+                "name": "Backstroke",
+                "groups": [
+                    (None, [("No Touch at Turn", "2I")]),
+                    ("Past Vertical at Turn", [("Delay Arm Pull", "2S"), ("Delay Turn", "2T"), ("Multiple Strokes", "2U")]),
+                    (None, [("Toes Over Gutter After Start", "2P")]),
+                    (None, [("Head Not Surfaced by 15m", "2N"), ("Re-Submerged", "2R")]),
+                    (None, [("Not on Back Off Wall", "2K")]),
+                    (None, [("Shoulders Past Vertical Toward Breast", "2L")]),
+                    (None, [("Other", "2T")]),
+                ],
+            },
+            {
+                "name": "Freestyle",
+                "groups": [
+                    (None, [("No Touch at Turn", "4K")]),
+                    (None, [("Head Not Surfaced by 15m", "4N"), ("Re-Submerged", "4C")]),
+                ],
+            },
+        ],
+    },
+    {
+        "side": "B",
+        "strokes": [
+            {
+                "name": "Breaststroke",
+                "groups": [
+                    ("Kick", [("Alternating", "3A"), ("Butterfly", "3C"), ("Scissors", "3D")]),
+                    (
+                        "Arms",
+                        [
+                            ("Past Hipline", "3E"),
+                            ("Non-Simultaneous", "3F"),
+                            ("Two Strokes Under", "3G"),
+                            ("Not Same Horizontal Plane", "3H"),
+                            ("Elbows Recovered Over Water", "3I"),
+                        ],
+                    ),
+                    ("Touch", [("One Hand", "3J"), ("Not Separated", "3N"), ("Non-Simultaneous", "3L"), ("No Touch", "3K")]),
+                    (None, [("Not Toward Breast Off Wall", "3M")]),
+                    ("Cycle", [("Kick Before Pull", "3Q"), ("Head Not Up", "3P"), ("Double Pulls/Kicks", "3S")]),
+                    (None, [("Other", "3T")]),
+                ],
+            },
+            {
+                "name": "Individual Medley",
+                "groups": [
+                    (None, [("Stroke Infraction(s)", None)]),
+                    (None, [("Out of Sequence", "5P")]),
+                    (None, [("4th Distance Swum in Style of Previous Stroke", None)]),
+                ],
+            },
+            {
+                "name": "Relays",
+                "groups": [
+                    (None, [("Stroke Infraction", "61-64"), ("Early Take-Off Swimmer", "66-68")]),
+                    (None, [("Changed Order", "6P"), ("Other", "6T")]),
+                ],
+            },
+            {
+                "name": "Miscellaneous",
+                "groups": [
+                    (None, [("False Start", "7O"), ("Declared False Start", "7P")]),
+                    (None, [("Did Not Finish", "7Q"), ("Delay of Meet", "7R")]),
+                    (None, [("Other", "7S-7Z")]),
+                ],
+            },
+        ],
+    },
+]
+
+
+def dq_code_reference_payload() -> dict:
+    """JSON-serializable form of DQ_CODE_SIDES for the on-screen officials reference page -- the
+    SAME data render_dq_reference_pdf() draws from, so the on-screen list and the printable PDF
+    can never drift out of sync with each other."""
+    return {
+        "title": DQ_REFERENCE_TITLE,
+        "sides": [
+            {
+                "side": side["side"],
+                "strokes": [
+                    {
+                        "name": stroke["name"],
+                        "groups": [
+                            {"label": label, "items": [{"text": text, "code": code} for text, code in items]}
+                            for label, items in stroke["groups"]
+                        ],
+                    }
+                    for stroke in side["strokes"]
+                ],
+            }
+            for side in DQ_CODE_SIDES
+        ],
+    }
+
+
+def format_dq_group_lines(label: str | None, items: list[tuple[str, str | None]], font_name: str, font_size: float, max_w: float) -> list[str]:
+    """Wraps one group ("Kick: Alternating (1A)  •  Breast (1B)  •  ...") across as many lines as
+    it takes to fit max_w at a fixed font size -- Breaststroke's 5-item Arms group is real and does
+    not fit on one line at any legible size, so this wraps whole "text (code)" units rather than
+    shrinking a single line down to illegibility the way draw_card()'s single-value fields do."""
+    separator = "   •   "
+    tokens = [f"{text} ({code})" if code else text for text, code in items]
+    lines: list[str] = []
+    line = f"{label}:  " if label else ""
+    line_has_content = False
+    for token in tokens:
+        piece = token if not line_has_content else separator + token
+        if line_has_content and stringWidth(line + piece, font_name, font_size) > max_w:
+            lines.append(line)
+            line = token
+            line_has_content = True
+        else:
+            line += piece
+            line_has_content = True
+    lines.append(line)
+    return lines
+
+
+def draw_dq_reference_page(c, side: dict) -> None:
+    """One DQ_CARD_W x DQ_CARD_H badge-size card: a navy title band, then per stroke a bold
+    MAROON heading followed by its grouped infraction lines, with a thin NAVY accent stripe on
+    the left spanning that stroke's whole block -- the same accent-stripe idea draw_card()'s own
+    row_accent_colors() bars use, not a filled bar, since there's no room for one at this size.
+    No footer credit line either, for the same reason -- just a hairline.
+    """
+    margin = 3.0
+    header_h = 12.0
+    footer_h = 2.0
+    fs = 6.4
+    line_h = fs * 1.30
+    heading_fs = fs + 1.0
+    heading_line_h = heading_fs * 1.30
+    heading_gap = 1.5
+    stroke_gap = fs * 0.35
+    stripe_w = 2.2
+    text_x = margin + 5
+    wrap_w = (DQ_CARD_W - 2 * margin) - 6
+    top = DQ_CARD_H
+
+    c.setFillColor(NAVY)
+    c.rect(0, top - header_h, DQ_CARD_W, header_h, stroke=0, fill=1)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 6.0)
+    c.drawCentredString(DQ_CARD_W / 2, top - header_h * 0.62, f"Stroke & Turn Quick Ref — Side {side['side']}")
+
+    y = top - header_h
+    for stroke in side["strokes"]:
+        heading_top = y
+        c.setFillColor(MAROON)
+        c.setFont("Helvetica-Bold", heading_fs)
+        c.drawString(text_x, y - heading_line_h * 0.72, stroke["name"].upper())
+        y -= heading_line_h + heading_gap
+
+        for label, items in stroke["groups"]:
+            for line in format_dq_group_lines(label, items, "Helvetica", fs, wrap_w):
+                c.setFillColor(GRAY_TXT)
+                c.setFont("Helvetica", fs)
+                c.drawString(text_x, y - line_h * 0.72, line)
+                y -= line_h
+
+        content_end_y = y
+        c.setFillColor(NAVY)
+        c.rect(margin, content_end_y, stripe_w, heading_top - content_end_y, stroke=0, fill=1)
+        y -= stroke_gap
+
+    c.setStrokeColor(GRAY_LINE)
+    c.setLineWidth(0.4)
+    c.line(margin, footer_h, DQ_CARD_W - margin, footer_h)
+
+
+def render_dq_reference_pdf() -> bytes:
+    """The printable version of dq_code_reference_payload(): one DQ_CARD_W x DQ_CARD_H badge-size
+    card per side, Side A then Side B -- meant to be printed and cut out the same way the session
+    event cards are, not a letter-size document."""
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=(DQ_CARD_W, DQ_CARD_H))
+    pdf.setTitle(DQ_REFERENCE_TITLE)
+    for side in DQ_CODE_SIDES:
+        draw_dq_reference_page(pdf, side)
+        pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()

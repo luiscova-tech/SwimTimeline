@@ -2337,3 +2337,66 @@ tr.swim-past {
   font-size: 12px;
   line-height: 1.4;
 }
+
+/* Officials: Stroke & Turn DQ code reference -- static content, not tied to any meet, always
+   visible on the page regardless of the meet-loading workflow above it. */
+
+.dq-reference {
+  margin-top: 20px;
+}
+
+.dq-reference-body {
+  margin-top: 14px;
+}
+
+/* auto-fit/minmax, not a fixed 2-column grid overridden in the mobile media query above: this
+   rule is defined AFTER that media query block in the file, so a fixed 2-column base rule here
+   would win the cascade tie over that block's 1fr override (equal specificity, later source
+   order) and never actually collapse on narrow screens. auto-fit sidesteps the ordering problem
+   entirely -- same pattern as .next-up-list. */
+.dq-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.dq-side h3 {
+  margin: 0 0 10px;
+  color: var(--navy);
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dq-stroke {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.dq-stroke h4 {
+  margin: 0 0 6px;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.dq-group-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.dq-group-list strong {
+  color: var(--navy);
+}

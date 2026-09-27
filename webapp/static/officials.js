@@ -29,6 +29,7 @@ const downloadCopies = document.querySelector("#downloadCopies");
 const shareLinkRow = document.querySelector("#shareLinkRow");
 const shareLinkInput = document.querySelector("#shareLinkInput");
 const copyShareLinkButton = document.querySelector("#copyShareLink");
+const dqReferenceBody = document.querySelector("#dqReferenceBody");
 
 // Mirrors swimtimeline/badges.py's SHEET_SLOTS_PER_PAGE and MAX_HANDOUT_COPIES. Duplicated here
 // (rather than fetched) because the page-count estimate is meant to update live as the number is
@@ -45,6 +46,9 @@ let loaded = null;
 // loadHostedMeets() has actually populated the dropdown.
 loadHostedMeets().then(autoLoadMeetFromUrl);
 updateRemoveButtons();
+// Independent of the meet-loading workflow above -- static reference content, not tied to any
+// meet or session, so it loads unconditionally rather than waiting on a meet being chosen.
+loadDqReference();
 
 copyShareLinkButton.addEventListener("click", async () => {
   // Same shape as app.js's subscribe-link copy: select the field first so that, if the Clipboard
@@ -407,6 +411,55 @@ function sessionRow(session, query) {
       <td data-col="card" data-label="Card"><a class="session-card-link" href="${href}">Download card</a></td>
     </tr>
   `;
+}
+
+// Independent of the meet workflow above: no meet, no session, nothing that can fail on bad
+// input, so failures here just leave a plain message in the reference's own body rather than
+// touching the shared #status line the meet-loading flow uses.
+async function loadDqReference() {
+  try {
+    const response = await fetch("/api/officials/dq-codes");
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Could not load the DQ code reference.");
+    }
+    renderDqReference(payload);
+  } catch (error) {
+    dqReferenceBody.innerHTML = `<p class="muted">Reference unavailable right now: ${escapeHtml(error.message)}</p>`;
+  }
+}
+
+function dqGroupLine(group) {
+  const parts = group.items.map((item) =>
+    item.code ? `${escapeHtml(item.text)} (${escapeHtml(item.code)})` : escapeHtml(item.text)
+  );
+  const body = parts.join(" &middot; ");
+  return group.label ? `<strong>${escapeHtml(group.label)}:</strong> ${body}` : body;
+}
+
+function renderDqReference(payload) {
+  const sidesHtml = payload.sides
+    .map(
+      (side) => `
+    <div class="dq-side">
+      <h3>Side ${escapeHtml(side.side)}</h3>
+      ${side.strokes
+        .map(
+          (stroke) => `
+        <div class="dq-stroke">
+          <h4>${escapeHtml(stroke.name)}</h4>
+          <ul class="dq-group-list">
+            ${stroke.groups.map((group) => `<li>${dqGroupLine(group)}</li>`).join("")}
+          </ul>
+        </div>
+      `
+        )
+        .join("")}
+    </div>
+  `
+    )
+    .join("");
+  dqReferenceBody.innerHTML = `<div class="dq-sides">${sidesHtml}</div>`;
 }
 
 function setStatus(message, state = "idle") {
