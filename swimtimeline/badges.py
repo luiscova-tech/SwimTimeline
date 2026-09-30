@@ -1541,15 +1541,37 @@ def draw_dq_reference_page(c, side: dict, ox: float = 0.0, oy: float = 0.0) -> N
     c.line(ox + margin, oy + footer_h, ox + DQ_CARD_W - margin, oy + footer_h)
 
 
+def draw_dq_reference_card_outline(c, ox: float, oy: float) -> None:
+    """A light dashed cut line around one DQ_CARD_W x DQ_CARD_H card at (ox, oy) -- the
+    single-card analog of draw_dq_sheet_cut_lines()'s grid, for render_dq_reference_pdf()'s
+    one-card-per-page output where the card sits on an otherwise-blank full-size sheet.
+    """
+    c.setStrokeColor(GRAY_LINE)
+    c.setLineWidth(0.4)
+    c.setDash(1, 2)
+    c.rect(ox, oy, DQ_CARD_W, DQ_CARD_H, stroke=1, fill=0)
+    c.setDash()  # back to solid for anything drawn after
+
+
 def render_dq_reference_pdf() -> bytes:
-    """The printable version of dq_code_reference_payload(): one DQ_CARD_W x DQ_CARD_H badge-size
-    card per side, Side A then Side B -- meant to be printed and cut out the same way the session
-    event cards are, not a letter-size document."""
+    """The printable version of dq_code_reference_payload(): one badge-size card per side, Side A
+    then Side B, each centered at the SAME fixed origin on its own full SHEET_W x SHEET_H page --
+    not a DQ_CARD_W x DQ_CARD_H page. A PDF page smaller than any real sheet of paper leaves
+    whatever prints it to guess how to place that page on the actual paper in the tray, and
+    nothing guarantees that guess lands the same way on the Side A pass as the Side B pass of a
+    duplex job -- which is exactly what produced a real misalignment. Matching the PDF page to
+    the true paper size removes that guess entirely: both sides are positioned identically by
+    construction, not by coincidence. A dashed cut line marks the card bounds since the page is
+    otherwise mostly blank around it.
+    """
+    center_ox = (SHEET_W - DQ_CARD_W) / 2
+    center_oy = (SHEET_H - DQ_CARD_H) / 2
     buffer = BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=(DQ_CARD_W, DQ_CARD_H))
+    pdf = canvas.Canvas(buffer, pagesize=(SHEET_W, SHEET_H))
     pdf.setTitle(DQ_REFERENCE_TITLE)
     for side in DQ_CODE_SIDES:
-        draw_dq_reference_page(pdf, side)
+        draw_dq_reference_card_outline(pdf, center_ox, center_oy)
+        draw_dq_reference_page(pdf, side, ox=center_ox, oy=center_oy)
         pdf.showPage()
     pdf.save()
     return buffer.getvalue()

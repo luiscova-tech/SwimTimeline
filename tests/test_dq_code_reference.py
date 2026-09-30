@@ -139,16 +139,29 @@ class RenderDqReferencePdfTest(unittest.TestCase):
     def test_starts_with_the_pdf_magic_bytes(self):
         self.assertTrue(self.pdf_bytes.startswith(b"%PDF-"))
 
-    def test_two_badge_size_cards_side_a_then_side_b(self):
+    def test_two_letter_pages_with_a_centered_card_side_a_then_side_b(self):
         import io
 
         with pdfplumber.open(io.BytesIO(self.pdf_bytes)) as pdf:
             self.assertEqual(len(pdf.pages), 2)
             for page in pdf.pages:
-                self.assertEqual(page.width, DQ_CARD_W)
-                self.assertEqual(page.height, DQ_CARD_H)
+                self.assertEqual(page.width, SHEET_W)
+                self.assertEqual(page.height, SHEET_H)
             self.assertIn("Side A", pdf.pages[0].extract_text())
             self.assertIn("Side B", pdf.pages[1].extract_text())
+
+    def test_side_a_and_side_b_register_at_the_identical_position(self):
+        """The actual regression guard for the duplex-misalignment bug: both pages must place the
+        same fixed text at the same x/y, not merely each look fine on its own. Before the fix
+        (drawing on a DQ_CARD_W x DQ_CARD_H page instead of a full SHEET_W x SHEET_H page), a real
+        duplex print job placed Side A and Side B at different physical positions on the sheet."""
+        import io
+
+        with pdfplumber.open(io.BytesIO(self.pdf_bytes)) as pdf:
+            header_a = next(w for w in pdf.pages[0].extract_words() if w["text"] == "Stroke")
+            header_b = next(w for w in pdf.pages[1].extract_words() if w["text"] == "Stroke")
+        self.assertAlmostEqual(header_a["x0"], header_b["x0"], places=2)
+        self.assertAlmostEqual(header_a["top"], header_b["top"], places=2)
 
     def test_nothing_overflows_the_page_bounds(self):
         import io
