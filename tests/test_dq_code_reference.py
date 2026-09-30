@@ -1,7 +1,7 @@
 """Stroke & Turn DQ code quick-reference: the officials-page addition covering
-swimtimeline.badges.DQ_CODE_SIDES / dq_code_reference_payload() / render_dq_reference_pdf(), and
-the two server routes that expose them (GET /api/officials/dq-codes JSON, GET
-/api/officials/dq-codes.pdf).
+swimtimeline.badges.DQ_CODE_SIDES / dq_code_reference_payload() / render_dq_reference_pdf() /
+render_dq_reference_sheet_pdf(), and the server routes that expose them (GET /api/officials/dq-codes
+JSON, GET /api/officials/dq-codes.pdf, GET /api/officials/dq-codes-sheet.pdf).
 
 Static reference content (not derived from any meet), so "real fixture" here means the actual PDF
 bytes reportlab produces -- checked with pdfplumber for text position/bounds, not synthetic data.
@@ -23,9 +23,14 @@ from swimtimeline.badges import (
     DQ_CARD_H,
     DQ_CARD_W,
     DQ_CODE_SIDES,
+    DQ_SHEET_SLOTS_PER_PAGE,
     dq_code_reference_payload,
+    dq_sheet_slot_origin,
     format_dq_group_lines,
     render_dq_reference_pdf,
+    render_dq_reference_sheet_pdf,
+    SHEET_H,
+    SHEET_W,
 )
 
 try:
@@ -168,6 +173,65 @@ class RenderDqReferencePdfTest(unittest.TestCase):
             self.assertIn(stroke, page_b_text)
 
 
+class DqSheetSlotOriginTest(unittest.TestCase):
+    """The DQ sheet grid itself, checkable without generating a PDF -- the DQ-card analog of
+    tests/test_badges.py's SheetGridGeometryTest, on its own DQ_SHEET_* constants."""
+
+    def test_nine_slots_all_sit_inside_the_sheet(self):
+        self.assertEqual(DQ_SHEET_SLOTS_PER_PAGE, 9)
+        for slot in range(DQ_SHEET_SLOTS_PER_PAGE):
+            x, y = dq_sheet_slot_origin(slot)
+            self.assertGreaterEqual(x, 0)
+            self.assertGreaterEqual(y, 0)
+            self.assertLessEqual(x + DQ_CARD_W, SHEET_W)
+            self.assertLessEqual(y + DQ_CARD_H, SHEET_H)
+
+    def test_slot_index_out_of_range_raises(self):
+        with self.assertRaises(ValueError):
+            dq_sheet_slot_origin(DQ_SHEET_SLOTS_PER_PAGE)
+
+
+class RenderDqReferenceSheetPdfTest(unittest.TestCase):
+    """render_dq_reference_sheet_pdf(): exactly two US Letter pages, 9 copies of Side A on page 1
+    and 9 copies of Side B on page 2 at the SAME slot positions -- the pairing that makes
+    duplex-printing this produce 9 correctly-paired cards once cut apart."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.pdf_bytes = render_dq_reference_sheet_pdf()
+
+    def test_two_us_letter_pages(self):
+        import io
+
+        with pdfplumber.open(io.BytesIO(self.pdf_bytes)) as pdf:
+            self.assertEqual(len(pdf.pages), 2)
+            for page in pdf.pages:
+                self.assertEqual(page.width, SHEET_W)
+                self.assertEqual(page.height, SHEET_H)
+
+    def test_side_a_nine_times_on_page_one_side_b_nine_times_on_page_two(self):
+        import io
+
+        with pdfplumber.open(io.BytesIO(self.pdf_bytes)) as pdf:
+            page_a_text = pdf.pages[0].extract_text()
+            page_b_text = pdf.pages[1].extract_text()
+        self.assertEqual(page_a_text.count("BUTTERFLY"), 9)
+        self.assertEqual(page_a_text.count("BREASTSTROKE"), 0)
+        self.assertEqual(page_b_text.count("BREASTSTROKE"), 9)
+        self.assertEqual(page_b_text.count("BUTTERFLY"), 0)
+
+    def test_nothing_overflows_the_sheet_bounds(self):
+        import io
+
+        with pdfplumber.open(io.BytesIO(self.pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                chars = page.chars
+                self.assertTrue(chars)
+                self.assertLessEqual(max(c["x1"] for c in chars), page.width)
+                self.assertGreaterEqual(min(c["top"] for c in chars), 0)
+                self.assertLessEqual(max(c["bottom"] for c in chars), page.height)
+
+
 class DqCodeReferenceApiTest(unittest.TestCase):
     """The two server routes, driven over real HTTP the same way test_subscribe_ics.py and
     test_timeline_api.py drive theirs."""
@@ -214,6 +278,23 @@ class DqCodeReferenceApiTest(unittest.TestCase):
             self.assertEqual(len(pdf.pages), 2)
             self.assertIn("Side A", pdf.pages[0].extract_text())
             self.assertIn("Side B", pdf.pages[1].extract_text())
+
+    def test_sheet_endpoint_returns_a_two_page_nine_up_pdf(self):
+        import io
+
+        url = f"http://127.0.0.1:{self.port}/api/officials/dq-codes-sheet.pdf"
+        with urllib.request.urlopen(url, timeout=30) as response:
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.headers.get_content_type(), "application/pdf")
+            disposition = response.headers.get("Content-Disposition", "")
+            self.assertIn("attachment", disposition)
+            self.assertIn("stroke-turn-dq-code-reference-sheet.pdf", disposition)
+            body = response.read()
+        self.assertTrue(body.startswith(b"%PDF-"))
+        with pdfplumber.open(io.BytesIO(body)) as pdf:
+            self.assertEqual(len(pdf.pages), 2)
+            self.assertEqual(pdf.pages[0].extract_text().count("BUTTERFLY"), 9)
+            self.assertEqual(pdf.pages[1].extract_text().count("BREASTSTROKE"), 9)
 
 
 if __name__ == "__main__":

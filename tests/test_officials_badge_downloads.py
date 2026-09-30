@@ -6,7 +6,7 @@ highlighted-only filtering all live in send_badges_pdf(). The per-card rendering
 in tests/test_badges.py.
 
 Four shapes, all from the same per-session draw_card() call:
-  * default            -- one 144x216pt page per session; a page IS a card, so it can be cut out
+  * default            -- one 180x240pt page per session; a page IS a card, so it can be cut out
                           and worn in a badge holder. Unchanged by either sheet layout.
   * ?session=N         -- the same, for one session.
   * ?layout=sheet      -- those native-size cards tiled on shared 612x792pt letter sheets, one
@@ -103,12 +103,12 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
 
     def test_default_layout_is_one_card_sized_page_per_session(self):
         status, headers, body = self.badges(meet_id=HERCULEAN)
-        self.assert_pdf(status, headers, body, pages=6, size=(144.0, 216.0))
+        self.assert_pdf(status, headers, body, pages=6, size=(180.0, 240.0))
         self.assertIn("session-event-cards.pdf", headers["Content-Disposition"])
 
     def test_explicit_single_session_is_one_card_sized_page(self):
         status, headers, body = self.badges(meet_id=HERCULEAN, session=1)
-        reader = self.assert_pdf(status, headers, body, pages=1, size=(144.0, 216.0))
+        reader = self.assert_pdf(status, headers, body, pages=1, size=(180.0, 240.0))
         self.assertIn("SESSION 1", self.page_text(reader, 0))
         self.assertIn("session-1-session-event-card.pdf", headers["Content-Disposition"])
 
@@ -135,7 +135,7 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
         """The one-card-per-page format exists so a printed page fits a 2x3 badge holder; the sheet
         layout is an addition, not a replacement."""
         status, headers, body = self.badges(meet_id=HERCULEAN)
-        self.assert_pdf(status, headers, body, pages=6, size=(144.0, 216.0))
+        self.assert_pdf(status, headers, body, pages=6, size=(180.0, 240.0))
 
     # ---- highlighted-only filter -------------------------------------------
 
@@ -143,7 +143,7 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
         status, headers, body = self.badges(
             meet_id=HERCULEAN, swimmer_names=COVA, highlighted_only=1
         )
-        reader = self.assert_pdf(status, headers, body, pages=2, size=(144.0, 216.0))
+        reader = self.assert_pdf(status, headers, body, pages=2, size=(180.0, 240.0))
         texts = [self.page_text(reader, index) for index in range(2)]
         for expected_session, text in zip(COVA_SESSIONS, texts):
             self.assertIn(f"SESSION {expected_session}", text)
@@ -156,7 +156,7 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
     def test_unfiltered_still_returns_all_six_sessions_with_the_same_names_given(self):
         """Proves the 2-page result above is the FILTER's doing, not something about the names."""
         status, headers, body = self.badges(meet_id=HERCULEAN, swimmer_names=COVA)
-        self.assert_pdf(status, headers, body, pages=6, size=(144.0, 216.0))
+        self.assert_pdf(status, headers, body, pages=6, size=(180.0, 240.0))
         self.assertNotIn("highlighted", headers["Content-Disposition"])
 
     def test_filter_composes_with_the_sheet_layout(self):
@@ -225,7 +225,7 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
         status, headers, body = self.badges(
             meet_id=HERCULEAN, swimmer_names=COVA, highlighted_only=1, session=1
         )
-        reader = self.assert_pdf(status, headers, body, pages=1, size=(144.0, 216.0))
+        reader = self.assert_pdf(status, headers, body, pages=1, size=(180.0, 240.0))
         self.assertIn("SESSION 1", self.page_text(reader, 0))
 
     # ---- layout=handout (print copies) -------------------------------------
@@ -322,13 +322,13 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
         """Re-verifies the three pre-existing shapes still work exactly as before, not just
         assumes they do because handout was added elsewhere."""
         status, headers, body = self.badges(meet_id=HERCULEAN)
-        self.assert_pdf(status, headers, body, pages=6, size=(144.0, 216.0))
+        self.assert_pdf(status, headers, body, pages=6, size=(180.0, 240.0))
 
         status, headers, body = self.badges(meet_id=HERCULEAN, layout="sheet")
         self.assert_pdf(status, headers, body, pages=1, size=(612.0, 792.0))
 
         status, headers, body = self.badges(meet_id=HERCULEAN, session=3)
-        self.assert_pdf(status, headers, body, pages=1, size=(144.0, 216.0))
+        self.assert_pdf(status, headers, body, pages=1, size=(180.0, 240.0))
 
 
 if __name__ == "__main__":

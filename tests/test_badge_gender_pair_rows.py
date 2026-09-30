@@ -301,8 +301,8 @@ class RenderedCombinedCardTest(unittest.TestCase):
     def test_the_card_is_still_exactly_one_page_at_card_size(self):
         reader = PdfReader(BytesIO(render_cards_pdf([self.card])))
         self.assertEqual(len(reader.pages), 1)
-        self.assertAlmostEqual(float(reader.pages[0].mediabox.width), 144.0, places=2)
-        self.assertAlmostEqual(float(reader.pages[0].mediabox.height), 216.0, places=2)
+        self.assertAlmostEqual(float(reader.pages[0].mediabox.width), 180.0, places=2)
+        self.assertAlmostEqual(float(reader.pages[0].mediabox.height), 240.0, places=2)
 
     def test_a_partially_paired_session_prints_its_unpaired_mixed_relays_verbatim(self):
         _name, cards, _highlights = cards_for_timeline(WZAG_TIMELINE)
@@ -423,9 +423,9 @@ class CumminsCombinedPairsFontSizeTest(unittest.TestCase):
         )
         self.assertEqual(real_units, 12.0)
         after = base_fs_for_units(real_units)
-        self.assertAlmostEqual(after, 6.42, places=2)
-        self.assertGreater(after, 6.0)
-        self.assertLess(after, 7.0)
+        self.assertAlmostEqual(after, 7.13, places=2)
+        self.assertGreater(after, 7.0)
+        self.assertLess(after, 8.0)
 
     def test_a_combined_row_actually_renders_readable_text_on_the_card(self):
         text = page_text(render_cards_pdf([self.card]))

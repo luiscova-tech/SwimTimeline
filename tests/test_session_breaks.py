@@ -218,7 +218,7 @@ class BreakRowFontBudgetTest(unittest.TestCase):
             row_h = table_h / units
             base_fs = max(5.0, min(8.3, row_h * 0.5))
             self.assertGreater(base_fs, 5.0, timeline.name)
-            self.assertAlmostEqual(base_fs, 6.42, places=2, msg=timeline.name)
+            self.assertAlmostEqual(base_fs, 7.13, places=2, msg=timeline.name)
 
 
 class HigleyBreakCardTest(unittest.TestCase):

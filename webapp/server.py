@@ -62,6 +62,7 @@ from swimtimeline.badges import (
     is_ambiguous_warning,
     render_cards_pdf,
     render_dq_reference_pdf,
+    render_dq_reference_sheet_pdf,
     render_handout_sheet_pdf,
     render_sheet_pdf,
 )
@@ -141,6 +142,16 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/pdf")
             self.send_header("Content-Disposition", 'attachment; filename="stroke-turn-dq-code-reference.pdf"')
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+        if path == "/api/officials/dq-codes-sheet.pdf":
+            # Same "no meet, nothing that can fail on bad input" reasoning as the plain PDF above.
+            content = render_dq_reference_sheet_pdf()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/pdf")
+            self.send_header("Content-Disposition", 'attachment; filename="stroke-turn-dq-code-reference-sheet.pdf"')
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
             self.wfile.write(content)

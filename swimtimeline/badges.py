@@ -1,7 +1,7 @@
 """Printable badge-card schedules for meet officials, from a HY-TEK Session Report PDF.
 
-One 2"x3" (144x216pt) card per session: event number, abbreviated event name, heat count, and
-start time, sized to drop into a credential holder.
+One 2.5"x3 1/3" (180x240pt) card per session: event number, abbreviated event name, heat count,
+and start time, sized to drop into a credential holder.
 
 Relationship to extract.py -- this module adds NOTHING to it and changes NOTHING in it. The
 Session Report is already parsed there by parse_timeline()/cached_timeline(), which returns every
@@ -56,14 +56,20 @@ from .extract import (
 )
 
 
-# Card geometry: 2" x 3" at 72pt/inch, per the spec.
-CARD_W = 144.0
-CARD_H = 216.0
+# Card geometry: 2.5" x 3 1/3" at 72pt/inch. Every other function in this module (draw_card,
+# render_cards_pdf, render_sheet_pdf, render_handout_sheet_pdf, draw_sheet_cut_lines,
+# sheet_slot_origin, and SHEET_MARGIN_X/Y below) derives its geometry from these two constants --
+# draw_card's own fonts/margins are computed as fractions of W/H, so a size bump like this one
+# scales the whole card up proportionally rather than just adding blank space around the old size.
+CARD_W = 180.0  # 2.5in
+CARD_H = 240.0  # 3.333in
 
 # The DQ reference card is deliberately sized on its OWN constants, not CARD_W/CARD_H -- those are
-# shared with the session-event cards (still 144x216pt / 2"x3" today; a separate, not-yet-built
-# change may grow them later). This card's content was fitted and print-tested specifically at
-# 2.5"x3.333", so it must not silently change size if/when that other change ships.
+# shared with the session-event cards, and now happen to match this card's own size numerically
+# (both 180x240pt / 2.5"x3.333", after the session cards' own 2026-09-30 size bump from
+# 144x216pt), but that is a coincidence, not a coupling: this card's content was fitted and
+# print-tested specifically at 2.5"x3.333", so it must not silently change size if the session
+# cards' own size changes again independently.
 DQ_CARD_W = 180.0  # 2.5in
 DQ_CARD_H = 240.0  # 3.333in
 # Vertical budget, as fractions of card height, shared with anything that has to reason about the
@@ -92,18 +98,32 @@ SHEET_H = 792.0
 # line on every boundary instead. A blank gutter left it to the eye to guess where to cut; real
 # officials asked for an actual line. (Was 18.0pt/0.25" of blank space -- see git history.)
 SHEET_GUTTER = 0.0
-# 3 columns, not 4. Four native-width cards need 4 x 144 = 576pt, which leaves only 18pt of side
-# margin even at this zero gutter -- and 18pt (0.25") is exactly the unprintable edge on typical
-# consumer laser/inkjet printers, so the outer cards' content would risk clipping. Three columns
-# leave a full 90pt (1.25") side margin, comfortably clear of that edge.
+# 3 columns, not 4. Four native-width cards need 4 x 180 = 720pt, which doesn't even fit within
+# the 612pt sheet width at all, let alone leave a printable margin. Three columns need 540pt,
+# leaving a full 36pt (0.5") side margin -- comfortably clear of a typical consumer laser/inkjet
+# printer's ~18pt (0.25") unprintable edge.
 SHEET_COLS = 3
 SHEET_ROWS = 3
 SHEET_SLOTS_PER_PAGE = SHEET_COLS * SHEET_ROWS
 # Derived, not hardcoded, so changing the grid or gutter keeps the block centred: the 3x3/zero-
-# gutter grid lands on exactly 90pt (1.25") horizontal and 72pt (1.00") vertical margins -- both
-# well clear of a typical printer's ~18pt (0.25") unprintable edge.
+# gutter grid lands on exactly 36pt (0.5") margins, both horizontal and vertical -- both well
+# clear of a typical printer's ~18pt (0.25") unprintable edge.
 SHEET_MARGIN_X = (SHEET_W - (SHEET_COLS * CARD_W + (SHEET_COLS - 1) * SHEET_GUTTER)) / 2
 SHEET_MARGIN_Y = (SHEET_H - (SHEET_ROWS * CARD_H + (SHEET_ROWS - 1) * SHEET_GUTTER)) / 2
+
+# The DQ reference card's own print-sheet grid, on the SAME US Letter page (SHEET_W/SHEET_H are
+# just "what a piece of paper is", not session-card-specific) but its own COLS/ROWS/GUTTER/MARGIN
+# constants rather than the session cards' SHEET_* block above -- same reason DQ_CARD_W/DQ_CARD_H
+# are their own constants: this grid must not silently change if the session cards' own sheet
+# geometry changes independently. 3x3/zero-gutter, same shape as the session-card grid, lands on
+# exactly 36pt (0.5") margins both ways -- comfortably clear of a typical printer's ~18pt (0.25")
+# unprintable edge.
+DQ_SHEET_GUTTER = 0.0
+DQ_SHEET_COLS = 3
+DQ_SHEET_ROWS = 3
+DQ_SHEET_SLOTS_PER_PAGE = DQ_SHEET_COLS * DQ_SHEET_ROWS
+DQ_SHEET_MARGIN_X = (SHEET_W - (DQ_SHEET_COLS * DQ_CARD_W + (DQ_SHEET_COLS - 1) * DQ_SHEET_GUTTER)) / 2
+DQ_SHEET_MARGIN_Y = (SHEET_H - (DQ_SHEET_ROWS * DQ_CARD_H + (DQ_SHEET_ROWS - 1) * DQ_SHEET_GUTTER)) / 2
 
 
 # ---------------------------------------------------------------------------
@@ -1146,8 +1166,8 @@ def cards_for_timeline(
 
 
 def render_cards_pdf(cards: list[SessionCard]) -> bytes:
-    """One 144x216pt page per card, in the order given -- the same draw_card() call per session
-    whether this is the whole meet (many pages) or a single session (one page).
+    """One CARD_W x CARD_H page per card, in the order given -- the same draw_card() call per
+    session whether this is the whole meet (many pages) or a single session (one page).
     """
     if not cards:
         raise ValueError("No sessions to render.")
@@ -1217,7 +1237,7 @@ def draw_sheet_cut_lines(c) -> None:
 
 def render_sheet_pdf(cards: list[SessionCard]) -> bytes:
     """Letter-size sheets with up to SHEET_SLOTS_PER_PAGE different sessions' cards tiled on each,
-    every card drawn at its native 144x216pt size by the SAME draw_card() call the one-card-per-page
+    every card drawn at its native CARD_W x CARD_H size by the SAME draw_card() call the one-card-per-page
     output uses -- no scaling, no separate drawing path, so a card here is byte-for-byte the same
     content as its standalone page.
 
@@ -1466,12 +1486,15 @@ def format_dq_group_lines(label: str | None, items: list[tuple[str, str | None]]
     return lines
 
 
-def draw_dq_reference_page(c, side: dict) -> None:
-    """One DQ_CARD_W x DQ_CARD_H badge-size card: a navy title band, then per stroke a bold
-    MAROON heading followed by its grouped infraction lines, with a thin NAVY accent stripe on
-    the left spanning that stroke's whole block -- the same accent-stripe idea draw_card()'s own
-    row_accent_colors() bars use, not a filled bar, since there's no room for one at this size.
-    No footer credit line either, for the same reason -- just a hairline.
+def draw_dq_reference_page(c, side: dict, ox: float = 0.0, oy: float = 0.0) -> None:
+    """One DQ_CARD_W x DQ_CARD_H badge-size card, its lower-left corner at (ox, oy) in canvas c --
+    same (ox, oy) origin convention as draw_card(), so this can be stamped at (0, 0) for a
+    one-card-per-page PDF or tiled at each print-sheet slot's own origin without a separate
+    drawing path. A navy title band, then per stroke a bold MAROON heading followed by its
+    grouped infraction lines, with a thin NAVY accent stripe on the left spanning that stroke's
+    whole block -- the same accent-stripe idea draw_card()'s own row_accent_colors() bars use, not
+    a filled bar, since there's no room for one at this size. No footer credit line either, for
+    the same reason -- just a hairline.
     """
     margin = 3.0
     header_h = 12.0
@@ -1483,15 +1506,15 @@ def draw_dq_reference_page(c, side: dict) -> None:
     heading_gap = 1.5
     stroke_gap = fs * 0.35
     stripe_w = 2.2
-    text_x = margin + 5
+    text_x = ox + margin + 5
     wrap_w = (DQ_CARD_W - 2 * margin) - 6
-    top = DQ_CARD_H
+    top = oy + DQ_CARD_H
 
     c.setFillColor(NAVY)
-    c.rect(0, top - header_h, DQ_CARD_W, header_h, stroke=0, fill=1)
+    c.rect(ox, top - header_h, DQ_CARD_W, header_h, stroke=0, fill=1)
     c.setFillColor(colors.white)
     c.setFont("Helvetica-Bold", 6.0)
-    c.drawCentredString(DQ_CARD_W / 2, top - header_h * 0.62, f"Stroke & Turn Quick Ref — Side {side['side']}")
+    c.drawCentredString(ox + DQ_CARD_W / 2, top - header_h * 0.62, f"Stroke & Turn Quick Ref — Side {side['side']}")
 
     y = top - header_h
     for stroke in side["strokes"]:
@@ -1510,12 +1533,12 @@ def draw_dq_reference_page(c, side: dict) -> None:
 
         content_end_y = y
         c.setFillColor(NAVY)
-        c.rect(margin, content_end_y, stripe_w, heading_top - content_end_y, stroke=0, fill=1)
+        c.rect(ox + margin, content_end_y, stripe_w, heading_top - content_end_y, stroke=0, fill=1)
         y -= stroke_gap
 
     c.setStrokeColor(GRAY_LINE)
     c.setLineWidth(0.4)
-    c.line(margin, footer_h, DQ_CARD_W - margin, footer_h)
+    c.line(ox + margin, oy + footer_h, ox + DQ_CARD_W - margin, oy + footer_h)
 
 
 def render_dq_reference_pdf() -> bytes:
@@ -1527,6 +1550,63 @@ def render_dq_reference_pdf() -> bytes:
     pdf.setTitle(DQ_REFERENCE_TITLE)
     for side in DQ_CODE_SIDES:
         draw_dq_reference_page(pdf, side)
+        pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
+
+
+def dq_sheet_slot_origin(slot_index: int) -> tuple[float, float]:
+    """The (x, y) lower-left corner of one grid slot on a DQ reference print sheet, in reading
+    order: left to right, top row first. The DQ-card analog of sheet_slot_origin() above, kept on
+    its own DQ_SHEET_* constants rather than sharing SHEET_COLS/SHEET_MARGIN_X/etc -- same reason
+    DQ_CARD_W/DQ_CARD_H are their own constants: this grid must not silently change if the session
+    event cards' own sheet geometry changes independently.
+    """
+    if not 0 <= slot_index < DQ_SHEET_SLOTS_PER_PAGE:
+        raise ValueError(f"slot_index {slot_index} is outside a {DQ_SHEET_SLOTS_PER_PAGE}-slot page.")
+    row, column = divmod(slot_index, DQ_SHEET_COLS)
+    x = DQ_SHEET_MARGIN_X + column * (DQ_CARD_W + DQ_SHEET_GUTTER)
+    y = SHEET_H - DQ_SHEET_MARGIN_Y - (row + 1) * DQ_CARD_H - row * DQ_SHEET_GUTTER
+    return x, y
+
+
+def draw_dq_sheet_cut_lines(c) -> None:
+    """One shared light dashed line on every boundary of the DQ reference print-sheet grid -- the
+    DQ-card analog of draw_sheet_cut_lines() above, on the same DQ_SHEET_* constants
+    dq_sheet_slot_origin() uses. Drawn once per page, UNDER that page's cards.
+    """
+    grid_left = DQ_SHEET_MARGIN_X
+    grid_right = DQ_SHEET_MARGIN_X + DQ_SHEET_COLS * DQ_CARD_W
+    grid_top = SHEET_H - DQ_SHEET_MARGIN_Y
+    grid_bottom = grid_top - DQ_SHEET_ROWS * DQ_CARD_H
+    c.setStrokeColor(GRAY_LINE)
+    c.setLineWidth(0.4)
+    c.setDash(1, 2)
+    for col in range(DQ_SHEET_COLS + 1):
+        x = grid_left + col * DQ_CARD_W
+        c.line(x, grid_bottom, x, grid_top)
+    for row in range(DQ_SHEET_ROWS + 1):
+        y = grid_top - row * DQ_CARD_H
+        c.line(grid_left, y, grid_right, y)
+    c.setDash()  # back to solid for anything drawn after
+
+
+def render_dq_reference_sheet_pdf() -> bytes:
+    """Exactly two US Letter pages: page 1 is 9 copies of Side A tiled in the DQ sheet grid, page
+    2 is 9 copies of Side B tiled at those SAME slot positions. That pairing is the whole point --
+    duplex-printing this (page 1 as the front, page 2 as the back) produces 9 correctly-paired
+    cards once cut apart, not 9 mismatched fronts and backs. Fixed at 9 per sheet (one page each),
+    no copies count: nobody has asked for more than one sheet at a time yet.
+    """
+    side_a, side_b = DQ_CODE_SIDES
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=(SHEET_W, SHEET_H))
+    pdf.setTitle(f"{DQ_REFERENCE_TITLE} sheets")
+    for side in (side_a, side_b):
+        draw_dq_sheet_cut_lines(pdf)
+        for slot in range(DQ_SHEET_SLOTS_PER_PAGE):
+            origin_x, origin_y = dq_sheet_slot_origin(slot)
+            draw_dq_reference_page(pdf, side, ox=origin_x, oy=origin_y)
         pdf.showPage()
     pdf.save()
     return buffer.getvalue()

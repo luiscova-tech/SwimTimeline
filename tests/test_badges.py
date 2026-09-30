@@ -466,7 +466,7 @@ class RenderedPdfTest(unittest.TestCase):
             for index, page in enumerate(reader.pages):
                 self.assertAlmostEqual(float(page.mediabox.width), CARD_W, places=2, msg=index)
                 self.assertAlmostEqual(float(page.mediabox.height), CARD_H, places=2, msg=index)
-        self.assertEqual((CARD_W, CARD_H), (144.0, 216.0))
+        self.assertEqual((CARD_W, CARD_H), (180.0, 240.0))
 
     def test_single_session_pdf_is_one_page_at_the_same_size(self):
         _meet_name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
@@ -909,18 +909,17 @@ class SheetGridGeometryTest(unittest.TestCase):
     on every boundary instead of leaving a blank gap to eyeball (see real officials feedback on
     the Cummins Invitational cards).
 
-    Three columns rather than four: four native-width cards need 4 x 144 = 576pt, leaving only
-    18pt of side margin even at this zero gutter -- and 18pt is exactly the unprintable edge on
-    typical consumer printers, so the outer cards' content would risk clipping.
+    Three columns rather than four: four native-width cards need 4 x 180 = 720pt, which doesn't
+    even fit within the 612pt sheet width at all, let alone leave a printable margin.
     """
 
     def test_sheet_is_us_letter_and_the_grid_lands_on_clean_margins(self):
         self.assertEqual((SHEET_W, SHEET_H), (612.0, 792.0))
         self.assertEqual((SHEET_COLS, SHEET_ROWS, SHEET_SLOTS_PER_PAGE), (3, 3, 9))
         self.assertEqual(SHEET_GUTTER, 0.0)
-        # Derived from the grid, and exact: 1.25" sides, 1.00" top/bottom.
-        self.assertEqual(SHEET_MARGIN_X, 90.0)
-        self.assertEqual(SHEET_MARGIN_Y, 72.0)
+        # Derived from the grid, and exact: 0.5" both sides, top and bottom.
+        self.assertEqual(SHEET_MARGIN_X, 36.0)
+        self.assertEqual(SHEET_MARGIN_Y, 36.0)
         # The margins really do account for every remaining point of the sheet.
         self.assertEqual(
             SHEET_MARGIN_X * 2 + SHEET_COLS * CARD_W + (SHEET_COLS - 1) * SHEET_GUTTER, SHEET_W
