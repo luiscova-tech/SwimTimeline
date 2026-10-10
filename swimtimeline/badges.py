@@ -1,6 +1,6 @@
 """Printable badge-card schedules for meet officials, from a HY-TEK Session Report PDF.
 
-One 2.5"x3 1/3" (180x240pt) card per session: event number, abbreviated event name, heat count,
+One 2.25"x3" (162x216pt) card per session: event number, abbreviated event name, heat count,
 and start time, sized to drop into a credential holder.
 
 Relationship to extract.py -- this module adds NOTHING to it and changes NOTHING in it. The
@@ -56,20 +56,20 @@ from .extract import (
 )
 
 
-# Card geometry: 2.5" x 3 1/3" at 72pt/inch. Every other function in this module (draw_card,
+# Card geometry: 2.25" x 3" at 72pt/inch. Every other function in this module (draw_card,
 # render_cards_pdf, render_sheet_pdf, render_handout_sheet_pdf, draw_sheet_cut_lines,
 # sheet_slot_origin, and SHEET_MARGIN_X/Y below) derives its geometry from these two constants --
-# draw_card's own fonts/margins are computed as fractions of W/H, so a size bump like this one
-# scales the whole card up proportionally rather than just adding blank space around the old size.
-CARD_W = 180.0  # 2.5in
-CARD_H = 240.0  # 3.333in
+# draw_card's own fonts/margins are computed as fractions of W/H, so a size change like this one
+# scales the whole card proportionally rather than just adding or removing blank space around the
+# old size.
+CARD_W = 162.0  # 2.25in
+CARD_H = 216.0  # 3.0in
 
 # The DQ reference card is deliberately sized on its OWN constants, not CARD_W/CARD_H -- those are
-# shared with the session-event cards, and now happen to match this card's own size numerically
-# (both 180x240pt / 2.5"x3.333", after the session cards' own 2026-09-30 size bump from
-# 144x216pt), but that is a coincidence, not a coupling: this card's content was fitted and
-# print-tested specifically at 2.5"x3.333", so it must not silently change size if the session
-# cards' own size changes again independently.
+# shared with the session-event cards and change independently of this card (they briefly matched
+# numerically at 180x240pt after the session cards' 2026-09-30 bump, then diverged again when the
+# session cards were sized back down): this card's content was fitted and print-tested specifically
+# at 2.5"x3.333", so it must not silently change size if the session cards' own size changes.
 DQ_CARD_W = 180.0  # 2.5in
 DQ_CARD_H = 240.0  # 3.333in
 # Vertical budget, as fractions of card height, shared with anything that has to reason about the
@@ -98,16 +98,16 @@ SHEET_H = 792.0
 # line on every boundary instead. A blank gutter left it to the eye to guess where to cut; real
 # officials asked for an actual line. (Was 18.0pt/0.25" of blank space -- see git history.)
 SHEET_GUTTER = 0.0
-# 3 columns, not 4. Four native-width cards need 4 x 180 = 720pt, which doesn't even fit within
-# the 612pt sheet width at all, let alone leave a printable margin. Three columns need 540pt,
-# leaving a full 36pt (0.5") side margin -- comfortably clear of a typical consumer laser/inkjet
+# 3 columns, not 4. Four native-width cards need 4 x 162 = 648pt, which doesn't even fit within
+# the 612pt sheet width at all, let alone leave a printable margin. Three columns need 486pt,
+# leaving a full 63pt (0.875") side margin -- comfortably clear of a typical consumer laser/inkjet
 # printer's ~18pt (0.25") unprintable edge.
 SHEET_COLS = 3
 SHEET_ROWS = 3
 SHEET_SLOTS_PER_PAGE = SHEET_COLS * SHEET_ROWS
 # Derived, not hardcoded, so changing the grid or gutter keeps the block centred: the 3x3/zero-
-# gutter grid lands on exactly 36pt (0.5") margins, both horizontal and vertical -- both well
-# clear of a typical printer's ~18pt (0.25") unprintable edge.
+# gutter grid lands on exactly 63pt (0.875") horizontal and 72pt (1.0") vertical margins -- both
+# well clear of a typical printer's ~18pt (0.25") unprintable edge.
 SHEET_MARGIN_X = (SHEET_W - (SHEET_COLS * CARD_W + (SHEET_COLS - 1) * SHEET_GUTTER)) / 2
 SHEET_MARGIN_Y = (SHEET_H - (SHEET_ROWS * CARD_H + (SHEET_ROWS - 1) * SHEET_GUTTER)) / 2
 
