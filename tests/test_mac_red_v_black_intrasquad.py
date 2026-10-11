@@ -39,10 +39,13 @@ them (not synthetic data):
      behavior for an event where the swimmer's own team's rows in THIS document actually carry
      real names.
 
-Known, deliberately unfixed here (flagged separately, out of scope):
-  * parse_meet_name()'s keyword heuristic (invite/invitational/open/championship/nationals) does
-    not recognize "Intrasquad", so this meet's displayed calendar name falls back to generic
-    "Swim Meet" rather than "2026 MAC Red v Black Intrasquad".
+A fourth real parsing bug this meet's own documents surfaced, also fixed in extract.py:
+parse_meet_name()'s single-day-meet branch only recognized a title line via a keyword heuristic
+(invite/invitational/open/championship/nationals), which does not cover "Intrasquad" -- this
+meet's title line fell through to the generic "Swim Meet" fallback. Fixed with a general,
+structural match instead: a one-day meet's title line always ends in "- M/D/YYYY" (a bare date),
+the same way a multi-day meet's title line ends in "- M/D/YYYY to M/D/YYYY" (already handled
+separately). See CardMeetNameTest below.
 """
 
 from pathlib import Path
@@ -50,6 +53,7 @@ import json
 import tempfile
 import unittest
 
+from swimtimeline.badges import cards_for_timeline
 from swimtimeline.extract import (
     analyze_uploads,
     extract_confirmed_relay_legs_from_psych,
@@ -138,6 +142,23 @@ class SessionReportTest(unittest.TestCase):
         self.assertEqual(session["start_time"], "17:30")
         for item in payload["items"]:
             self.assertNotIn("prelim", item["event_format"].lower())
+
+
+class CardMeetNameTest(unittest.TestCase):
+    """parse_meet_name()'s structural "- M/D/YYYY" match: this meet's title line
+    ("2026 MAC Red v Black Intrasquad - 9/25/2026") contains none of the old keyword heuristic's
+    words (invite/invitational/open/championship/nationals), so before the fix it fell through to
+    the generic "Swim Meet" fallback everywhere -- both the swimmer-calendar payload and the
+    officials session event card."""
+
+    def test_swimmer_calendar_payload_meet_name_is_not_swim_meet(self):
+        payload = analyze("Fry, Jacob M")
+        self.assertEqual(payload["meet"]["name"], "2026 MAC Red v Black Intrasquad - 9/25/2026")
+
+    def test_session_card_meet_name_is_not_swim_meet(self):
+        meet_name, cards, _highlights = cards_for_timeline(TIMELINE, meet_venue=VENUE)
+        self.assertEqual(meet_name, "2026 MAC Red v Black Intrasquad - 9/25/2026")
+        self.assertEqual(cards[0].meet_name, "Red v Black Intrasquad")
 
 
 class MacAzSwimmerTest(unittest.TestCase):

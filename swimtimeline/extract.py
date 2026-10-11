@@ -1680,7 +1680,14 @@ def parse_meet_name(text: str) -> str:
     for line in text.splitlines():
         clean = normalize_space(line)
         lower = clean.lower()
-        if "invite" in lower or "invitational" in lower or " open" in lower or "championship" in lower or "nationals" in lower:
+        if (
+            "invite" in lower
+            or "invitational" in lower
+            or " open" in lower
+            or "championship" in lower
+            or "nationals" in lower
+            or re.search(r"-\s*\d{1,2}/\d{1,2}/\d{4}\s*$", clean)
+        ):
             return clean
     return "Swim Meet"
 

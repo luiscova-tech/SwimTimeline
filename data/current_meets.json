@@ -324,6 +324,30 @@
         "Psych/heat sheet",
         "Timeline"
       ]
+    },
+    {
+      "id": "2026-forktoberfest",
+      "name": "2026 Mona Nyheim-Canales Forktoberfest",
+      "short_name": "Forktoberfest",
+      "dates": "2026-10-17",
+      "start_date": "2026-10-17",
+      "end_date": "2026-10-17",
+      "expires_at": "2026-10-18",
+      "state": "AZ",
+      "timezone": "America/Phoenix",
+      "venue": "ASU Activity Center, Tempe, AZ",
+      "timeline_type": "projected",
+      "status": "ready",
+      "last_updated": "2026-10-09",
+      "files": {
+        "flyer": null,
+        "psych": null,
+        "timeline": "meets/2026-forktoberfest/input/2026-forktoberfest-timeline.pdf",
+        "relay": null
+      },
+      "documents": [
+        "Timeline"
+      ]
     }
   ]
 }
