@@ -24,10 +24,13 @@ from swimtimeline.badges import (
     DQ_CARD_W,
     DQ_CODE_SIDES,
     DQ_SHEET_SLOTS_PER_PAGE,
+    SLEEVE_CARD_H,
+    SLEEVE_CARD_W,
     dq_code_reference_payload,
     dq_sheet_slot_origin,
     format_dq_group_lines,
     render_dq_reference_pdf,
+    render_dq_reference_pdf_sleeve,
     render_dq_reference_sheet_pdf,
     SHEET_H,
     SHEET_W,
@@ -245,6 +248,63 @@ class RenderDqReferenceSheetPdfTest(unittest.TestCase):
                 self.assertLessEqual(max(c["bottom"] for c in chars), page.height)
 
 
+class RenderDqReferencePdfSleeveTest(unittest.TestCase):
+    """The private 4x6in sleeve version: exactly 2 pages at SLEEVE_CARD_W x SLEEVE_CARD_H, Side A
+    then Side B, real content, and -- the actual regression guard this adds -- nothing falls past
+    the footer line on either side (Side B is the tighter side)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.pdf_bytes = render_dq_reference_pdf_sleeve()
+
+    def test_two_sleeve_size_pages_side_a_then_side_b(self):
+        import io
+
+        with pdfplumber.open(io.BytesIO(self.pdf_bytes)) as pdf:
+            self.assertEqual(len(pdf.pages), 2)
+            for page in pdf.pages:
+                self.assertEqual(page.width, SLEEVE_CARD_W)
+                self.assertEqual(page.height, SLEEVE_CARD_H)
+            self.assertIn("Side A", pdf.pages[0].extract_text())
+            self.assertIn("Side B", pdf.pages[1].extract_text())
+
+    def test_every_stroke_name_appears_on_its_own_page(self):
+        import io
+
+        with pdfplumber.open(io.BytesIO(self.pdf_bytes)) as pdf:
+            page_a_text = pdf.pages[0].extract_text()
+            page_b_text = pdf.pages[1].extract_text()
+        for stroke in ("BUTTERFLY", "BACKSTROKE", "FREESTYLE"):
+            self.assertIn(stroke, page_a_text)
+        for stroke in ("BREASTSTROKE", "INDIVIDUAL MEDLEY", "RELAYS", "MISCELLANEOUS"):
+            self.assertIn(stroke, page_b_text)
+
+    def test_nothing_overflows_the_page_bounds(self):
+        import io
+
+        with pdfplumber.open(io.BytesIO(self.pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                chars = page.chars
+                self.assertTrue(chars)
+                self.assertLessEqual(max(c["x1"] for c in chars), page.width)
+                self.assertGreaterEqual(min(c["top"] for c in chars), 0)
+                self.assertLessEqual(max(c["bottom"] for c in chars), page.height)
+
+    def test_nothing_falls_past_the_footer_line_on_either_side(self):
+        """The real content risk at this font/margin combination: confirmed by rendering, not
+        assumed from the drawing code. footer_h=20.0 (DQ_SLEEVE_FOOTER_H) puts the footer line at
+        page_height - 20 in pdfplumber's top-down coordinates."""
+        import io
+
+        from swimtimeline.badges import DQ_SLEEVE_FOOTER_H
+
+        with pdfplumber.open(io.BytesIO(self.pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                footer_top_coord = page.height - DQ_SLEEVE_FOOTER_H
+                below_footer = [c for c in page.chars if c["top"] > footer_top_coord]
+                self.assertEqual(below_footer, [])
+
+
 class DqCodeReferenceApiTest(unittest.TestCase):
     """The two server routes, driven over real HTTP the same way test_subscribe_ics.py and
     test_timeline_api.py drive theirs."""
@@ -308,6 +368,26 @@ class DqCodeReferenceApiTest(unittest.TestCase):
             self.assertEqual(len(pdf.pages), 2)
             self.assertEqual(pdf.pages[0].extract_text().count("BUTTERFLY"), 9)
             self.assertEqual(pdf.pages[1].extract_text().count("BREASTSTROKE"), 9)
+
+    def test_sleeve_endpoint_returns_a_two_page_sleeve_size_pdf(self):
+        import io
+
+        url = f"http://127.0.0.1:{self.port}/api/officials/dq-codes-sleeve.pdf"
+        with urllib.request.urlopen(url, timeout=30) as response:
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.headers.get_content_type(), "application/pdf")
+            disposition = response.headers.get("Content-Disposition", "")
+            self.assertIn("attachment", disposition)
+            self.assertIn("stroke-turn-dq-code-reference-sleeve.pdf", disposition)
+            body = response.read()
+        self.assertTrue(body.startswith(b"%PDF-"))
+        with pdfplumber.open(io.BytesIO(body)) as pdf:
+            self.assertEqual(len(pdf.pages), 2)
+            for page in pdf.pages:
+                self.assertEqual(page.width, SLEEVE_CARD_W)
+                self.assertEqual(page.height, SLEEVE_CARD_H)
+            self.assertIn("Side A", pdf.pages[0].extract_text())
+            self.assertIn("Side B", pdf.pages[1].extract_text())
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 """Printable badge-card schedules for meet officials, from a HY-TEK Session Report PDF.
 
-One 2.25"x3" (162x216pt) card per session: event number, abbreviated event name, heat count,
+One 2.15"x3 1/3" (154.8x240pt) card per session: event number, abbreviated event name, heat count,
 and start time, sized to drop into a credential holder.
 
 Relationship to extract.py -- this module adds NOTHING to it and changes NOTHING in it. The
@@ -56,22 +56,33 @@ from .extract import (
 )
 
 
-# Card geometry: 2.25" x 3" at 72pt/inch. Every other function in this module (draw_card,
+# Card geometry: 2.15" x 3 1/3" at 72pt/inch. Every other function in this module (draw_card,
 # render_cards_pdf, render_sheet_pdf, render_handout_sheet_pdf, draw_sheet_cut_lines,
 # sheet_slot_origin, and SHEET_MARGIN_X/Y below) derives its geometry from these two constants --
 # draw_card's own fonts/margins are computed as fractions of W/H, so a size change like this one
 # scales the whole card proportionally rather than just adding or removing blank space around the
 # old size.
-CARD_W = 162.0  # 2.25in
-CARD_H = 216.0  # 3.0in
+CARD_W = 154.8  # 2.15in
+CARD_H = 240.0  # 3 1/3in (3.333in)
 
 # The DQ reference card is deliberately sized on its OWN constants, not CARD_W/CARD_H -- those are
-# shared with the session-event cards and change independently of this card (they briefly matched
-# numerically at 180x240pt after the session cards' 2026-09-30 bump, then diverged again when the
-# session cards were sized back down): this card's content was fitted and print-tested specifically
-# at 2.5"x3.333", so it must not silently change size if the session cards' own size changes.
-DQ_CARD_W = 180.0  # 2.5in
-DQ_CARD_H = 240.0  # 3.333in
+# shared with the session-event cards and change independently of this card (they have matched
+# numerically more than once purely by coincidence: both were 180x240pt after the session cards'
+# 2026-09-30 bump, then diverged when the session cards were sized back down to 162x216, and now
+# both are 154.8x240 again after this round's resize of each): this card's content was fitted and
+# print-tested specifically at 2.15"x3.333" (see the retuned fs in draw_dq_reference_page), so it
+# must not silently change size if the session cards' own size changes again independently.
+DQ_CARD_W = 154.8  # 2.15in
+DQ_CARD_H = 240.0  # 3.333in (unchanged)
+
+# A private 4x6in physical card-sleeve size -- NOT linked or mentioned anywhere in
+# officials.html, reachable only by whoever knows the URL directly. Deliberately shared by BOTH
+# card types, unlike CARD_W/H vs DQ_CARD_W/H above: those are each sized independently to their
+# own content and must stay decoupled, but SLEEVE_CARD_W/H are just the literal 4"x6" physical
+# dimension of the sleeve itself, the same regardless of which card goes inside it.
+SLEEVE_CARD_W = 288.0  # 4in
+SLEEVE_CARD_H = 432.0  # 6in
+
 # Vertical budget, as fractions of card height, shared with anything that has to reason about the
 # table's available space (tests/test_badges.py replicates draw_card's row-height math to check
 # that a star or an event name still fits). These were duplicated as bare literals in both places
@@ -98,16 +109,16 @@ SHEET_H = 792.0
 # line on every boundary instead. A blank gutter left it to the eye to guess where to cut; real
 # officials asked for an actual line. (Was 18.0pt/0.25" of blank space -- see git history.)
 SHEET_GUTTER = 0.0
-# 3 columns, not 4. Four native-width cards need 4 x 162 = 648pt, which doesn't even fit within
-# the 612pt sheet width at all, let alone leave a printable margin. Three columns need 486pt,
-# leaving a full 63pt (0.875") side margin -- comfortably clear of a typical consumer laser/inkjet
-# printer's ~18pt (0.25") unprintable edge.
+# 3 columns, not 4. Four native-width cards need 4 x 154.8 = 619.2pt, which still doesn't fit
+# within the 612pt sheet width at all, let alone leave a printable margin. Three columns need
+# 464.4pt, leaving a full 73.8pt (1.025") side margin -- comfortably clear of a typical consumer
+# laser/inkjet printer's ~18pt (0.25") unprintable edge.
 SHEET_COLS = 3
 SHEET_ROWS = 3
 SHEET_SLOTS_PER_PAGE = SHEET_COLS * SHEET_ROWS
 # Derived, not hardcoded, so changing the grid or gutter keeps the block centred: the 3x3/zero-
-# gutter grid lands on exactly 63pt (0.875") horizontal and 72pt (1.0") vertical margins -- both
-# well clear of a typical printer's ~18pt (0.25") unprintable edge.
+# gutter grid lands on exactly 73.8pt (1.025") horizontal and 36.0pt (0.5") vertical margins --
+# both well clear of a typical printer's ~18pt (0.25") unprintable edge.
 SHEET_MARGIN_X = (SHEET_W - (SHEET_COLS * CARD_W + (SHEET_COLS - 1) * SHEET_GUTTER)) / 2
 SHEET_MARGIN_Y = (SHEET_H - (SHEET_ROWS * CARD_H + (SHEET_ROWS - 1) * SHEET_GUTTER)) / 2
 
@@ -116,14 +127,26 @@ SHEET_MARGIN_Y = (SHEET_H - (SHEET_ROWS * CARD_H + (SHEET_ROWS - 1) * SHEET_GUTT
 # constants rather than the session cards' SHEET_* block above -- same reason DQ_CARD_W/DQ_CARD_H
 # are their own constants: this grid must not silently change if the session cards' own sheet
 # geometry changes independently. 3x3/zero-gutter, same shape as the session-card grid, lands on
-# exactly 36pt (0.5") margins both ways -- comfortably clear of a typical printer's ~18pt (0.25")
-# unprintable edge.
+# exactly 73.8pt (1.025") horizontal and 36.0pt (0.5") vertical margins -- comfortably clear of a
+# typical printer's ~18pt (0.25") unprintable edge. These now numerically match the session-card
+# grid's own margins above (since DQ_CARD_W/H coincide with CARD_W/H again this round), computed
+# independently all the same.
 DQ_SHEET_GUTTER = 0.0
 DQ_SHEET_COLS = 3
 DQ_SHEET_ROWS = 3
 DQ_SHEET_SLOTS_PER_PAGE = DQ_SHEET_COLS * DQ_SHEET_ROWS
 DQ_SHEET_MARGIN_X = (SHEET_W - (DQ_SHEET_COLS * DQ_CARD_W + (DQ_SHEET_COLS - 1) * DQ_SHEET_GUTTER)) / 2
 DQ_SHEET_MARGIN_Y = (SHEET_H - (DQ_SHEET_ROWS * DQ_CARD_H + (DQ_SHEET_ROWS - 1) * DQ_SHEET_GUTTER)) / 2
+
+# Sleeve-size DQ reference card constants. draw_dq_reference_page() is NOT generic -- it hardcodes
+# margin/header/footer/font sizes as literal point values tuned specifically for the small badge
+# card -- so the much larger SLEEVE_CARD_W x SLEEVE_CARD_H card gets its own tuned constants here
+# and its own drawing function (draw_dq_reference_page_sleeve) rather than a parameter on the
+# existing one. Private, like SLEEVE_CARD_W/H above: not linked anywhere in officials.html.
+DQ_SLEEVE_MARGIN = 24.0
+DQ_SLEEVE_HEADER_H = 36.0
+DQ_SLEEVE_FOOTER_H = 20.0
+DQ_SLEEVE_FS = 9.3
 
 
 # ---------------------------------------------------------------------------
@@ -1194,6 +1217,42 @@ def render_cards_pdf(cards: list[SessionCard]) -> bytes:
     return buffer.getvalue()
 
 
+def render_cards_pdf_sleeve(cards: list[SessionCard]) -> bytes:
+    """Private sibling of render_cards_pdf(): one SLEEVE_CARD_W x SLEEVE_CARD_H page per card, for
+    a real 4x6in physical card sleeve -- not linked anywhere in officials.html, reachable only via
+    ?size=sleeve on /api/officials/badges for whoever has the URL.
+
+    Same exact draw_card() call as render_cards_pdf() -- every font and margin is already computed
+    as a fraction of W/H with its own floor and ceiling, so no drawing changes are needed to render
+    cleanly at this much larger size. cut_marks=False: this bleeds straight to the sleeve's own
+    physical edges, it is not cut out of a shared sheet.
+    """
+    if not cards:
+        raise ValueError("No sessions to render.")
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=(SLEEVE_CARD_W, SLEEVE_CARD_H))
+    for card in cards:
+        pdf.setTitle(f"{card.meet_name} session event cards (sleeve)")
+        draw_card(
+            pdf,
+            0,
+            0,
+            SLEEVE_CARD_W,
+            SLEEVE_CARD_H,
+            meet_name=card.meet_name,
+            session_label=card.session_label,
+            date_label=card.date_label,
+            start_label=card.start_label,
+            heat_interval=card.heat_interval,
+            events=card.events,
+            finish_label=card.finish_label,
+            cut_marks=False,
+        )
+        pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
+
+
 def sheet_slot_origin(slot_index: int) -> tuple[float, float]:
     """The (x, y) lower-left corner of one grid slot on a print sheet, in reading order: left to
     right, top row first. slot_index is the position WITHIN a page (0 .. SHEET_SLOTS_PER_PAGE-1).
@@ -1313,6 +1372,7 @@ def card_filename(
     layout: str = "cards",
     highlighted_only: bool = False,
     copies: int | None = None,
+    size: str = "badge",
 ) -> str:
     """A safe download filename: whole meet, one session, tiled print sheets, or N copies of one
     session's card.
@@ -1320,21 +1380,24 @@ def card_filename(
     highlighted_only is part of the name because a filtered and an unfiltered download of the same
     meet are different documents -- without it the browser just appends "(1)" and the two are
     indistinguishable in a Downloads folder. copies works the same way: it names the count so a
-    10-copy and a 50-copy handout of the same session don't collide either.
+    10-copy and a 50-copy handout of the same session don't collide either. size works the same
+    way too: a private 4x6in sleeve download and the default badge-size one are different
+    documents of the same meet/session and must not collide in a Downloads folder either.
     """
     slug = re.sub(r"[^a-z0-9]+", "-", meet_name.lower()).strip("-") or "meet"
     slug = slug[:60].strip("-")
+    size_suffix = "-sleeve" if size == "sleeve" else ""
     if card is not None:
         # Sanitized the same way the meet slug above is: a session id is the meet's own label, so
         # it is not guaranteed to be filename-safe the way a bare integer was.
         session_slug = re.sub(r"[^A-Za-z0-9]+", "-", str(card.session_number)).strip("-") or "x"
         if copies:
-            return f"{slug}-session-{session_slug}-session-event-cards-x{copies}.pdf"
-        return f"{slug}-session-{session_slug}-session-event-card.pdf"
+            return f"{slug}-session-{session_slug}-session-event-cards{size_suffix}-x{copies}.pdf"
+        return f"{slug}-session-{session_slug}-session-event-card{size_suffix}.pdf"
     suffix = "-highlighted" if highlighted_only else ""
     if layout == "sheet":
         return f"{slug}-session-event-card-sheets{suffix}.pdf"
-    return f"{slug}-session-event-cards{suffix}.pdf"
+    return f"{slug}-session-event-cards{suffix}{size_suffix}.pdf"
 
 
 DQ_REFERENCE_TITLE = "Stroke & Turn Quick Reference"
@@ -1499,7 +1562,12 @@ def draw_dq_reference_page(c, side: dict, ox: float = 0.0, oy: float = 0.0) -> N
     margin = 3.0
     header_h = 12.0
     footer_h = 2.0
-    fs = 6.4
+    # 6.1pt, not the largest size that technically still fits (6.2pt) -- chosen for extra safety
+    # margin: at the card's current 154.8pt width, 6.1pt leaves real headroom above the footer
+    # line on the tighter side (Side B), while 6.3pt already overflows past it. Confirmed against
+    # the real DQ_CODE_SIDES content with pdfplumber, not assumed from the formula (see
+    # tests/test_dq_code_reference.py).
+    fs = 6.1
     line_h = fs * 1.30
     heading_fs = fs + 1.0
     heading_line_h = heading_fs * 1.30
@@ -1539,6 +1607,61 @@ def draw_dq_reference_page(c, side: dict, ox: float = 0.0, oy: float = 0.0) -> N
     c.setStrokeColor(GRAY_LINE)
     c.setLineWidth(0.4)
     c.line(ox + margin, oy + footer_h, ox + DQ_CARD_W - margin, oy + footer_h)
+
+
+def draw_dq_reference_page_sleeve(c, side: dict, ox: float = 0.0, oy: float = 0.0) -> None:
+    """Private 4x6in sleeve version of draw_dq_reference_page(): the exact same per-stroke bold
+    heading + grouped infraction lines + left accent-stripe structure, just scaled up to
+    SLEEVE_CARD_W x SLEEVE_CARD_H on its own DQ_SLEEVE_* constants. There is real room here, unlike
+    the badge card, for a friendlier two-line title: the full reference name at Helvetica-Bold
+    16pt, with "Side A"/"Side B" as its own subtitle line underneath at Helvetica 11pt, instead of
+    the badge card's single compact title line.
+    """
+    margin = DQ_SLEEVE_MARGIN
+    header_h = DQ_SLEEVE_HEADER_H
+    footer_h = DQ_SLEEVE_FOOTER_H
+    fs = DQ_SLEEVE_FS
+    line_h = fs * 1.35
+    heading_fs = fs + 2.0
+    heading_line_h = heading_fs * 1.35
+    heading_gap = 6.0
+    stroke_gap = fs * 0.4
+    stripe_w = 4.0
+    text_x = ox + margin + 5
+    wrap_w = (SLEEVE_CARD_W - 2 * margin) - 6
+    top = oy + SLEEVE_CARD_H
+
+    c.setFillColor(NAVY)
+    c.rect(ox, top - header_h, SLEEVE_CARD_W, header_h, stroke=0, fill=1)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(ox + SLEEVE_CARD_W / 2, top - 16, DQ_REFERENCE_TITLE)
+    c.setFont("Helvetica", 11)
+    c.drawCentredString(ox + SLEEVE_CARD_W / 2, top - 30, f"Side {side['side']}")
+
+    y = top - header_h
+    for stroke in side["strokes"]:
+        heading_top = y
+        c.setFillColor(MAROON)
+        c.setFont("Helvetica-Bold", heading_fs)
+        c.drawString(text_x, y - heading_line_h * 0.72, stroke["name"].upper())
+        y -= heading_line_h + heading_gap
+
+        for label, items in stroke["groups"]:
+            for line in format_dq_group_lines(label, items, "Helvetica", fs, wrap_w):
+                c.setFillColor(GRAY_TXT)
+                c.setFont("Helvetica", fs)
+                c.drawString(text_x, y - line_h * 0.72, line)
+                y -= line_h
+
+        content_end_y = y
+        c.setFillColor(NAVY)
+        c.rect(ox + margin, content_end_y, stripe_w, heading_top - content_end_y, stroke=0, fill=1)
+        y -= stroke_gap
+
+    c.setStrokeColor(GRAY_LINE)
+    c.setLineWidth(0.4)
+    c.line(ox + margin, oy + footer_h, ox + SLEEVE_CARD_W - margin, oy + footer_h)
 
 
 def draw_dq_reference_card_outline(c, ox: float, oy: float) -> None:
@@ -1629,6 +1752,24 @@ def render_dq_reference_sheet_pdf() -> bytes:
         for slot in range(DQ_SHEET_SLOTS_PER_PAGE):
             origin_x, origin_y = dq_sheet_slot_origin(slot)
             draw_dq_reference_page(pdf, side, ox=origin_x, oy=origin_y)
+        pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
+
+
+def render_dq_reference_pdf_sleeve() -> bytes:
+    """Private 4x6in sleeve version of render_dq_reference_pdf(): exactly 2 pages, each
+    SLEEVE_CARD_W x SLEEVE_CARD_H, Side A then Side B. Unlike the badge-size version, this is NOT
+    centered on a full SHEET_W x SHEET_H page -- it is meant to print directly at its own native
+    4x6 size (a photo printer or a 4x6 paper tray), not get cut down from a Letter sheet, so there
+    is no duplex-alignment concern to design around here. No cut-line outline either: the page
+    bleeds to the card's real edges.
+    """
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=(SLEEVE_CARD_W, SLEEVE_CARD_H))
+    pdf.setTitle(f"{DQ_REFERENCE_TITLE} (sleeve)")
+    for side in DQ_CODE_SIDES:
+        draw_dq_reference_page_sleeve(pdf, side)
         pdf.showPage()
     pdf.save()
     return buffer.getvalue()

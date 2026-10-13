@@ -6,7 +6,7 @@ highlighted-only filtering all live in send_badges_pdf(). The per-card rendering
 in tests/test_badges.py.
 
 Four shapes, all from the same per-session draw_card() call:
-  * default            -- one 162x216pt page per session; a page IS a card, so it can be cut out
+  * default            -- one 154.8x240pt page per session; a page IS a card, so it can be cut out
                           and worn in a badge holder. Unchanged by either sheet layout.
   * ?session=N         -- the same, for one session.
   * ?layout=sheet      -- those native-size cards tiled on shared 612x792pt letter sheets, one
@@ -103,12 +103,12 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
 
     def test_default_layout_is_one_card_sized_page_per_session(self):
         status, headers, body = self.badges(meet_id=HERCULEAN)
-        self.assert_pdf(status, headers, body, pages=6, size=(162.0, 216.0))
+        self.assert_pdf(status, headers, body, pages=6, size=(154.8, 240.0))
         self.assertIn("session-event-cards.pdf", headers["Content-Disposition"])
 
     def test_explicit_single_session_is_one_card_sized_page(self):
         status, headers, body = self.badges(meet_id=HERCULEAN, session=1)
-        reader = self.assert_pdf(status, headers, body, pages=1, size=(162.0, 216.0))
+        reader = self.assert_pdf(status, headers, body, pages=1, size=(154.8, 240.0))
         self.assertIn("SESSION 1", self.page_text(reader, 0))
         self.assertIn("session-1-session-event-card.pdf", headers["Content-Disposition"])
 
@@ -135,7 +135,7 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
         """The one-card-per-page format exists so a printed page fits a 2x3 badge holder; the sheet
         layout is an addition, not a replacement."""
         status, headers, body = self.badges(meet_id=HERCULEAN)
-        self.assert_pdf(status, headers, body, pages=6, size=(162.0, 216.0))
+        self.assert_pdf(status, headers, body, pages=6, size=(154.8, 240.0))
 
     # ---- highlighted-only filter -------------------------------------------
 
@@ -143,7 +143,7 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
         status, headers, body = self.badges(
             meet_id=HERCULEAN, swimmer_names=COVA, highlighted_only=1
         )
-        reader = self.assert_pdf(status, headers, body, pages=2, size=(162.0, 216.0))
+        reader = self.assert_pdf(status, headers, body, pages=2, size=(154.8, 240.0))
         texts = [self.page_text(reader, index) for index in range(2)]
         for expected_session, text in zip(COVA_SESSIONS, texts):
             self.assertIn(f"SESSION {expected_session}", text)
@@ -156,7 +156,7 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
     def test_unfiltered_still_returns_all_six_sessions_with_the_same_names_given(self):
         """Proves the 2-page result above is the FILTER's doing, not something about the names."""
         status, headers, body = self.badges(meet_id=HERCULEAN, swimmer_names=COVA)
-        self.assert_pdf(status, headers, body, pages=6, size=(162.0, 216.0))
+        self.assert_pdf(status, headers, body, pages=6, size=(154.8, 240.0))
         self.assertNotIn("highlighted", headers["Content-Disposition"])
 
     def test_filter_composes_with_the_sheet_layout(self):
@@ -225,7 +225,7 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
         status, headers, body = self.badges(
             meet_id=HERCULEAN, swimmer_names=COVA, highlighted_only=1, session=1
         )
-        reader = self.assert_pdf(status, headers, body, pages=1, size=(162.0, 216.0))
+        reader = self.assert_pdf(status, headers, body, pages=1, size=(154.8, 240.0))
         self.assertIn("SESSION 1", self.page_text(reader, 0))
 
     # ---- layout=handout (print copies) -------------------------------------
@@ -322,13 +322,96 @@ class OfficialsBadgeDownloadTest(unittest.TestCase):
         """Re-verifies the three pre-existing shapes still work exactly as before, not just
         assumes they do because handout was added elsewhere."""
         status, headers, body = self.badges(meet_id=HERCULEAN)
-        self.assert_pdf(status, headers, body, pages=6, size=(162.0, 216.0))
+        self.assert_pdf(status, headers, body, pages=6, size=(154.8, 240.0))
 
         status, headers, body = self.badges(meet_id=HERCULEAN, layout="sheet")
         self.assert_pdf(status, headers, body, pages=1, size=(612.0, 792.0))
 
         status, headers, body = self.badges(meet_id=HERCULEAN, session=3)
-        self.assert_pdf(status, headers, body, pages=1, size=(162.0, 216.0))
+        self.assert_pdf(status, headers, body, pages=1, size=(154.8, 240.0))
+
+
+class SleeveSizeDownloadTest(unittest.TestCase):
+    """?size=sleeve on /api/officials/badges -- a PRIVATE rendering choice (not linked or
+    mentioned anywhere in officials.html) that renders the same selected cards at
+    SLEEVE_CARD_W x SLEEVE_CARD_H instead of the default badge size. New, purely additive test
+    class so none of the pinned/golden assertions above need to change."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.httpd = ThreadingHTTPServer(("127.0.0.1", 0), SwimTimelineHandler)
+        cls.port = cls.httpd.server_address[1]
+        cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.httpd.server_close()
+
+    def badges(self, **params) -> tuple[int, dict, bytes]:
+        pairs: list[tuple[str, str]] = []
+        for key, value in params.items():
+            if isinstance(value, (list, tuple)):
+                pairs.extend((key, str(item)) for item in value)
+            else:
+                pairs.append((key, str(value)))
+        url = f"http://127.0.0.1:{self.port}/api/officials/badges?{urllib.parse.urlencode(pairs)}"
+        try:
+            with urllib.request.urlopen(url, timeout=120) as response:
+                return response.status, dict(response.headers), response.read()
+        except urllib.error.HTTPError as error:
+            return error.code, dict(error.headers), error.read()
+
+    def test_size_sleeve_returns_a_valid_sleeve_size_pdf_for_a_real_hosted_meet(self):
+        from swimtimeline.badges import SLEEVE_CARD_H, SLEEVE_CARD_W
+
+        status, headers, body = self.badges(meet_id=HERCULEAN, size="sleeve")
+        self.assertEqual(status, 200, body[:300])
+        self.assertEqual(headers["Content-Type"], "application/pdf")
+        self.assertIn("sleeve", headers["Content-Disposition"])
+        reader = PdfReader(BytesIO(body))
+        self.assertEqual(len(reader.pages), 6)
+        for page in reader.pages:
+            self.assertAlmostEqual(float(page.mediabox.width), SLEEVE_CARD_W, places=2)
+            self.assertAlmostEqual(float(page.mediabox.height), SLEEVE_CARD_H, places=2)
+
+    def test_size_sleeve_with_layout_sheet_is_a_clear_400(self):
+        status, _headers, body = self.badges(meet_id=HERCULEAN, size="sleeve", layout="sheet")
+        self.assertEqual(status, 400)
+        message = json.loads(body)["error"]
+        self.assertIn("sleeve", message)
+        self.assertIn("layout=cards", message)
+        self.assertNotIn(b"%PDF", body)
+
+    def test_size_sleeve_with_layout_handout_is_a_clear_400(self):
+        status, _headers, body = self.badges(
+            meet_id=HERCULEAN, size="sleeve", layout="handout", session=1, copies=9
+        )
+        self.assertEqual(status, 400)
+        message = json.loads(body)["error"]
+        self.assertIn("sleeve", message)
+        self.assertIn("layout=cards", message)
+        self.assertNotIn(b"%PDF", body)
+
+    def test_unknown_size_is_a_clear_400(self):
+        status, _headers, body = self.badges(meet_id=HERCULEAN, size="giant")
+        self.assertEqual(status, 400)
+        message = json.loads(body)["error"]
+        self.assertIn("size", message)
+        self.assertNotIn(b"%PDF", body)
+
+    def test_default_size_is_unaffected(self):
+        """Re-verifies the default (no size param) shape still works exactly as before."""
+        from swimtimeline.badges import CARD_H, CARD_W
+
+        status, headers, body = self.badges(meet_id=HERCULEAN)
+        self.assertEqual(status, 200, body[:300])
+        self.assertNotIn("sleeve", headers["Content-Disposition"])
+        reader = PdfReader(BytesIO(body))
+        self.assertEqual(len(reader.pages), 6)
+        self.assertAlmostEqual(float(reader.pages[0].mediabox.width), CARD_W, places=2)
+        self.assertAlmostEqual(float(reader.pages[0].mediabox.height), CARD_H, places=2)
 
 
 if __name__ == "__main__":

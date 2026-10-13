@@ -61,7 +61,9 @@ from swimtimeline.badges import (
     dq_code_reference_payload,
     is_ambiguous_warning,
     render_cards_pdf,
+    render_cards_pdf_sleeve,
     render_dq_reference_pdf,
+    render_dq_reference_pdf_sleeve,
     render_dq_reference_sheet_pdf,
     render_handout_sheet_pdf,
     render_sheet_pdf,
@@ -152,6 +154,18 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/pdf")
             self.send_header("Content-Disposition", 'attachment; filename="stroke-turn-dq-code-reference-sheet.pdf"')
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+        if path == "/api/officials/dq-codes-sleeve.pdf":
+            # PRIVATE: not linked or mentioned anywhere in officials.html, reachable only by
+            # whoever has this exact URL. Same "no meet, nothing that can fail on bad input"
+            # reasoning as the other two DQ PDF routes above.
+            content = render_dq_reference_pdf_sleeve()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/pdf")
+            self.send_header("Content-Disposition", 'attachment; filename="stroke-turn-dq-code-reference-sleeve.pdf"')
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
             self.wfile.write(content)
@@ -471,8 +485,8 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         """The badge-card PDF itself. Four shapes, all built from the same per-session draw_card()
         call, so a card's content never differs between them:
 
-          * default            -- one 144x216pt page per session (a page IS a card, so a printed
-                                  page can be cut out and worn in a badge holder)
+          * default            -- one CARD_W x CARD_H page per session (a page IS a card, so a
+                                  printed page can be cut out and worn in a badge holder)
           * ?session=N         -- the same thing for one session, i.e. a one-page version
           * ?layout=sheet      -- those same native-size cards tiled on shared letter sheets, so a
                                   whole meet's reference schedule isn't N mostly-blank pages
@@ -496,6 +510,14 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
         repeating "the meet" doesn't mean anything, so either one missing is a clear error rather
         than a silent guess. The cap on N (see badges.MAX_HANDOUT_COPIES) is enforced inside
         render_handout_sheet_pdf(), not here, so there is one place that owns the number.
+
+        `size=sleeve` is a PRIVATE, undocumented rendering choice -- not linked or mentioned
+        anywhere in officials.html, reachable only by whoever has this exact URL. It renders the
+        same selected cards at SLEEVE_CARD_W x SLEEVE_CARD_H (a real 4x6in physical card sleeve)
+        instead of the default badge size, via render_cards_pdf_sleeve() instead of
+        render_cards_pdf(). It only supports layout=cards (the default): sheet/handout tiling onto
+        a shared Letter page doesn't apply to a single 4x6 card, so any other layout is a clear
+        InputError rather than silently ignored.
         """
         try:
             meet_id = str((query.get("meet_id") or [""])[0]).strip()
@@ -504,6 +526,14 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
             layout = str((query.get("layout") or ["cards"])[0]).strip().lower() or "cards"
             if layout not in {"cards", "sheet", "handout"}:
                 raise InputError(f"Unknown layout '{layout}'. Use 'cards', 'sheet', or 'handout'.")
+            size = str((query.get("size") or ["badge"])[0]).strip().lower() or "badge"
+            if size not in {"badge", "sleeve"}:
+                raise InputError(f"Unknown size '{size}'. Use 'badge' or 'sleeve'.")
+            if size == "sleeve" and layout != "cards":
+                raise InputError(
+                    "size=sleeve only supports layout=cards -- sheet/handout tiling onto a shared "
+                    "Letter page doesn't apply to a single 4x6 sleeve card."
+                )
             copies_raw = str((query.get("copies") or [""])[0]).strip()
             if (layout == "handout" or copies_raw) and not session_raw:
                 raise InputError(
@@ -572,6 +602,8 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
                 content = render_handout_sheet_pdf(cards[0], copies)
             elif layout == "sheet":
                 content = render_sheet_pdf(cards)
+            elif size == "sleeve":
+                content = render_cards_pdf_sleeve(cards)
             else:
                 content = render_cards_pdf(cards)
             filename = card_filename(
@@ -580,6 +612,7 @@ class SwimTimelineHandler(BaseHTTPRequestHandler):
                 layout=layout,
                 highlighted_only=highlighted_only,
                 copies=copies,
+                size=size,
             )
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/pdf")

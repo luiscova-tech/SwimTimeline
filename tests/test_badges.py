@@ -466,7 +466,7 @@ class RenderedPdfTest(unittest.TestCase):
             for index, page in enumerate(reader.pages):
                 self.assertAlmostEqual(float(page.mediabox.width), CARD_W, places=2, msg=index)
                 self.assertAlmostEqual(float(page.mediabox.height), CARD_H, places=2, msg=index)
-        self.assertEqual((CARD_W, CARD_H), (162.0, 216.0))
+        self.assertEqual((CARD_W, CARD_H), (154.8, 240.0))
 
     def test_single_session_pdf_is_one_page_at_the_same_size(self):
         _meet_name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
@@ -909,17 +909,19 @@ class SheetGridGeometryTest(unittest.TestCase):
     on every boundary instead of leaving a blank gap to eyeball (see real officials feedback on
     the Cummins Invitational cards).
 
-    Three columns rather than four: four native-width cards need 4 x 162 = 648pt, which doesn't
-    even fit within the 612pt sheet width at all, let alone leave a printable margin.
+    Three columns rather than four: four native-width cards need 4 x 154.8 = 619.2pt, which
+    doesn't even fit within the 612pt sheet width at all, let alone leave a printable margin.
     """
 
     def test_sheet_is_us_letter_and_the_grid_lands_on_clean_margins(self):
         self.assertEqual((SHEET_W, SHEET_H), (612.0, 792.0))
         self.assertEqual((SHEET_COLS, SHEET_ROWS, SHEET_SLOTS_PER_PAGE), (3, 3, 9))
         self.assertEqual(SHEET_GUTTER, 0.0)
-        # Derived from the grid, and exact: 0.875" (63pt) horizontal, 1.0" (72pt) vertical.
-        self.assertEqual(SHEET_MARGIN_X, 63.0)
-        self.assertEqual(SHEET_MARGIN_Y, 72.0)
+        # Derived from the grid, and exact up to float representation: 1.025" (73.8pt)
+        # horizontal, 0.5" (36pt) vertical. assertAlmostEqual on X: (SHEET_W - 3*CARD_W)/2 at the
+        # card's current non-round 154.8pt width lands a float ULP away from the 73.8 literal.
+        self.assertAlmostEqual(SHEET_MARGIN_X, 73.8, places=9)
+        self.assertEqual(SHEET_MARGIN_Y, 36.0)
         # The margins really do account for every remaining point of the sheet.
         self.assertEqual(
             SHEET_MARGIN_X * 2 + SHEET_COLS * CARD_W + (SHEET_COLS - 1) * SHEET_GUTTER, SHEET_W
@@ -1031,7 +1033,11 @@ class SheetCutLineTest(unittest.TestCase):
         self.assertEqual(horizontals, sorted(row_tops | {row_bottom}))
         for x0, y0, x1, y1 in canvas.lines:
             if y0 == y1:  # a horizontal seam spans the whole grid width
-                self.assertEqual(x1 - x0, SHEET_COLS * CARD_W)
+                # assertAlmostEqual, not assertEqual: grid_right - grid_left is
+                # (SHEET_MARGIN_X + SHEET_COLS * CARD_W) - SHEET_MARGIN_X, which at the card's
+                # current non-round 154.8pt width lands a float ULP away from SHEET_COLS * CARD_W
+                # computed directly -- a float-representation artifact, not a real seam mismatch.
+                self.assertAlmostEqual(x1 - x0, SHEET_COLS * CARD_W, places=9)
 
     def test_the_tiled_sheet_really_emits_a_dash_operator(self):
         """Not just computed -- reaches the actual PDF. render_cards_pdf's one-card-per-page
@@ -1398,6 +1404,50 @@ class CroswhiteEmptyAgeQualifierEventShapeTest(unittest.TestCase):
         page = reader.pages[0]
         self.assertAlmostEqual(float(page.mediabox.width), CARD_W, places=2)
         self.assertAlmostEqual(float(page.mediabox.height), CARD_H, places=2)
+
+
+class RenderCardsPdfSleeveTest(unittest.TestCase):
+    """render_cards_pdf_sleeve(): the private 4x6in physical-sleeve sibling of render_cards_pdf().
+    New, purely additive test class -- no existing pinned/golden test is touched."""
+
+    def test_pages_render_at_sleeve_card_size(self):
+        from swimtimeline.badges import SLEEVE_CARD_H, SLEEVE_CARD_W, render_cards_pdf_sleeve
+
+        _meet_name, cards, _highlights = cards_for_timeline(HERC_TIMELINE, flyer_text=flyer_text(HERC_FLYER))
+        reader = PdfReader(BytesIO(render_cards_pdf_sleeve(cards)))
+        self.assertEqual(len(reader.pages), len(cards))
+        for page in reader.pages:
+            self.assertAlmostEqual(float(page.mediabox.width), SLEEVE_CARD_W, places=2)
+            self.assertAlmostEqual(float(page.mediabox.height), SLEEVE_CARD_H, places=2)
+
+    def test_the_densest_real_session_still_renders_with_no_overflow(self):
+        """WZAG's Thursday Finals (28 events, the biggest real session) at the much larger sleeve
+        size -- checked with pdfplumber against the real rendered bytes, not assumed from the
+        drawing code just because it already works at badge size."""
+        import io
+
+        import pdfplumber
+
+        from swimtimeline.badges import render_cards_pdf_sleeve
+
+        _meet_name, cards, _highlights = cards_for_timeline(WZAG_TIMELINE, flyer_text=flyer_text(WZAG_FLYER))
+        biggest = max(cards, key=lambda card: card.event_count)
+        self.assertEqual(biggest.event_count, 28)
+        pdf_bytes = render_cards_pdf_sleeve([biggest])
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            self.assertEqual(len(pdf.pages), 1)
+            page = pdf.pages[0]
+            chars = page.chars
+            self.assertTrue(chars)
+            self.assertLessEqual(max(c["x1"] for c in chars), page.width)
+            self.assertGreaterEqual(min(c["top"] for c in chars), 0)
+            self.assertLessEqual(max(c["bottom"] for c in chars), page.height)
+
+    def test_rendering_no_cards_is_refused(self):
+        from swimtimeline.badges import render_cards_pdf_sleeve
+
+        with self.assertRaises(ValueError):
+            render_cards_pdf_sleeve([])
 
 
 if __name__ == "__main__":
