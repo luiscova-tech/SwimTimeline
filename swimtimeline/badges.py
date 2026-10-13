@@ -1757,19 +1757,38 @@ def render_dq_reference_sheet_pdf() -> bytes:
     return buffer.getvalue()
 
 
-def render_dq_reference_pdf_sleeve() -> bytes:
-    """Private 4x6in sleeve version of render_dq_reference_pdf(): exactly 2 pages, each
-    SLEEVE_CARD_W x SLEEVE_CARD_H, Side A then Side B. Unlike the badge-size version, this is NOT
-    centered on a full SHEET_W x SHEET_H page -- it is meant to print directly at its own native
-    4x6 size (a photo printer or a 4x6 paper tray), not get cut down from a Letter sheet, so there
-    is no duplex-alignment concern to design around here. No cut-line outline either: the page
-    bleeds to the card's real edges.
+def draw_dq_reference_sleeve_card_outline(c, ox: float, oy: float) -> None:
+    """A light dashed cut line around one SLEEVE_CARD_W x SLEEVE_CARD_H card at (ox, oy) -- the
+    sleeve-size analog of draw_dq_reference_card_outline() above, for render_dq_reference_pdf_
+    sleeve()'s card-on-a-full-Letter-page output where the card sits on an otherwise-blank sheet.
     """
+    c.setStrokeColor(GRAY_LINE)
+    c.setLineWidth(0.4)
+    c.setDash(1, 2)
+    c.rect(ox, oy, SLEEVE_CARD_W, SLEEVE_CARD_H, stroke=1, fill=0)
+    c.setDash()  # back to solid for anything drawn after
+
+
+def render_dq_reference_pdf_sleeve() -> bytes:
+    """Private 4x6in sleeve version of render_dq_reference_pdf(): exactly 2 pages, each a full
+    SHEET_W x SHEET_H (Letter) page -- NOT its own SLEEVE_CARD_W x SLEEVE_CARD_H page -- with the
+    sleeve card centered at the SAME fixed origin on both. Same bug and same fix as
+    render_dq_reference_pdf()'s own badge-size version: a PDF page smaller than any real sheet of
+    paper leaves the print driver to guess how to place it on the actual Letter paper in the tray,
+    and that guess is not guaranteed to land the same way on the Side A pass as the Side B pass of
+    a duplex job -- which is exactly what produced a real misalignment when this was printed on
+    Letter paper and cut down to 4x6. Matching the PDF page to the true paper size removes that
+    guess entirely. A dashed cut line marks the card bounds since the page is otherwise mostly
+    blank around it.
+    """
+    center_ox = (SHEET_W - SLEEVE_CARD_W) / 2
+    center_oy = (SHEET_H - SLEEVE_CARD_H) / 2
     buffer = BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=(SLEEVE_CARD_W, SLEEVE_CARD_H))
+    pdf = canvas.Canvas(buffer, pagesize=(SHEET_W, SHEET_H))
     pdf.setTitle(f"{DQ_REFERENCE_TITLE} (sleeve)")
     for side in DQ_CODE_SIDES:
-        draw_dq_reference_page_sleeve(pdf, side)
+        draw_dq_reference_sleeve_card_outline(pdf, center_ox, center_oy)
+        draw_dq_reference_page_sleeve(pdf, side, ox=center_ox, oy=center_oy)
         pdf.showPage()
     pdf.save()
     return buffer.getvalue()

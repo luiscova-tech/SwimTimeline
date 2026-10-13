@@ -249,24 +249,42 @@ class RenderDqReferenceSheetPdfTest(unittest.TestCase):
 
 
 class RenderDqReferencePdfSleeveTest(unittest.TestCase):
-    """The private 4x6in sleeve version: exactly 2 pages at SLEEVE_CARD_W x SLEEVE_CARD_H, Side A
-    then Side B, real content, and -- the actual regression guard this adds -- nothing falls past
-    the footer line on either side (Side B is the tighter side)."""
+    """The private 4x6in sleeve version: exactly 2 full SHEET_W x SHEET_H (Letter) pages -- NOT
+    SLEEVE_CARD_W x SLEEVE_CARD_H pages -- with the sleeve card centered at the same fixed origin
+    on both, Side A then Side B. Same duplex-misalignment bug and same fix as the badge-size
+    RenderDqReferencePdfTest above: a page smaller than real paper leaves a print driver to guess
+    how to place it, and that guess is not guaranteed to match between the Side A and Side B
+    passes of a duplex job -- which is exactly what happened when this was printed on Letter paper
+    and cut down to 4x6."""
 
     @classmethod
     def setUpClass(cls):
         cls.pdf_bytes = render_dq_reference_pdf_sleeve()
 
-    def test_two_sleeve_size_pages_side_a_then_side_b(self):
+    def test_two_letter_pages_with_a_centered_card_side_a_then_side_b(self):
         import io
 
         with pdfplumber.open(io.BytesIO(self.pdf_bytes)) as pdf:
             self.assertEqual(len(pdf.pages), 2)
             for page in pdf.pages:
-                self.assertEqual(page.width, SLEEVE_CARD_W)
-                self.assertEqual(page.height, SLEEVE_CARD_H)
+                self.assertEqual(page.width, SHEET_W)
+                self.assertEqual(page.height, SHEET_H)
             self.assertIn("Side A", pdf.pages[0].extract_text())
             self.assertIn("Side B", pdf.pages[1].extract_text())
+
+    def test_side_a_and_side_b_register_at_the_identical_position(self):
+        """The actual regression guard for the duplex-misalignment bug: both pages must place the
+        same fixed text at the same x/y, not merely each look fine on its own. Before the fix
+        (drawing on a SLEEVE_CARD_W x SLEEVE_CARD_H page instead of a full SHEET_W x SHEET_H
+        page), a real duplex print job placed Side A and Side B at different physical positions on
+        the sheet."""
+        import io
+
+        with pdfplumber.open(io.BytesIO(self.pdf_bytes)) as pdf:
+            header_a = next(w for w in pdf.pages[0].extract_words() if w["text"] == "Stroke")
+            header_b = next(w for w in pdf.pages[1].extract_words() if w["text"] == "Stroke")
+        self.assertAlmostEqual(header_a["x0"], header_b["x0"], places=2)
+        self.assertAlmostEqual(header_a["top"], header_b["top"], places=2)
 
     def test_every_stroke_name_appears_on_its_own_page(self):
         import io
@@ -292,15 +310,19 @@ class RenderDqReferencePdfSleeveTest(unittest.TestCase):
 
     def test_nothing_falls_past_the_footer_line_on_either_side(self):
         """The real content risk at this font/margin combination: confirmed by rendering, not
-        assumed from the drawing code. footer_h=20.0 (DQ_SLEEVE_FOOTER_H) puts the footer line at
-        page_height - 20 in pdfplumber's top-down coordinates."""
+        assumed from the drawing code. footer_h=20.0 (DQ_SLEEVE_FOOTER_H) sits DQ_SLEEVE_FOOTER_H
+        above the CENTERED card's own bottom edge, not the page's bottom edge -- so the footer
+        line's position in pdfplumber's top-down page coordinates is
+        page_height - (center_oy + DQ_SLEEVE_FOOTER_H), where center_oy = (SHEET_H -
+        SLEEVE_CARD_H) / 2."""
         import io
 
         from swimtimeline.badges import DQ_SLEEVE_FOOTER_H
 
+        center_oy = (SHEET_H - SLEEVE_CARD_H) / 2
         with pdfplumber.open(io.BytesIO(self.pdf_bytes)) as pdf:
             for page in pdf.pages:
-                footer_top_coord = page.height - DQ_SLEEVE_FOOTER_H
+                footer_top_coord = page.height - (center_oy + DQ_SLEEVE_FOOTER_H)
                 below_footer = [c for c in page.chars if c["top"] > footer_top_coord]
                 self.assertEqual(below_footer, [])
 
@@ -369,7 +391,7 @@ class DqCodeReferenceApiTest(unittest.TestCase):
             self.assertEqual(pdf.pages[0].extract_text().count("BUTTERFLY"), 9)
             self.assertEqual(pdf.pages[1].extract_text().count("BREASTSTROKE"), 9)
 
-    def test_sleeve_endpoint_returns_a_two_page_sleeve_size_pdf(self):
+    def test_sleeve_endpoint_returns_a_two_page_letter_size_pdf_with_a_centered_card(self):
         import io
 
         url = f"http://127.0.0.1:{self.port}/api/officials/dq-codes-sleeve.pdf"
@@ -384,8 +406,8 @@ class DqCodeReferenceApiTest(unittest.TestCase):
         with pdfplumber.open(io.BytesIO(body)) as pdf:
             self.assertEqual(len(pdf.pages), 2)
             for page in pdf.pages:
-                self.assertEqual(page.width, SLEEVE_CARD_W)
-                self.assertEqual(page.height, SLEEVE_CARD_H)
+                self.assertEqual(page.width, SHEET_W)
+                self.assertEqual(page.height, SHEET_H)
             self.assertIn("Side A", pdf.pages[0].extract_text())
             self.assertIn("Side B", pdf.pages[1].extract_text())
 
