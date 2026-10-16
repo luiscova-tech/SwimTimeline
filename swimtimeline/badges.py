@@ -167,7 +167,9 @@ GOLD_MARK = colors.HexColor("#A8760B")
 
 
 def gender_color(event_name):
-    return NAVY if event_name.startswith("Boys") else MAROON
+    # "Men" is the Senior-pool counterpart of "Boys" (Women/Men sessions pair like Girls/Boys), so
+    # it takes the same navy. Girls, Women and Mixed all fall through to maroon.
+    return NAVY if event_name.startswith(("Boys", "Men")) else MAROON
 
 
 def num_column_fraction(events: list[dict]) -> float:

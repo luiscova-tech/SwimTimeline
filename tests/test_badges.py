@@ -75,6 +75,8 @@ HERC_PSYCH = HERC_DIR / "2026-herculean-invitational-psych-sheet.pdf"
 WZAG_DIR = ROOT / "meets/2026-wzag-championships-boise/input"
 WZAG_TIMELINE = WZAG_DIR / "wzag timelines v4.pdf"
 WZAG_FLYER = WZAG_DIR / "Sanctioned_2026 WZAG Championships - Boise (v5.pdf"
+# 2024 Holiday Swim Festival -- no flyer; the only real fixture with Women/Men events.
+HOLIDAY_TIMELINE = ROOT / "meets/2024-holiday-swim-festival/input/holiday-fest-timeline.pdf"
 # 2026 Croswhite Invite -- single day, single "Girls" session, no flyer, no psych sheet. Its 11
 # real event names ("Girls 200 Freestyle", "Girls 50 Freestyle", ...) have NO age-qualifier phrase
 # at all -- gender is immediately followed by the distance number -- unlike every event in
@@ -235,12 +237,20 @@ class EventNameTest(unittest.TestCase):
         self.assertTrue(badge_event_name(raw, include_age=False).startswith("Boys"))
 
     def test_gender_color_prefix_contract_holds_on_every_real_event(self):
-        """gender_color() keys off a literal "Boys" prefix, so the abbreviation step must preserve
-        it on real data from both fixtures -- including WZAG's "Mixed" relays, which correctly take
-        the non-Boys branch."""
-        seen_boys = seen_girls = seen_mixed = 0
-        for timeline, flyer in ((HERC_TIMELINE, HERC_FLYER), (WZAG_TIMELINE, WZAG_FLYER)):
-            _name, _sessions, events = parsed(timeline, flyer)
+        """gender_color() keys off a literal "Boys"/"Men" prefix (navy; everything else maroon), so
+        the abbreviation step must preserve it on real data from every fixture -- including WZAG's
+        "Mixed" relays, and Holiday's Women/Men events, the only real Men events in the repo."""
+        seen_boys = seen_girls = seen_mixed = seen_women = seen_men = 0
+        fixtures = (
+            (HERC_TIMELINE, HERC_FLYER),
+            (WZAG_TIMELINE, WZAG_FLYER),
+            (HOLIDAY_TIMELINE, None),
+        )
+        for timeline, flyer in fixtures:
+            if flyer is None:
+                _name, _sessions, events = parse_timeline(timeline)
+            else:
+                _name, _sessions, events = parsed(timeline, flyer)
             for event in events:
                 for include_age in (True, False):
                     label = badge_event_name(event.event_name, include_age=include_age)
@@ -248,7 +258,7 @@ class EventNameTest(unittest.TestCase):
                         label.startswith(("Girls", "Boys", "Women", "Men", "Mixed")),
                         f"{event.event_name!r} -> {label!r}",
                     )
-                    if event.event_name.startswith("Boys"):
+                    if event.event_name.startswith(("Boys", "Men")):
                         self.assertIs(gender_color(label), NAVY, label)
                     else:
                         self.assertIs(gender_color(label), MAROON, label)
@@ -258,7 +268,11 @@ class EventNameTest(unittest.TestCase):
                     seen_girls += 1
                 elif event.event_name.startswith("Mixed"):
                     seen_mixed += 1
-        self.assertTrue(seen_boys and seen_girls)
+                elif event.event_name.startswith("Women"):
+                    seen_women += 1
+                elif event.event_name.startswith("Men"):
+                    seen_men += 1
+        self.assertTrue(seen_boys and seen_girls and seen_women and seen_men)
         self.assertEqual(seen_mixed, 6)  # WZAG's six Mixed relays
 
 

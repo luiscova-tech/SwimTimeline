@@ -41,6 +41,7 @@ from swimtimeline.badges import (  # noqa: E402
     combine_gender_pairs,
     events_by_session,
     events_combine,
+    gender_color,
     num_column_fraction,
     parse_event_name,
     render_cards_pdf,
@@ -542,6 +543,22 @@ class HolidayWomenMenPairsTest(unittest.TestCase):
         self.assertFalse(events_combine(mixed, women))
         self.assertFalse(events_combine(mixed, replace(women, event_name="Mixed 1650 Freestyle")))
 
+    def test_a_standalone_men_row_is_navy_like_a_standalone_boys_row(self):
+        """No real fixture has an unpaired Men event, so construct one from a real event. Its
+        accent colour must match a standalone Boys row's, not fall through to Women's maroon."""
+        women = self.by_session["1"][0]
+        men_row = {"name": "Men 1650 Free", "nums": [99], "genders": []}
+        boys_row = {"name": "Boys 1650 Free", "nums": [98], "genders": []}
+        women_row = {"name": "Women 1650 Free", "nums": [97], "genders": []}
+        self.assertEqual(row_accent_colors(men_row), [NAVY])
+        self.assertEqual(row_accent_colors(men_row), row_accent_colors(boys_row))
+        self.assertEqual(row_accent_colors(women_row), [MAROON])
+        # And through the real parse path: a Men-only session slice renders one navy row.
+        lone_men = replace(self.by_session["1"][1], event_name="Men 1650 Freestyle")
+        self.assertEqual(len(combine_gender_pairs([lone_men])), 1)
+        self.assertIs(gender_color(lone_men.event_name), NAVY)
+        self.assertIs(gender_color(women.event_name), MAROON)
+
     def test_an_unparseable_name_still_never_combines_with_a_women_event(self):
         women = self.by_session["1"][0]
         irregular = replace(self.by_session["1"][1], event_name="Exhibition 1650 Freestyle")
@@ -590,6 +607,23 @@ class HolidayRenderedWomenMenCardTest(unittest.TestCase):
         self.assertEqual(text.count("Women"), 5)
         for number in range(7, 22):
             self.assertRegex(text, rf"\b{number}\b", f"event {number} missing")
+
+    def test_a_combined_women_men_row_gets_maroon_then_navy_not_maroon_twice(self):
+        """The regression guard for the bug found by eye: gender_color() only knew "Boys", so a
+        Women/Men pair came out MAROON/MAROON instead of the two-tone split Girls/Boys gets."""
+        for session, pair in (("1", "1/2"), ("3", "7/8")):
+            row = next(r for r in self.cards[session].events if r["num"] == pair)
+            self.assertEqual(row["genders"], ["Women", "Men"], session)
+            self.assertEqual(row_accent_colors(row), [MAROON, NAVY], session)
+        # Standalone Women 13-14 rows stay a single maroon bar.
+        standalone = next(r for r in self.cards["1"].events if r["num"] == 3)
+        self.assertEqual(row_accent_colors(standalone), [MAROON])
+
+    def test_the_combined_pair_matches_a_girls_boys_pairs_colours(self):
+        _name, cards, _highlights = cards_for_timeline(AZ_LC_TIMELINE)
+        girls_boys = next(r for r in {c.session_number: c for c in cards}["6"].events if r["num"] == "95/96")
+        women_men = next(r for r in self.cards["1"].events if r["num"] == "1/2")
+        self.assertEqual(row_accent_colors(women_men), row_accent_colors(girls_boys))
 
     def test_both_cards_are_still_exactly_one_page(self):
         for session in ("1", "3"):
