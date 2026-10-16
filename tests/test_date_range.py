@@ -36,6 +36,8 @@ CROSWHITE_TIMELINE = ROOT / "meets/2026-croswhite-invite/input/2026-croswhite-in
 # This table is the regression guard: every one of these must still resolve exactly this way after
 # ANY future change to parse_date_range(), not just today's.
 EXPECTED_RANGES: list[tuple[str, tuple[date, date] | None]] = [
+    # Title line reads "2024 Holiday Swim Festival - 12/5/2024 to 12/8/2024" (Thu-Sun, 4 days).
+    ("meets/2024-holiday-swim-festival/input/holiday-fest-timeline.pdf", (date(2024, 12, 5), date(2024, 12, 8))),
     ("meets/2026-az-lc-age-group-state/input/age-group-state-meet-flyer.pdf", (date(2026, 7, 23), date(2026, 7, 26))),
     ("meets/2026-az-lc-age-group-state/input/age-group-state-psych-sheet.pdf", (date(2026, 7, 23), date(2026, 7, 26))),
     ("meets/2026-az-lc-age-group-state/input/age-group-state-timeline.pdf", (date(2026, 7, 23), date(2026, 7, 26))),
@@ -108,6 +110,7 @@ class EveryRealFixtureUnchangedTest(unittest.TestCase):
         MULTI-day (start != end), which is exactly the failure mode a fallback bug would produce
         -- collapsing a real range down to a single day rather than merely getting a date wrong."""
         multi_day_meets = {
+            "2024-holiday-swim-festival": True,
             "2026-az-lc-age-group-state": True,
             "2026-az-sc-age-group-state": True,
             "2026-herculean-invitational": True,

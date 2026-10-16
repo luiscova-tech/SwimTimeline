@@ -1,4 +1,4 @@
-"""Adjacent Girls/Boys events share one badge-card row.
+"""Adjacent Girls/Boys (and Women/Men) events share one badge-card row.
 
 WHY: a high-event-count session was illegible. Session 6 of the real AZ LC Age Group State
 timeline has 42 events, which drove draw_card's row height down to 3.8pt while the font was already
@@ -9,13 +9,15 @@ THE RULE (see combine_gender_pairs): a single left-to-right greedy scan in the e
 sorted order. Two ADJACENT events combine when both names parse, the pair is exactly one Girls and
 one Boys, and the age qualifier and distance+stroke match exactly. Nothing is reordered and only
 the immediate neighbour is ever considered, so a session whose data is not strictly interleaved
-just renders fewer combined rows.
+just renders fewer combined rows. Women/Men pairs (Holiday Swim Festival's "Senior" sessions) follow
+the identical rule; Mixed and unparseable names never combine.
 
 Every fixture here is real. The rendered-PDF assertions read text back out of the generated
 document rather than trusting the row dicts, which is how this module's earlier bugs (an
 upside-down star, an overflowing meta line) were actually caught.
 """
 
+from dataclasses import replace
 from io import BytesIO
 from pathlib import Path
 import sys
@@ -57,6 +59,11 @@ AZ_SC_TIMELINE = ROOT / "meets/2026-az-sc-age-group-state/input/timeline.pdf"
 # real Boys/Girls pairs combined, leaving 22 rows pinned at draw_card's 5.0pt font floor. See
 # CumminsCombinedPairsFontSizeTest.
 CUMMINS_TIMELINE = ROOT / "meets/2026-cummins-invitational/input/2026-cummins-invitational-timeline.pdf"
+# 2024 Holiday Swim Festival -- 14 sessions alternating "Senior" (Women/Men) and "Age Group"
+# (Girls/Boys) pools. Real officials feedback: the Senior sessions run genuine Women/Men pairs back
+# to back, which used to never combine because only Girls/Boys was a combinable pair. See
+# HolidayWomenMenPairsTest.
+HOLIDAY_TIMELINE = ROOT / "meets/2024-holiday-swim-festival/input/holiday-fest-timeline.pdf"
 
 
 def page_text(pdf_bytes: bytes, index: int = 0) -> str:
@@ -443,6 +450,150 @@ class CumminsCombinedPairsFontSizeTest(unittest.TestCase):
                 continue
             self.assertFalse(row["name"].startswith(" "), row["name"])
             self.assertNotIn("  ", row["name"], row["name"])
+
+
+class HolidayWomenMenPairsTest(unittest.TestCase):
+    """Women/Men pairs combine under the exact same rule Girls/Boys already use.
+
+    Holiday's Senior sessions print each race as "Women X" / "Men X" (no age qualifier), followed by
+    a standalone "Women 13-14 X" that has no Men 13-14 counterpart. The standalone entry must stay
+    its own row, and must never swallow or be swallowed by the next race's Women event.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        _name, cls.sessions, cls.events = parse_timeline(HOLIDAY_TIMELINE)
+        cls.by_session = events_by_session(cls.events)
+
+    def test_session_1_pairs_the_1650_and_leaves_women_13_14_standalone(self):
+        events = self.by_session["1"]
+        self.assertEqual(
+            [e.event_name for e in events],
+            ["Women 1650 Freestyle", "Men 1650 Freestyle", "Women 13-14 1650 Freestyle"],
+        )
+        rows = combine_gender_pairs(events)
+        self.assertEqual([[e.event_number for e in row] for row in rows], [[1, 2], [3]])
+
+    def test_session_3_has_five_combined_pairs_and_five_standalone_women_13_14_rows(self):
+        events = self.by_session["3"]
+        self.assertEqual(len(events), 15)
+        rows = combine_gender_pairs(events)
+        self.assertEqual(len(rows), 10)
+        combined = [row for row in rows if len(row) == 2]
+        standalone = [row for row in rows if len(row) == 1]
+        self.assertEqual(len(combined), 5)
+        self.assertEqual(len(standalone), 5)
+        for row in combined:
+            self.assertEqual({parse_event_name(e.event_name).gender for e in row}, {"Women", "Men"})
+        for row in standalone:
+            self.assertTrue(row[0].event_name.startswith("Women 13-14 "), row[0].event_name)
+
+    def test_every_senior_session_keeps_every_event_in_order(self):
+        for session in ("1", "3", "5", "7", "9", "11", "13"):
+            events = self.by_session[session]
+            flattened = [e for row in combine_gender_pairs(events) for e in row]
+            self.assertEqual(
+                [e.event_number for e in flattened], [e.event_number for e in events], session
+            )
+
+    def test_the_age_group_sessions_in_the_same_meet_still_combine_girls_boys(self):
+        for session in ("2", "4"):
+            rows = combine_gender_pairs(self.by_session[session])
+            self.assertTrue(any(len(row) == 2 for row in rows), session)
+            for row in rows:
+                if len(row) == 2:
+                    genders = {parse_event_name(e.event_name).gender for e in row}
+                    self.assertEqual(genders, {"Girls", "Boys"}, session)
+
+    def test_a_women_men_pair_is_order_agnostic(self):
+        """Every Women/Men pair in this fixture prints Women first, so the Men-first direction is
+        exercised by swapping the arguments of a real pair, the same way the Girls/Boys test does."""
+        women, men = self.by_session["1"][0], self.by_session["1"][1]
+        self.assertTrue(events_combine(women, men))
+        self.assertTrue(events_combine(men, women))
+
+    def test_women_13_14_does_not_combine_with_the_open_men_event_or_the_next_race(self):
+        events = {e.event_number: e for e in self.by_session["3"]}
+        # 9 is Women 13-14 200 Free: not the Men 200 Free (age differs), not Women 100 Breast.
+        self.assertFalse(events_combine(events[8], events[9]))
+        self.assertFalse(events_combine(events[9], events[8]))
+        self.assertFalse(events_combine(events[9], events[10]))
+
+    def test_the_two_vocabularies_never_cross_pair(self):
+        """Isolates the gender check: every other field is identical, only the gender words differ."""
+        women = self.by_session["1"][0]  # "Women 1650 Freestyle"
+        men = self.by_session["1"][1]  # "Men 1650 Freestyle"
+        for first, second in (
+            ("Girls 1650 Freestyle", men),
+            ("Women 1650 Freestyle", "Boys 1650 Freestyle"),
+            ("Boys 1650 Freestyle", women),
+        ):
+            left = replace(women, event_name=first) if isinstance(first, str) else first
+            right = replace(men, event_name=second) if isinstance(second, str) else second
+            self.assertFalse(events_combine(left, right), (left.event_name, right.event_name))
+            self.assertFalse(events_combine(right, left), (left.event_name, right.event_name))
+
+    def test_same_gender_and_mixed_never_combine_even_when_everything_else_matches(self):
+        women, men = self.by_session["1"][0], self.by_session["1"][1]
+        mixed = replace(men, event_name="Mixed 1650 Freestyle")
+        self.assertFalse(events_combine(women, replace(men, event_name="Women 1650 Freestyle")))
+        self.assertFalse(events_combine(replace(women, event_name="Men 1650 Freestyle"), men))
+        self.assertFalse(events_combine(women, mixed))
+        self.assertFalse(events_combine(mixed, women))
+        self.assertFalse(events_combine(mixed, replace(women, event_name="Mixed 1650 Freestyle")))
+
+    def test_an_unparseable_name_still_never_combines_with_a_women_event(self):
+        women = self.by_session["1"][0]
+        irregular = replace(self.by_session["1"][1], event_name="Exhibition 1650 Freestyle")
+        self.assertFalse(events_combine(women, irregular))
+        self.assertFalse(events_combine(irregular, women))
+        self.assertEqual(len(combine_gender_pairs([women, irregular])), 2)
+
+
+class HolidayRenderedWomenMenCardTest(unittest.TestCase):
+    """Read the text back out of the generated PDF -- not the row dicts."""
+
+    @classmethod
+    def setUpClass(cls):
+        _name, cards, _highlights = cards_for_timeline(HOLIDAY_TIMELINE)
+        cls.cards = {card.session_number: card for card in cards}
+
+    def test_session_1_card_has_two_rows_but_still_reports_three_events(self):
+        card = self.cards["1"]
+        self.assertEqual(card.event_count, 3)
+        self.assertEqual(card.row_count, 2)
+        self.assertEqual([row["num"] for row in card.events], ["1/2", 3])
+
+    def test_session_1_prints_the_paired_numbering_and_the_standalone_women_13_14_row(self):
+        text = page_text(render_cards_pdf([self.cards["1"]]))
+        self.assertIn("1/2", text)
+        self.assertIn("2/2", text)  # the pair's two heat counts
+        self.assertIn("1650 Free", text)
+        self.assertIn("Women 13-14 1650 Free", text.splitlines())
+        # The combined row drops its gender word, so the only "Women" left is the standalone row's.
+        self.assertEqual(text.count("Women"), 1)
+        self.assertNotIn("Men 1650", text)
+
+    def test_session_3_card_has_ten_rows_for_fifteen_events(self):
+        card = self.cards["3"]
+        self.assertEqual(card.event_count, 15)
+        self.assertEqual(card.row_count, 10)
+
+    def test_session_3_prints_every_pair_and_every_women_13_14_line_on_its_own(self):
+        text = page_text(render_cards_pdf([self.cards["3"]]))
+        lines = text.splitlines()
+        for pair in ("7/8", "10/11", "13/14", "16/17", "19/20"):
+            self.assertIn(pair, lines, pair)
+        for standalone in ("200 Free", "100 Breast", "200 Back", "50 Free", "400 IM"):
+            self.assertIn(f"Women 13-14 {standalone}", lines, standalone)
+        # Five standalone rows -> exactly five "Women" words on the page; the pairs drop theirs.
+        self.assertEqual(text.count("Women"), 5)
+        for number in range(7, 22):
+            self.assertRegex(text, rf"\b{number}\b", f"event {number} missing")
+
+    def test_both_cards_are_still_exactly_one_page(self):
+        for session in ("1", "3"):
+            self.assertEqual(len(PdfReader(BytesIO(render_cards_pdf([self.cards[session]]))).pages), 1)
 
 
 class UnparseableEventNameFallbackTest(unittest.TestCase):

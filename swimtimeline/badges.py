@@ -804,25 +804,35 @@ def events_by_session(events: list[TimelineEvent]) -> dict[str, list[TimelineEve
     return grouped
 
 
-_COMBINABLE_GENDERS = frozenset({"Girls", "Boys"})
+# Each entry is one pair of genders whose two halves of the same race can share a row. Women/Men
+# pairs are structurally identical to Girls/Boys pairs (e.g. Holiday Swim Festival's Senior
+# sessions), so they follow the exact same rule. "Mixed" is deliberately in no pair.
+_COMBINABLE_GENDER_PAIRS = frozenset(
+    {
+        frozenset({"Girls", "Boys"}),
+        frozenset({"Women", "Men"}),
+    }
+)
 
 
 def events_combine(first: TimelineEvent, second: TimelineEvent) -> bool:
-    """True when these two events are the Girls/Boys halves of the same race and can share a row.
+    """True when these two events are the two halves of the same race and can share a row.
 
-    Both names must parse, the pair must be exactly one Girls and one Boys, and the age qualifier
-    and distance+stroke must match exactly. Order-agnostic on purpose: every real fixture checked
-    prints Girls first, but nothing in the document format guarantees it, and a meet that printed
-    Boys first should still combine rather than silently rendering twice as many rows.
+    Both names must parse, the pair must be exactly one Girls and one Boys or exactly one Women and
+    one Men (see _COMBINABLE_GENDER_PAIRS), and the age qualifier and distance+stroke must match
+    exactly. Order-agnostic on purpose: most real fixtures checked print Girls (or Women) first,
+    but nothing in the document format guarantees it, and a meet that printed Boys first should
+    still combine rather than silently rendering twice as many rows.
 
-    "Mixed"/"Women"/"Men" never combine -- a Mixed relay is one event with its own entry, not half
-    of a pair -- and neither does a name that does not parse, which falls through to a normal row.
+    "Mixed" never combines -- a Mixed relay is one event with its own entry, not half of a pair --
+    and neither does a name that does not parse, which falls through to a normal row. Nor does a
+    cross-vocabulary pair such as Girls + Men.
     """
     left = parse_event_name(first.event_name)
     right = parse_event_name(second.event_name)
     if left is None or right is None:
         return False
-    if {left.gender, right.gender} != _COMBINABLE_GENDERS:
+    if frozenset({left.gender, right.gender}) not in _COMBINABLE_GENDER_PAIRS:
         return False
     return (
         left.age_qualifier == right.age_qualifier
@@ -832,6 +842,9 @@ def events_combine(first: TimelineEvent, second: TimelineEvent) -> bool:
 
 def combine_gender_pairs(session_events: list[TimelineEvent]) -> list[list[TimelineEvent]]:
     """Group one session's events into rows: [[a, b], [c], [d, e], ...].
+
+    A pair is a Girls/Boys or Women/Men couple per events_combine(); Mixed and unparseable names
+    always stay single rows.
 
     A single left-to-right greedy scan over the events in the order they were already sorted (start
     time, then event number) -- nothing is reordered, and only the IMMEDIATE neighbour is ever
